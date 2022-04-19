@@ -1,0 +1,9 @@
+scipy
+matplotlib
+sympy
+ABC
+numpy
+typing
+unittest
+IPython
+sys
