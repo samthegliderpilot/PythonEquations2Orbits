@@ -45,12 +45,15 @@ class PlanerLeoToGeoProblem(SymbolicProblem) :
         self._pathConstraints = {} # none for this instance
 
         self._finalBoundaryConditions = [
-                self._stateVariables[1].subs(self.Ts, self._tf),
-                sy.sqrt(mu/self._stateVariables[0].subs(self.Ts, self._tf))-self._stateVariables[2].subs(self.Ts, self._tf)
+                -1*self._stateVariables[1].subs(self.Ts, self._tf),
+                -1*self._stateVariables[2].subs(self.Ts, self._tf)+sy.sqrt(mu/self._stateVariables[0].subs(self.Ts, self._tf))
         ]
 
-        self._terminalCost = -1.0*self._stateVariables[0] # negative because we are minimizing
+        self._terminalCost = -1*self._stateVariables[0] # maximization problem
+        self._unintegratedCost = 0.0
 
+        #self._terminalCost = 0.0
+        #self._unintegratedCost = -1*self.StateVariables[0].diff(self.Ts) - self.StateVariables[0].subs(self.Ts, self._t0)
         rs = self._stateVariables[0]
         us = self._stateVariables[1]
         vs = self._stateVariables[2]
@@ -58,7 +61,7 @@ class PlanerLeoToGeoProblem(SymbolicProblem) :
         control = self._controlVariables[0]
 
         self.MassFlowRate = -1*thrust/(isp*g)
-        self.MassEquation = m=m0+self.Ts*self.MassFlowRate
+        self.MassEquation = m0+self.Ts*self.MassFlowRate
 
         self._equationsOfMotion = OrderedDict()
         self._equationsOfMotion[rs] = us
@@ -108,7 +111,7 @@ class PlanerLeoToGeoProblem(SymbolicProblem) :
 
     @property
     def UnIntegratedPathCost(self) -> sy.Expr :
-        return 0
+        return self._unintegratedCost
 
     def AppendConstantsToSubsDict(self, existingDict : dict, muVal : float, gVal : float, thrustVal : float, m0Val : float, ispVal : float) :
         """Helper function to make the substitution dictionary that is often needed when lambdifying 

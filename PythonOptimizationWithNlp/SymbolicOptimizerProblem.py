@@ -128,8 +128,7 @@ class SymbolicProblem(ABC) :
 
         variationVector = Vector.fromArray(variationVector)    
         lambdas = Vector.fromArray(lambdas).subs(self.TimeSymbol, self.TimeFinalSymbol)
-        overallCond = -1*hamiltonian*dtf
-        overallCond = overallCond + (lambdas.transpose()*variationVector)[0,0]+valuesAtEndDiffTerm
+        overallCond = hamiltonian*dtf - (lambdas.transpose()*variationVector)[0,0] + valuesAtEndDiffTerm
         overallCond = overallCond.expand()
         
         for vv in variationVector :

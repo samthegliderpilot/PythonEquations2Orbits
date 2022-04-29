@@ -2,6 +2,7 @@
 import sys
 from typing import OrderedDict
 from attr import asdict
+from sklearn.neighbors import NeighborhoodComponentsAnalysis
 from sqlalchemy import true
 sys.path.append("..") # treating this as a jupyter-like cell requires adding one directory up
 sys.path.append("../PythonOptimizationWithNlp") # and this line is needed for running like a normal python script
@@ -33,6 +34,9 @@ v0 = sy.sqrt(mu/r0) # circular
 lon0 = 0.0
 
 scale = True
+# your choice of the nu vector here controls which transversality condition we use
+#nus = [sy.Symbol('B_{uf}'), sy.Symbol('B_{vf}')]
+nus = []
 
 baseProblem = PlanerLeoToGeoProblem()
 problem = baseProblem
@@ -89,6 +93,11 @@ jh.showEquation("H", hamiltonian)
 dHdu = problem.CreateHamiltonianControlExpressions(hamiltonian).doit()[0]
 print("dHdu")
 display(dHdu)
+
+d2Hdu2 = problem.CreateHamiltonianControlExpressions(dHdu).doit()[0]
+print("d2Hdu2")
+display(d2Hdu2)
+
 controlSolved = sy.solve(dHdu, problem.ControlVariables[0])[0]
 print("solved control")
 display(controlSolved)
@@ -102,7 +111,26 @@ lambdaDotExpressions = problem.CreateLambdaDotCondition(hamiltonian).doit()
 for i in range(0, len(lambdas)) :
     finalEquationsOfMotion.append(lambdaDotExpressions[i].subs(problem.ControlVariables[0], controlSolved))
 
-transversalityCondition = problem.CreateDifferentialTransversalityConditions(sy.Symbol('H'), lambdas, 0.0)
+def otherWayToDoTransversalityCondition(problem : SymbolicProblem, lambdas, nus) :
+    termFunc = problem.TerminalCost + (Vector.fromArray(nus).transpose()*Vector.fromArray(problem.FinalBoundaryConditions))[0,0]
+    finalConditions = []
+    i=0
+    for x in problem.StateVariables :
+        xf = x.subs(problem.TimeSymbol, problem.TimeFinalSymbol)
+        cond = termFunc.diff(xf)
+        finalConditions.append(lambdas[i]-cond)
+        i=i+1
+
+    return finalConditions
+    
+
+lmdsF = problem.SafeSubs(lambdas, {problem.TimeSymbol: problem.TimeFinalSymbol})
+
+if len(nus) != 0:
+    transversalityCondition = otherWayToDoTransversalityCondition(problem, lmdsF, nus)
+else:
+    transversalityCondition = problem.CreateDifferentialTransversalityConditions(hamiltonian, lambdas, sy.Symbol(r'dt_f'))
+
 #TODO: Throw if wrong number, expect 2
 print("xvers cond")
 for xc in transversalityCondition :
@@ -130,16 +158,16 @@ controlAtTo = sy.sin(controlAtTo).trigsimp(deep=true).expand().simplify()
 print("cos done")
 alphEq = controlAtTo.subs(lmdsAtT0[2], constantsSubsDict[lmdsAtT0[2]])
 jh.showEquation(alphEq)
-ans1 = sy.solveset(sy.Eq(0.00001,alphEq), lmdsAtT0[1])
+ans1 = sy.solveset(sy.Eq(0.00,alphEq), lmdsAtT0[1])
 # doesn't like 0, so let's make it small
-ans1 = sy.solveset(sy.Eq(0.00001,alphEq), lmdsAtT0[1])
+ans1 = sy.solveset(sy.Eq(0.02,alphEq), lmdsAtT0[1])
 display(ans1)
 
 for thing in ans1 :
     ansForLmdu = thing
 constantsSubsDict[lmdsAtT0[1]] = float(ansForLmdu)
 
-# if we assume that we always want to keep alpha small (0), we can solve dlmdu/dt=0 for lmdr_0
+# if we assume that we always want to keep alpha small (0), we can solve dlmd_u/dt=0 for lmdr_0
 lmdUDotAtT0 = problem.CreateVariablesAtTime0(finalEquationsOfMotion[5])
 jh.showEquation(lmdUDotAtT0)
 lmdUDotAtT0 = lmdUDotAtT0.subs(constantsSubsDict)
@@ -163,12 +191,19 @@ for i in range(0, len(finalEquationsOfMotion)):
 transversalityCondition.pop()
 initialLmdGuesses.pop()
 
+# and add guesses for the adjoined constraints
+for i in range(0, len(nus)) :
+    initialLmdGuesses.append(initialLmdGuesses[i+1])
+
+
 baseProblem.AppendConstantsToSubsDict(constantsSubsDict, mu, g, thrust, m0, isp)
 stateForEom = [problem.TimeSymbol]
 stateForEom.append(problem.StateVariables)
-lambdas.pop()
+lmdTheta0 = lambdas.pop()
 stateForEom.append(lambdas)
-
+constantsSubsDict[lmdTheta0]=0
+constantsSubsDict[lmdTheta0.subs(problem.TimeSymbol, problem.TimeFinalSymbol)]=0
+constantsSubsDict[lmdTheta0.subs(problem.TimeSymbol, problem.Time0Symbol)]=0
 eoms = []
 for ep in finalEquationsOfMotion :
     eoms.append(ep.subs(constantsSubsDict))
@@ -183,13 +218,14 @@ for i in range(0, len(problem.StateVariables)) :
     stateForBoundaryConditions.append(problem.StateVariables[i].subs(problem.TimeSymbol, problem.TimeFinalSymbol))
 for i in range(0, len(lambdas)) :
     stateForBoundaryConditions.append(lambdas[i].subs(problem.TimeSymbol, problem.TimeFinalSymbol))
+for i in range(0, len(nus)) :
+    stateForBoundaryConditions.append(nus[i])
 
 
 evaluatableBoundaryConditions = []
 
 print("xvers again")
 for xVersBoundaryCondition in transversalityCondition:    
-    display(xVersBoundaryCondition)
     display(xVersBoundaryCondition.subs(constantsSubsDict))
     evalTransCond = sy.lambdify(stateForBoundaryConditions, xVersBoundaryCondition.subs(constantsSubsDict))
     evaluatableBoundaryConditions.append(evalTransCond)
@@ -197,21 +233,21 @@ for xVersBoundaryCondition in transversalityCondition:
 print("bcs")
 count = 0
 for bc in problem.FinalBoundaryConditions :
-    display(bc)
     display(bc.subs(constantsSubsDict))
-    evalTransCond = sy.lambdify(stateForBoundaryConditions, (bc/v0).subs(constantsSubsDict))
+    evalTransCond = sy.lambdify(stateForBoundaryConditions, bc.subs(constantsSubsDict))
     evaluatableBoundaryConditions.append(evalTransCond)
 
 tArray = np.linspace(0, tfVal, 1200)
 
 def integrateFromInitialValues(z0) :
-    integratableCb = lambda z,t : integratableEoms(t, z[0:4], z[4:len(z)])
-    return odeint(integratableCb, z0, tArray)
+    integratableCb = lambda z,t : integratableEoms(t, z[0:4], z[4:7])# this needs to be generalized
+    return odeint(integratableCb, z0[0:7], tArray)
 
-def createBoundaryConditionStateFromIntegrationResult(ans) :
+def createBoundaryConditionStateFromIntegrationResult(ans, lambdaGuesses) :
     finalState = []
     finalState.extend(ans[0])
     finalState.extend(ans[-1])
+    
     return finalState
 
 firstAns = None
@@ -225,16 +261,20 @@ def callbackForFsolve(lambdaGuesses) :
     ans = integrateFromInitialValues(z0)
     if firstAns is None :
         firstAns = ans
-    finalState = createBoundaryConditionStateFromIntegrationResult(ans)    
+    finalState = createBoundaryConditionStateFromIntegrationResult(ans, lambdaGuesses)  
+    for i in range(len(nus), 0, -1) :
+        finalState.append(finalState[-1*i])   
+    #finalState.append(lambdaGuesses[-1])
     finalAnswers = []
     for transCondition in evaluatableBoundaryConditions: 
         finalAnswers.append(transCondition(*finalState))
-    
+   
     return finalAnswers
-initialLmdGuesses = [initialLmdGuesses[0], 1e-6, 1.0]#, 0]
+#initialLmdGuesses = [-1*initialLmdGuesses[0], -1*initialLmdGuesses[1], -1*initialLmdGuesses[2]]#, 0]
 #epsfcn is important, too large and the solution fails about
 print(initialLmdGuesses)
-fSolveSol = fsolve(callbackForFsolve, initialLmdGuesses, epsfcn=0.00001, full_output=True) # just to speed things up and see how the initial one works
+
+fSolveSol = fsolve(callbackForFsolve, initialLmdGuesses, epsfcn=0.001, factor=1.0, full_output=True) # just to speed things up and see how the initial one works
 print(fSolveSol)
 
 finalInitialValues = []
@@ -265,9 +305,38 @@ if scale :
     unscaled = problem.DescaleResults(asDict, constantsSubsDict)
 
 baseProblem.PlotSolution(tArray, unscaled, "Test")
-
 jh.showEquation(baseProblem.StateVariables[0].subs(problem.TimeSymbol, problem.TimeFinalSymbol), unscaled[baseProblem.StateVariables[0]][-1])
 jh.showEquation(baseProblem.StateVariables[1].subs(problem.TimeSymbol, problem.TimeFinalSymbol), unscaled[baseProblem.StateVariables[1]][-1])
 jh.showEquation(baseProblem.StateVariables[2].subs(problem.TimeSymbol, problem.TimeFinalSymbol), unscaled[baseProblem.StateVariables[2]][-1])
 jh.showEquation(baseProblem.StateVariables[3].subs(problem.TimeSymbol, problem.TimeFinalSymbol), (unscaled[baseProblem.StateVariables[3]][-1]%(2*math.pi))*180.0/(2*math.pi))
+
+
+import matplotlib.pyplot as plt
+stateForHaml = []
+stateForHaml.extend(stateForEom)
+stateForHaml.append(problem.TimeSymbol)
+hamltEpx = sy.lambdify(stateForEom, hamiltonian.subs(problem.ControlVariables[0], controlSolved).trigsimp(deep=True).subs(constantsSubsDict).subs(lmdTheta0, 0))
+hamltVals = hamltEpx(tArray, [solution[:,0],solution[:,1],solution[:,2],solution[:,3]],[solution[:,4],solution[:,5],solution[:,6]])
+
+display(dHdu)
+dhduExp = sy.lambdify(stateForEom, dHdu.subs(problem.ControlVariables[0], controlSolved).trigsimp(deep=True).subs(constantsSubsDict).subs(lmdTheta0, 0))
+dhduValus = dhduExp(tArray, [solution[:,0],solution[:,1],solution[:,2],solution[:,3]],[solution[:,4],solution[:,5],solution[:,6]])
+display(dhduValus)
+if float(dhduValus) == 0 :
+    dhduValus = np.zeros(len(tArray))
+
+
+d2hdu2Exp = sy.lambdify(stateForEom, d2Hdu2.subs(problem.ControlVariables[0], controlSolved).trigsimp(deep=True).subs(constantsSubsDict).subs(lmdTheta0, 0))
+d2hdu2Valus = d2hdu2Exp(tArray, [solution[:,0],solution[:,1],solution[:,2],solution[:,3]],[solution[:,4],solution[:,5],solution[:,6]])
+
+plt.title("Hamlitonion")
+plt.plot(tArray, hamltVals, label="Hamlt")
+plt.plot(tArray, dhduValus, label="dH\du")
+plt.plot(tArray, d2hdu2Valus, label="d2H\du2")
+
+plt.tight_layout()
+plt.grid(alpha=0.5)
+plt.legend(framealpha=1, shadow=True)
+plt.show()
+jh.printMarkdown("Since t appears explicitly in the Hamiltonian (as the mass is not its own state variable), the hamiltonian will not be constant.")
 
