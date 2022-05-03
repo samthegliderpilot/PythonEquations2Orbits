@@ -1,5 +1,5 @@
 import unittest
-from PythonOptimizationWithNlp.Problems.PlanerLeoToGeoProblem import PlanerLeoToGeoProblem
+from PythonOptimizationWithNlp.Problems.ContinuousThrustCircularOrbitTransferProblem import PlanerLeoToGeoProblem
 
 class testPlanerLeoToGeoProblem(unittest.TestCase) :
     def testInitialization(self) :

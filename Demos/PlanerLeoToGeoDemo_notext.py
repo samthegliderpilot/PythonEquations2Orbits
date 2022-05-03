@@ -17,7 +17,7 @@ from scipy.integrate import odeint
 
 from PythonOptimizationWithNlp.SymbolicOptimizerProblem import SymbolicProblem
 from PythonOptimizationWithNlp.Problems.ScaledSymbolicProblem import ScaledSymbolicProblem
-from PythonOptimizationWithNlp.Problems.PlanerLeoToGeoProblem import PlanerLeoToGeoProblem
+from PythonOptimizationWithNlp.Problems.ContinuousThrustCircularOrbitTransferProblem import PlanerLeoToGeoProblem
 from PythonOptimizationWithNlp.Symbolics.Vectors import Vector
 
 import JupyterHelper as jh
@@ -33,9 +33,9 @@ u0 = 0.0
 v0 = sy.sqrt(mu/r0) # circular
 lon0 = 0.0
 
-scale = True
+scale = False
 # your choice of the nu vector here controls which transversality condition we use
-#nus = [sy.Symbol('B_{uf}'), sy.Symbol('B_{vf}')]
+#nus = [sy.Symbol('B_{u_f}'), sy.Symbol('B_{v_f}')]
 nus = []
 
 baseProblem = PlanerLeoToGeoProblem()
@@ -111,23 +111,10 @@ lambdaDotExpressions = problem.CreateLambdaDotCondition(hamiltonian).doit()
 for i in range(0, len(lambdas)) :
     finalEquationsOfMotion.append(lambdaDotExpressions[i].subs(problem.ControlVariables[0], controlSolved))
 
-def otherWayToDoTransversalityCondition(problem : SymbolicProblem, lambdas, nus) :
-    termFunc = problem.TerminalCost + (Vector.fromArray(nus).transpose()*Vector.fromArray(problem.FinalBoundaryConditions))[0,0]
-    finalConditions = []
-    i=0
-    for x in problem.StateVariables :
-        xf = x.subs(problem.TimeSymbol, problem.TimeFinalSymbol)
-        cond = termFunc.diff(xf)
-        finalConditions.append(lambdas[i]-cond)
-        i=i+1
-
-    return finalConditions
-    
-
 lmdsF = problem.SafeSubs(lambdas, {problem.TimeSymbol: problem.TimeFinalSymbol})
 
 if len(nus) != 0:
-    transversalityCondition = otherWayToDoTransversalityCondition(problem, lmdsF, nus)
+    transversalityCondition = problem.TransversalityConditionsByAugmentation(lmdsF, nus)
 else:
     transversalityCondition = problem.CreateDifferentialTransversalityConditions(hamiltonian, lambdas, sy.Symbol(r'dt_f'))
 
@@ -160,7 +147,7 @@ alphEq = controlAtTo.subs(lmdsAtT0[2], constantsSubsDict[lmdsAtT0[2]])
 jh.showEquation(alphEq)
 ans1 = sy.solveset(sy.Eq(0.00,alphEq), lmdsAtT0[1])
 # doesn't like 0, so let's make it small
-ans1 = sy.solveset(sy.Eq(0.02,alphEq), lmdsAtT0[1])
+ans1 = sy.solveset(sy.Eq(0.0001,alphEq), lmdsAtT0[1])
 display(ans1)
 
 for thing in ans1 :
@@ -230,6 +217,9 @@ for xVersBoundaryCondition in transversalityCondition:
     evalTransCond = sy.lambdify(stateForBoundaryConditions, xVersBoundaryCondition.subs(constantsSubsDict))
     evaluatableBoundaryConditions.append(evalTransCond)
 
+
+#display(evaluatableBoundaryConditions[-1](0,0,0,0,0,0,0,0,0,0,0,0,1,2,3,4))
+
 print("bcs")
 count = 0
 for bc in problem.FinalBoundaryConditions :
@@ -262,8 +252,9 @@ def callbackForFsolve(lambdaGuesses) :
     if firstAns is None :
         firstAns = ans
     finalState = createBoundaryConditionStateFromIntegrationResult(ans, lambdaGuesses)  
+    
     for i in range(len(nus), 0, -1) :
-        finalState.append(finalState[-1*i])   
+        finalState.append(lambdaGuesses[-1*i])   
     #finalState.append(lambdaGuesses[-1])
     finalAnswers = []
     for transCondition in evaluatableBoundaryConditions: 
@@ -274,7 +265,7 @@ def callbackForFsolve(lambdaGuesses) :
 #epsfcn is important, too large and the solution fails about
 print(initialLmdGuesses)
 
-fSolveSol = fsolve(callbackForFsolve, initialLmdGuesses, epsfcn=0.001, factor=1.0, full_output=True) # just to speed things up and see how the initial one works
+fSolveSol = fsolve(callbackForFsolve, initialLmdGuesses, epsfcn=0.00001, full_output=True) # just to speed things up and see how the initial one works
 print(fSolveSol)
 
 finalInitialValues = []

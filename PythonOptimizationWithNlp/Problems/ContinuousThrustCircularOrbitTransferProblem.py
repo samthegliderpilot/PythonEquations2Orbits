@@ -45,11 +45,11 @@ class PlanerLeoToGeoProblem(SymbolicProblem) :
         self._pathConstraints = {} # none for this instance
 
         self._finalBoundaryConditions = [
-                -1*self._stateVariables[1].subs(self.Ts, self._tf),
-                -1*self._stateVariables[2].subs(self.Ts, self._tf)+sy.sqrt(mu/self._stateVariables[0].subs(self.Ts, self._tf))
+                self._stateVariables[1].subs(self.Ts, self._tf),
+                self._stateVariables[2].subs(self.Ts, self._tf)-sy.sqrt(mu/self._stateVariables[0].subs(self.Ts, self._tf))
         ]
 
-        self._terminalCost = -1*self._stateVariables[0] # maximization problem
+        self._terminalCost = self._stateVariables[0] # maximization problem
         self._unintegratedCost = 0.0
 
         #self._terminalCost = 0.0

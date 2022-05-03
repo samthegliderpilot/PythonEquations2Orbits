@@ -88,6 +88,18 @@ class SymbolicProblem(ABC) :
         x = self.StateVariablesInMatrixForm()
         return -1*sy.Derivative(hamiltonian, x).doit()
 
+    def TransversalityConditionsByAugmentation(self, lambdas, nus) :
+        termFunc = self.TerminalCost.subs(self.TimeSymbol, self.TimeFinalSymbol) + (Vector.fromArray(nus).transpose()*Vector.fromArray(self.FinalBoundaryConditions))[0,0]
+        finalConditions = []
+        i=0
+        for x in self.StateVariables :
+            xf = x.subs(self.TimeSymbol, self.TimeFinalSymbol)
+            cond = termFunc.diff(xf)
+            finalConditions.append(lambdas[i]-cond)
+            i=i+1
+
+        return finalConditions
+
     def CreateDifferentialTransversalityConditions(self, hamiltonian, lambdas, dtf) :
         variationVector = []
         valuesAtEndSymbols = []
