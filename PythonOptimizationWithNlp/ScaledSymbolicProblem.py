@@ -1,18 +1,20 @@
-from textwrap import wrap
 import sympy as sy
-from typing import TypedDict, List, Dict
-from collections import OrderedDict
+from typing import List, Dict
 from PythonOptimizationWithNlp.SymbolicOptimizerProblem import SymbolicProblem
-import math
-import matplotlib.pyplot as plt
 import numpy as np
 from PythonOptimizationWithNlp.Utilities.inherit import inherit_docstrings
 
 @inherit_docstrings
 class ScaledSymbolicProblem(SymbolicProblem) :
     def __init__(self, wrappedProblem : SymbolicProblem, newStateVariableSymbols, valuesToDivideStateVariablesWith : Dict, scaleTime : bool) :
-        self._stateVariables = newStateVariableSymbols
+        
         self._wrappedProblem = wrappedProblem
+        self._scaleTime=scaleTime
+        self._substitutionDictionary = wrappedProblem._substitutionDictionary
+        
+
+        self._stateVariables = newStateVariableSymbols
+        
         newSvsInTermsOfOldSvs = []
         counter=0
         for sv in wrappedProblem.StateVariables :
@@ -21,16 +23,17 @@ class ScaledSymbolicProblem(SymbolicProblem) :
 
         self._scalingDict = valuesToDivideStateVariablesWith
 
-        self._tf = wrappedProblem.TimeFinalSymbol
-        self._t0 = wrappedProblem.Time0Symbol
-        self.Ts = wrappedProblem.TimeSymbol
-        self._constantSymbols = wrappedProblem.ConstantSymbols
+        self._timeFinalSymbol = wrappedProblem.TimeFinalSymbol
+        self._timeInitialSymbol = wrappedProblem.TimeInitialSymbol
+        self._timeSymbol = wrappedProblem.TimeSymbol
 
         fullSubsDict = {}
         counter = 0
         for sv in wrappedProblem.StateVariables :
             fullSubsDict[sv] = newStateVariableSymbols[counter]*valuesToDivideStateVariablesWith[sv]            
+            fullSubsDict[sv.subs(wrappedProblem.TimeSymbol, wrappedProblem.TimeFinalSymbol)] = newStateVariableSymbols[counter].subs(wrappedProblem.TimeSymbol, wrappedProblem.TimeFinalSymbol)*valuesToDivideStateVariablesWith[sv]            
             counter = counter+1
+
 
         self._controlVariables = wrappedProblem.ControlVariables
         scaledEoms = {}
@@ -43,8 +46,6 @@ class ScaledSymbolicProblem(SymbolicProblem) :
             counter=counter+1
         self._equationsOfMotion = scaledEoms
         
-
-
         counter = 0
         bcSubsDict = {}
         for sv in wrappedProblem.StateVariables :
@@ -54,30 +55,38 @@ class ScaledSymbolicProblem(SymbolicProblem) :
             counter = counter+1
         bcs = []
         
-        for bc in wrappedProblem.FinalBoundaryConditions :
+        for bc in wrappedProblem.BoundaryConditions :
             bcs.append(bc.subs(bcSubsDict))
-            # counter = 0
-            # newBc = bc
-            # for sv in wrappedProblem.StateVariables :
-            #     newBc = newBc.subs(sv.subs(self.TimeSymbol, self.TimeFinalSymbol), newStateVariableSymbols[counter].subs(self.TimeSymbol, self.TimeFinalSymbol))
-            #     counter=counter+1
-            # bcs.append(newBc)
-        self._finalBoundaryConditions = bcs
+        self._boundaryConditions = bcs
+        
+        self._unIntegratedPathCost = wrappedProblem.UnIntegratedPathCost
+        self._terminalCost = wrappedProblem.TerminalCost
+        if scaleTime :
+            tau = sy.Symbol(r'\tau')
+            tauF = sy.Symbol(r'\tau_f')
+            tau0 = sy.Symbol(r'\tau_0')
+            timeSubs = {self.TimeInitialSymbol: tau0, wrappedProblem.TimeSymbol: tau, wrappedProblem.TimeFinalSymbol:tauF}
+            self._controlVariables = ScaledSymbolicProblem.SafeSubs(self._controlVariables, timeSubs)
+            orgSv = self._stateVariables
+            self._stateVariables = ScaledSymbolicProblem.SafeSubs(self._stateVariables, timeSubs)
+            self._unIntegratedPathCost = ScaledSymbolicProblem.SafeSubs(self._unIntegratedPathCost, timeSubs)
+            self._terminalCost = ScaledSymbolicProblem.SafeSubs(self._terminalCost, timeSubs)
+            self._boundaryConditions = ScaledSymbolicProblem.SafeSubs(self._boundaryConditions, timeSubs)
+            realEom = {}
+            i = 0
+            for sv in orgSv :
+                realEom[self._stateVariables[i]] = ScaledSymbolicProblem.SafeSubs(self._equationsOfMotion[sv], timeSubs)*self.TimeFinalSymbol
+                i=i+1
+            self._equationsOfMotion = realEom
+            self._tfOrg=self.TimeFinalSymbol
+            self._timeSymbol = tau 
+            self._timeInitialSymbol = tau0
+            self._timeFinalSymbol = tauF
 
-        pcs = []
-        for pc in wrappedProblem.PathConstraints :
-            pcs.append(pc.subs(fullSubsDict)*valuesToDivideStateVariablesWith[sv])
-        self._pathConstraints = pcs
+    @property
+    def ScaleTime(self) -> bool :
+        return self._scaleTime
 
-        #if hasattr(wrappedProblem.TerminalCost, "subs") :
-        #    self._terminalCost = wrappedProblem.TerminalCost.subs(fullSubsDict)
-        #else :
-        self._terminalCost = self.StateVariables[0]# wrappedProblem.TerminalCost
-
-        if hasattr(wrappedProblem.UnIntegratedPathCost, "subs") :
-            self._unIntegratedPathCost = wrappedProblem.UnIntegratedPathCost.subs(fullSubsDict)
-        else :
-            self._unIntegratedPathCost = wrappedProblem.UnIntegratedPathCost
 
     @property
     def ScalingVector(self) -> Dict :
@@ -101,47 +110,14 @@ class ScaledSymbolicProblem(SymbolicProblem) :
             else :
                 returnDict[key]=value
         return returnDict
-
-    @property
-    def StateVariables(self) -> List[sy.Symbol]:
-        return self._stateVariables
-
-    @property
-    def ControlVariables(self) -> List[sy.Symbol]:
-        return self._controlVariables
-
-    @property
-    def EquationsOfMotion(self) -> Dict[sy.Symbol, sy.Expr]:
-        return self._equationsOfMotion
-
-    @property
-    def FinalBoundaryConditions(self) ->List[sy.Expr] : #TODO: Rename to just boundary conditions
-        return self._finalBoundaryConditions
-
-    @property
-    def PathConstraints(self) -> Dict[sy.Symbol, sy.Expr] :
-        return self._pathConstraints
     
     @property
-    def ConstantSymbols(self) -> List[sy.Symbol] :
-        return self._constantSymbols
+    def TimeFinalSymbolOriginal(self)-> sy.Symbol:
+        return self._tfOrg
 
-    @property
-    def TimeSymbol(self) -> sy.Expr :
-        return self.Ts
-
-    @property 
-    def Time0Symbol(self) -> sy.Expr :
-        return self._t0
-
-    @property 
-    def TimeFinalSymbol(self) -> sy.Expr :
-        return self._tf
-
-    @property
-    def TerminalCost(self) -> sy.Expr :
-        return self._terminalCost
-
-    @property
-    def UnIntegratedPathCost(self) -> sy.Expr :
-        return self._unIntegratedPathCost
+    @staticmethod
+    def CreateBarVariables(orgVariables : List[sy.Expr], timeSymbol :sy.Expr) :
+        baredVariables = []
+        for var in orgVariables :
+            baredVariables.append(sy.Function(r'\bar{' + var.name+ '}')(timeSymbol))
+        return baredVariables

@@ -72,7 +72,7 @@ class testSymbolicOptimizerProblem(unittest.TestCase) :
     def testCreateCostFunctionAsEquation(self) :
         prob = OneDWorkSymbolicProblem()
         costFunction = prob.CreateCostFunctionAsEquation()
-        expectedRhs = sy.integrate(prob.UnIntegratedPathCost, (prob.TimeSymbol, prob.Time0Symbol, prob.TimeFinalSymbol))
+        expectedRhs = sy.integrate(prob.UnIntegratedPathCost, (prob.TimeSymbol, prob.TimeInitialSymbol, prob.TimeFinalSymbol))
         self.assertEqual(sy.Symbol('J'), costFunction.lhs, msg="default lhs")
         self.assertEqual(expectedRhs, costFunction.rhs, msg="correct rhs")
 
@@ -104,15 +104,16 @@ class testSymbolicOptimizerProblem(unittest.TestCase) :
         initialState = [0.2, 0.3, 0.4, 0.5]
         prob.AddInitialValuesToDictionary(subsDict, initialState)
         self.assertEqual(2, len(subsDict), msg="only 2 items in subs dict")
-        self.assertEqual(initialState[0], subsDict[prob.StateVariables[0]], msg="x was added when no lambdas")
-        self.assertEqual(initialState[1], subsDict[prob.StateVariables[1]], msg="vx was added when no lambdas")
+        initialSvs = prob.CreateVariablesAtTime0(prob.StateVariables)
+        self.assertEqual(initialState[0], subsDict[initialSvs[0]], msg="x was added when no lambdas")
+        self.assertEqual(initialState[1], subsDict[initialSvs[1]], msg="vx was added when no lambdas")
 
-        lambdas = prob.CreateCoVector(prob.StateVariables, "lmd", prob.TimeSymbol)
+        lambdas = prob.CreateCoVector(prob.StateVariables, "lmd", prob.TimeInitialSymbol)
         initialState = [1.2, 1.3, 1.4, 1.5]
         prob.AddInitialValuesToDictionary(subsDict, initialState, lambdas)
         self.assertEqual(4, len(subsDict), msg="4 items in subs dict")
-        self.assertEqual(initialState[0], subsDict[prob.StateVariables[0]], msg="x was added")
-        self.assertEqual(initialState[1], subsDict[prob.StateVariables[1]], msg="vx was added")        
+        self.assertEqual(initialState[0], subsDict[initialSvs[0]], msg="x was added")
+        self.assertEqual(initialState[1], subsDict[initialSvs[1]], msg="vx was added")        
         self.assertEqual(initialState[2], subsDict[lambdas[0]], msg="lmd x was added")
         self.assertEqual(initialState[3], subsDict[lambdas[1]], msg="lmd vx was added")        
 

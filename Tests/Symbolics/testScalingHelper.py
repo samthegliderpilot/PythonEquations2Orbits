@@ -23,8 +23,8 @@ class testScalingHelper(unittest.TestCase) :
         someOtherExpression = 3.0 *sy.exp(2.0*sy.cos(t))
 
         scaledExpression = ScalingHelper.scaleExpressionsByFinalTime([someExpression, someOtherExpression], t, tf, tau)
-        self.assertEqual(0, (scaledExpression[0] - 5.0*tf*sy.sin(tau)))
-        self.assertEqual(0, (scaledExpression[1] - tf* 3.0 *sy.exp(2.0*sy.cos(tau))))
+        self.assertEqual(0, (scaledExpression[0] - 5.0*tf*sy.sin(tau)), msg="first eom")
+        self.assertEqual(0, (scaledExpression[1] - tf* 3.0 *sy.exp(2.0*sy.cos(tau))), msg="second eom")
 
     # def testScaleDerivativeByFinalTime(self) :
     #     t = sy.Symbol('t')

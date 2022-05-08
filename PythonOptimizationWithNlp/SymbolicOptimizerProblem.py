@@ -1,5 +1,7 @@
+from inspect import BoundArguments
 import sympy as sy
 from typing import List, Dict
+from collections import OrderedDict
 from PythonOptimizationWithNlp.Symbolics.Vectors import Vector
 from abc import abstractmethod, ABC
 
@@ -7,7 +9,35 @@ class SymbolicProblem(ABC) :
     def __init__(self) :
         """Initialize a new instance.
         """
-        pass
+        self._stateVariables = []
+        self._controlVariables = []
+        self._terminalCost = 0
+        self._unIntegratedPathCost = 0
+        self._equationsOfMotion = OrderedDict()
+        self._boundaryConditions = []
+        self._timeSymbol = None
+        self._timeInitialSymbol = None
+        self._timeFinalSymbol= None
+        self._substitutionDictionary = {}
+
+    def RegisterConstantValue(self, symbol :sy.Expr, value : float) :
+        """Registers a constant into the instance's substitution dictionary.
+
+        Args:
+            symbol (sy.Expr): Some sympy expression
+            value (float): The value to substitution into various expressions.
+        """
+        self._substitutionDictionary[symbol] = value
+
+    @property
+    def SubstitutionDictionary(self) -> Dict[sy.Expr, float] :
+        """The dictionary that should be used to store constant values that may appear 
+        in the various expressions.  
+
+        Returns:
+            Dict[sy.Expr, float]: The expression-to-values to substitute into expressions.
+        """
+        return self._substitutionDictionary
 
     @staticmethod
     def CreateCoVector(y, name : str, t : sy.Symbol =None) :
@@ -89,7 +119,7 @@ class SymbolicProblem(ABC) :
         return -1*sy.Derivative(hamiltonian, x).doit()
 
     def TransversalityConditionsByAugmentation(self, lambdas, nus) :
-        termFunc = self.TerminalCost.subs(self.TimeSymbol, self.TimeFinalSymbol) + (Vector.fromArray(nus).transpose()*Vector.fromArray(self.FinalBoundaryConditions))[0,0]
+        termFunc = self.TerminalCost.subs(self.TimeSymbol, self.TimeFinalSymbol) + (Vector.fromArray(nus).transpose()*Vector.fromArray(self.BoundaryConditions))[0,0]
         finalConditions = []
         i=0
         for x in self.StateVariables :
@@ -100,16 +130,16 @@ class SymbolicProblem(ABC) :
 
         return finalConditions
 
-    def CreateDifferentialTransversalityConditions(self, hamiltonian, lambdas, dtf) :
+    def CreateDifferentialTransversalityConditions(self, hamiltonian, lambdasFinal, dtf) :
         variationVector = []
         valuesAtEndSymbols = []
         if isinstance(self.TerminalCost, float) :
             valuesAtEndDiffTerm = 0
         else :
-            valuesAtEndDiffTerm = sy.diff(self.TerminalCost.subs(self.TimeSymbol, self.TimeFinalSymbol), self.TimeFinalSymbol).expand().simplify()
+            valuesAtEndDiffTerm = sy.diff(self.TerminalCost, self.TimeFinalSymbol).expand().simplify()
 
         # work on the dPsi term
-        for bc in self.FinalBoundaryConditions:
+        for bc in self.BoundaryConditions:
             expr = sy.diff(bc, self.TimeFinalSymbol).doit().powsimp().simplify()
             if(expr != None and expr != 0) :
                 valuesAtEndSymbols.append(expr)
@@ -121,10 +151,11 @@ class SymbolicProblem(ABC) :
         # the optimal trajectory, then the variation vector for it is the symbol d_stateValue/d_tf, which 
         # for a well posed problem will give us several equations we can use as additional BC's when 
         # we build the entire transversality condition equation and solve for coefficients to be 0
-        for sv in self.StateVariables :       
-            dxfdtf = sy.diff(sv.subs(self.TimeSymbol, self.TimeFinalSymbol), self.TimeFinalSymbol).doit() 
+        finalSvs = self.SafeSubs(self.StateVariables, {self.TimeSymbol: self.TimeFinalSymbol})
+        for sv in finalSvs :       
+            dxfdtf = sy.diff(sv, self.TimeFinalSymbol).doit() 
             notFixed = True # by default we should assume that state variables are not fixed
-            for bc in self.FinalBoundaryConditions :
+            for bc in self.BoundaryConditions :
                 derVal = bc.diff(self.TimeFinalSymbol)/dxfdtf   
                 # if it does not have is_float, then it is some other sympy expression which means the SV is variable at tf
                 # and if it does have is_float AND is_float, well then it truly is fixed and its variation is 0
@@ -139,8 +170,8 @@ class SymbolicProblem(ABC) :
             variationVector.append(dxfdtf)
 
         variationVector = Vector.fromArray(variationVector)    
-        lambdas = Vector.fromArray(lambdas).subs(self.TimeSymbol, self.TimeFinalSymbol)
-        overallCond = hamiltonian*dtf - (lambdas.transpose()*variationVector)[0,0] + valuesAtEndDiffTerm
+        lambdasFinal = Vector.fromArray(lambdasFinal)
+        overallCond = hamiltonian*dtf - (lambdasFinal.transpose()*variationVector)[0,0] + valuesAtEndDiffTerm
         overallCond = overallCond.expand()
         
         for vv in variationVector :
@@ -162,7 +193,6 @@ class SymbolicProblem(ABC) :
         return xversConds  
 
     @property
-    @abstractmethod
     def StateVariables(self) -> List[sy.Symbol]:
         """Gets the state variables for this problem.  These should be in terms of TimeSymbol. 
         This must be implimented by the derived type.
@@ -170,10 +200,19 @@ class SymbolicProblem(ABC) :
         Returns:
             List[sy.Symbol]: The list of symbols in terms of TimeSymbol
         """
-        raise NotImplementedError
+        return self._stateVariables
+    
+    # @StateVariables.setter
+    # def set_stateVariable(self, stateVariables : List[sy.Symbol]) :
+    #     """Sets the state variables for this problem.  Note that this will swap out the entire 
+    #     list of variables.  These should by sympy expressions of time if appropriate.
+
+    #     Args:
+    #         stateVariables (List[sy.Symbol]): The new set of state variables
+    #     """
+    #     self._stateVariables = stateVariables
 
     @property
-    @abstractmethod
     def ControlVariables(self) -> List[sy.Symbol]:
         """Gets a list of the control variables.  These should be in terms of TimeSymbol. 
         This must be implimented by the derived type.
@@ -181,7 +220,17 @@ class SymbolicProblem(ABC) :
         Returns:
             List[sy.Symbol]: The list of the control variables.
         """
-        raise NotImplementedError
+        return self._controlVariables
+
+    # @ControlVariables.setter
+    # def set_ControlVariables(self, value : List[sy.Symbol]) :
+    #     """Sets the control variables.  This will swap out the entire list of variables.  These 
+    #     should by sympy expressions of time if appropriate.
+
+    #     Args:
+    #         value (List[sy.Symbol]): The new list of control variables.
+    #     """
+    #     self._controlVariables = value
 
     @property
     def CostFunction(self) -> sy.Expr :
@@ -191,41 +240,64 @@ class SymbolicProblem(ABC) :
         Returns:
             sy.Expr: The overall cost function.
         """
-        return self.TerminalCost + sy.integrate(self.UnIntegratedPathCost, (self.TimeSymbol, self.Time0Symbol, self.TimeFinalSymbol))
+        return self.TerminalCost + sy.integrate(self.UnIntegratedPathCost, (self.TimeSymbol, self.TimeInitialSymbol, self.TimeFinalSymbol))
 
     @property
-    @abstractmethod
     def TerminalCost(self) -> sy.Expr :
-        """Gets the terminal cost of the problem.  
+        """Gets the terminal cost of the problem.  Defaults to 0.
 
         Returns:
             sy.Expr: The terminal cost of the problem.
         """        
-        raise NotImplementedError
+        return self._terminalCost
+
+    @TerminalCost.setter
+    def set_TerminalCost(self, value : sy.Expr) :
+        """Sets the Terminal Cost of the function.
+
+        Args:
+            value (sy.Expr): The new terminal cost of the function.
+        """
+        self._terminalCost = value
 
     @property
-    @abstractmethod
     def UnIntegratedPathCost(self) -> sy.Expr :
         """Gets the un-integrated path cost of the trajectory.  For a problem of Bolza, this is the expression in the integral.
 
         Returns:
             sy.Expr: The un-integrated path cost of the constraint.  
         """        
-        raise NotImplementedError
+        return self._unIntegratedPathCost
+
+    @UnIntegratedPathCost.setter
+    def set_UnIntegratedPathCost(self, value: sy.Expr) :
+        """Sets the un-integrated path cost of the trajectory.  For a problem of Bolza, this is the expression in the integral.
+
+        Args:
+            value (sy.Expr): The un-integrated path cost.
+        """
+        self._unIntegratedPathCost = value
 
     @property
-    @abstractmethod
     def EquationsOfMotion(self) -> Dict[sy.Symbol, sy.Expr]:
         """Gets the equations of motion for each of the state variables.
 
         Returns:
             Dict[sy.Symbol, sy.Expr]: The equations of motion for each of the state variables.
         """
-        raise NotImplementedError
+        return self._equationsOfMotion
+    
+    # @EquationsOfMotion.setter
+    # def set_EquationsOfMotion(self, value: Dict[sy.Symbol, sy.Expr]):
+    #     """Sets the entire equations of motion dictionary.
+
+    #     Args:
+    #         value (Dict[sy.Symbol, sy.Expr]): The equations of motion for each of the state variables.
+    #     """
+    #     self._equationsOfMotion = value
 
     @property
-    @abstractmethod
-    def FinalBoundaryConditions(self) ->List[sy.Eq] :
+    def BoundaryConditions(self) ->List[sy.Eq] :
         """Gets the boundary conditions on the system.  These expressions 
         must equal 0 and symbols in them need to be in terms of Time0Symbol 
         or TimeFinalSymbol as appropriate.
@@ -233,45 +305,41 @@ class SymbolicProblem(ABC) :
         Returns:
             List[sy.Eq]: The boundary conditions. 
         """
-        raise NotImplementedError
+        return self._boundaryConditions
+
+    # @BoundaryConditions.setter
+    # def set_BoundaryConditions(self, value :List[sy.Eq]) :
+    #     """Sets the boundary conditions on the system.  These expressions 
+    #     must equal 0 and symbols in them need to be in terms of Time0Symbol 
+    #     or TimeFinalSymbol as appropriate.
+
+    #     Args:
+    #         value (List[sy.Eq]): The boundary conditions.
+    #     """
+    #     self._boundaryConditions = value
 
     @property
-    @abstractmethod
-    def PathConstraints(self) -> List[sy.Expr] :
-        """Gets a list of constraints that are must be true along the optimal solution.
-        Note that current solvers are not configured to use this, and I don't yet
-        have a problem that takes advantage of these.
-
-        Returns:
-            List[sy.Expr]: The expressions for the path constraints.
-        """
-        raise NotImplementedError
-    
-    @property
-    @abstractmethod
-    def ConstantSymbols(self) -> List[sy.Symbol] :
-        """Gets a list of symbols that are constants to the problem.  At some point, calling 
-        code will need to provide values for the symbols.
-
-        Returns:
-            List[sy.Symbol]: A list of symbols that are constants for the problem.
-        """
-        raise NotImplementedError
-
-    @property
-    @abstractmethod
     def TimeSymbol(self) -> sy.Expr :
-        """The general time symbol.  Instead of using simple symbols for the state and 
+        """Gets the general time symbol.  Instead of using simple symbols for the state and 
         control variables, use sy.Function()(self.TimeSymbol) instead.
 
         Returns:
             sy.Expr: The time symbol.
         """        
-        raise NotImplementedError
+        return self._timeSymbol
+
+    @TimeSymbol.setter
+    def set_TimeSymbol(self, value:sy.Expr) :
+        """Sets the general time symbol.  Instead of using simple symbols for the state and 
+        control variables, use sy.Function()(self.TimeSymbol) instead.
+
+        Args:
+            value (sy.Expr): The time symbol. 
+        """
+        self._timeSymbol = value
 
     @property
-    @abstractmethod 
-    def Time0Symbol(self) -> sy.Expr :
+    def TimeInitialSymbol(self) -> sy.Expr :
         """Gets the symbol for the initial time.  Note that boundary 
         conditions ought to use this as the independent variable 
         of sympy Functions for boundary conditions at the start of the time span.
@@ -279,10 +347,20 @@ class SymbolicProblem(ABC) :
         Returns:
             sy.Expr: The initial time symbol.
         """        
-        raise NotImplementedError
+        return self._timeInitialSymbol
+
+    @TimeInitialSymbol.setter
+    def set_TimeInitialSymbol(self, value:sy.Expr) :
+        """Sets the symbol for the initial time.  Note that boundary 
+        conditions ought to use this as the independent variable 
+        of sympy Functions for boundary conditions at the start of the time span.
+
+        Args:
+            value (sy.Expr): The initial time symbol.
+        """
+        self._timeInitialSymbol = value
 
     @property
-    @abstractmethod
     def TimeFinalSymbol(self) -> sy.Expr :
         """Gets the symbol for the final time.  Note that boundary 
         conditions ought to use this as the independent variable 
@@ -291,7 +369,18 @@ class SymbolicProblem(ABC) :
         Returns:
             sy.Expr: The final time symbol.
         """        
-        raise NotImplementedError
+        return self._timeFinalSymbol
+
+    @TimeFinalSymbol.setter
+    def set_TimeFinalSymbol(self, value : sy.Expr) :
+        """Sets the symbol for the final time.  Note that boundary 
+        conditions ought to use this as the independent variable 
+        of sympy Functions for boundary conditions at the end of the time span.
+
+        Args:
+            value (sy.Expr): The final time symbol.
+        """
+        self._timeFinalSymbol = value
 
     def CreateEquationOfMotionsAsEquations(self) -> List[sy.Expr] :
         """Converts the equations of motion dictionary into a list in the order of the state variables.
@@ -356,26 +445,28 @@ class SymbolicProblem(ABC) :
         """
         i = 0
         for sv in self.StateVariables :
-            subsDict[sv.subs(self.TimeSymbol, self.Time0Symbol)] = initialValuesArray[i]
+            subsDict[sv.subs(self.TimeSymbol, self.TimeInitialSymbol)] = initialValuesArray[i]
             i=i+1
         if lambdas == None :
             return
         for lm in lambdas :
-            subsDict[lm.subs(self.TimeSymbol, self.Time0Symbol)] = initialValuesArray[i]
+            subsDict[lm.subs(self.TimeSymbol, self.TimeInitialSymbol)] = initialValuesArray[i]
             i = i+1
 
     def CreateVariablesAtTime0(self, listToSubs = None) :
         if listToSubs == None :
             listToSubs = self.StateVariables
 
-        return SymbolicProblem.SafeSubs(listToSubs, {self.TimeSymbol: self.Time0Symbol, self.TimeFinalSymbol:self.Time0Symbol})
+        return SymbolicProblem.SafeSubs(listToSubs, {self.TimeSymbol: self.TimeInitialSymbol, self.TimeFinalSymbol:self.TimeInitialSymbol})
 
     @staticmethod
     def SafeSubs(thingWithSymbols, substitutionDictionary : Dict) :
-        if isinstance(thingWithSymbols, float) or (hasattr(thingWithSymbols, "is_Float") and thingWithSymbols.is_Float) :
+        if isinstance(thingWithSymbols, float) or isinstance(thingWithSymbols, int) or ((hasattr(thingWithSymbols, "is_Float") and thingWithSymbols.is_Float)):
             return thingWithSymbols # it's float, send it back
 
         if hasattr(thingWithSymbols, "subs") :
+            if thingWithSymbols in substitutionDictionary :
+                return substitutionDictionary[thingWithSymbols]
             return thingWithSymbols.subs(substitutionDictionary)
         
         if hasattr(thingWithSymbols, "__len__") :

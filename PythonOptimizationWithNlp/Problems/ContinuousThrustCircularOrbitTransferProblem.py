@@ -16,41 +16,38 @@ class PlanerLeoToGeoProblem(SymbolicProblem) :
 
         self._constantSymbols = []
         mu = sy.Symbol(r'\mu', real=True, positive=True)
-        self._constantSymbols.append(mu)
+        self.Mu = mu
 
         thrust = sy.Symbol('T', real=True, positive=True)
-        self._constantSymbols.append(thrust)
+        self.Thrust = thrust
 
         m0 = sy.Symbol('m_0', real=True, positive=True)
-        self._constantSymbols.append(m0)
+        self.MassInitial = m0
 
         g = sy.Symbol('g', real=True, positive=True)
-        self._constantSymbols.append(g)
+        self.Gravity = g
 
         isp = sy.Symbol('I_{sp}', real=True, positive=True)
-        self._constantSymbols.append(isp)
+        self.Isp = isp
 
-        self.Ts = sy.Symbol('t', real=True)
-        self._t0 = sy.Symbol('t_0', real=True)
-        self._tf = sy.Symbol('t_f', real=True, positive=True)
+        self._timeSymbol = sy.Symbol('t', real=True)
+        self._timeInitialSymbol = sy.Symbol('t_0', real=True)
+        self._timeFinalSymbol = sy.Symbol('t_f', real=True, positive=True)
 
-        self._stateVariables=[
-            sy.Function('r', real=True, positive=True)(self.Ts),
-            sy.Function('u', real=True, nonnegative=True)(self.Ts),
-            sy.Function('v', real=True, nonnegative=True)(self.Ts),
-            sy.Function('\\theta', real=True, nonnegative=True)(self.Ts)]
+        self._stateVariables.extend([
+            sy.Function('r', real=True, positive=True)(self._timeSymbol),
+            sy.Function('u', real=True, nonnegative=True)(self._timeSymbol),
+            sy.Function('v', real=True, nonnegative=True)(self._timeSymbol),
+            sy.Function('\\theta', real=True, nonnegative=True)(self._timeSymbol)])
 
-        self._controlVariables = [sy.Function('\\alpha', real=True)(self.Ts)]
+        self._controlVariables.extend([sy.Function('\\alpha', real=True)(self._timeSymbol)])
 
-        self._pathConstraints = {} # none for this instance
+        self._boundaryConditions.extend([
+                self._stateVariables[1].subs(self._timeSymbol, self._timeFinalSymbol),
+                self._stateVariables[2].subs(self._timeSymbol, self._timeFinalSymbol)-sy.sqrt(mu/self._stateVariables[0].subs(self._timeSymbol, self._timeFinalSymbol))
+        ])
 
-        self._finalBoundaryConditions = [
-                self._stateVariables[1].subs(self.Ts, self._tf),
-                self._stateVariables[2].subs(self.Ts, self._tf)-sy.sqrt(mu/self._stateVariables[0].subs(self.Ts, self._tf))
-        ]
-
-        self._terminalCost = self._stateVariables[0] # maximization problem
-        self._unintegratedCost = 0.0
+        self._terminalCost = self._stateVariables[0].subs(self._timeSymbol, self._timeFinalSymbol) # maximization problem
 
         #self._terminalCost = 0.0
         #self._unintegratedCost = -1*self.StateVariables[0].diff(self.Ts) - self.StateVariables[0].subs(self.Ts, self._t0)
@@ -61,58 +58,13 @@ class PlanerLeoToGeoProblem(SymbolicProblem) :
         control = self._controlVariables[0]
 
         self.MassFlowRate = -1*thrust/(isp*g)
-        self.MassEquation = m0+self.Ts*self.MassFlowRate
+        self.MassEquation = m0+self._timeSymbol*self.MassFlowRate
 
-        self._equationsOfMotion = OrderedDict()
         self._equationsOfMotion[rs] = us
         self._equationsOfMotion[us] = vs*vs/rs - mu/(rs*rs) + thrust*sy.sin(control)/self.MassEquation
         self._equationsOfMotion[vs] = -vs*us/rs + thrust*sy.cos(control)/self.MassEquation
         self._equationsOfMotion[longS] = vs/rs
-
-    @property
-    def StateVariables(self) -> List[sy.Symbol]:
-        return self._stateVariables
-
-    @property
-    def ControlVariables(self) -> List[sy.Symbol]:
-        return self._controlVariables
-
-    @property
-    def EquationsOfMotion(self) -> Dict[sy.Symbol, sy.Expr]:
-        return self._equationsOfMotion
-
-    @property
-    def FinalBoundaryConditions(self) ->List[sy.Expr] : #TODO: Rename to just boundary conditions
-        return self._finalBoundaryConditions
-
-    @property
-    def PathConstraints(self) -> Dict[sy.Symbol, sy.Expr] :
-        return self._pathConstraints
-    
-    @property
-    def ConstantSymbols(self) -> List[sy.Symbol] :
-        return self._constantSymbols
-
-    @property
-    def TimeSymbol(self) -> sy.Expr :
-        return self.Ts
-
-    @property 
-    def Time0Symbol(self) -> sy.Expr :
-        return self._t0
-
-    @property 
-    def TimeFinalSymbol(self) -> sy.Expr :
-        return self._tf
-
-    @property
-    def TerminalCost(self) -> sy.Expr :
-        return self._terminalCost
-
-    @property
-    def UnIntegratedPathCost(self) -> sy.Expr :
-        return self._unintegratedCost
-
+   
     def AppendConstantsToSubsDict(self, existingDict : dict, muVal : float, gVal : float, thrustVal : float, m0Val : float, ispVal : float) :
         """Helper function to make the substitution dictionary that is often needed when lambdifying 
         the symbolic equations.
@@ -185,3 +137,33 @@ class PlanerLeoToGeoProblem(SymbolicProblem) :
         plt.plot(tUnscaled/86400, np.arctan2(solsLists[5], solsLists[6])*180.0/math.pi)
         plt.show()
           
+
+    def plotHamiltonianProblemsFromSomeSetOfResults(self, lambdas, solution, tArray, hamiltonian, controlSolved) :
+        import matplotlib.pyplot as plt
+        stateForEom = [self.TimeSymbol]
+        stateForEom.append(self.StateVariables)
+        stateForEom.append(lambdas)
+
+        stateForHaml = []
+        constantsSubsDict = self.SubstitutionDictionary
+        stateForHaml.extend(stateForEom)
+        stateForHaml.append(self.TimeSymbol)
+        dHdu = self.CreateHamiltonianControlExpressions(hamiltonian).doit()[0]
+        d2Hdu2 = self.CreateHamiltonianControlExpressions(dHdu).doit()[0]
+        hamltEpx = sy.lambdify(stateForEom, hamiltonian.subs(self.ControlVariables[0], controlSolved).trigsimp(deep=True).subs(constantsSubsDict))
+        hamltVals = hamltEpx(tArray, [solution[:,0],solution[:,1],solution[:,2],solution[:,3]],[solution[:,4],solution[:,5],solution[:,6]])
+        dhduExp = sy.lambdify(stateForEom, dHdu.subs(self.ControlVariables[0], controlSolved).trigsimp(deep=True).subs(constantsSubsDict))
+        dhduValus = dhduExp(tArray, [solution[:,0],solution[:,1],solution[:,2],solution[:,3]],[solution[:,4],solution[:,5],solution[:,6]])
+        if float(dhduValus) == 0 :
+            dhduValus = np.zeros(len(tArray))
+        d2hdu2Exp = sy.lambdify(stateForEom, d2Hdu2.subs(self.ControlVariables[0], controlSolved).trigsimp(deep=True).subs(constantsSubsDict))
+        d2hdu2Valus = d2hdu2Exp(tArray, [solution[:,0],solution[:,1],solution[:,2],solution[:,3]],[solution[:,4],solution[:,5],solution[:,6]])
+        plt.title("Hamlitonion")
+        plt.plot(tArray, hamltVals, label="Hamlt")
+        plt.plot(tArray, dhduValus, label="dH\du")
+        plt.plot(tArray, d2hdu2Valus, label="d2H\du2")
+
+        plt.tight_layout()
+        plt.grid(alpha=0.5)
+        plt.legend(framealpha=1, shadow=True)
+        plt.show()

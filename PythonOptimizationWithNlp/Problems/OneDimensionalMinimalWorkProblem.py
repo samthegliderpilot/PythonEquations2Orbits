@@ -14,60 +14,19 @@ class OneDWorkSymbolicProblem(SymbolicProblem) :
         """Initializes a new instance.
         """
         super().__init__()
-        self.Ts = sy.Symbol('t')
-        self._t0 = sy.Symbol('t_0')
-        self._tf = sy.Symbol('t_f')
-        self._stateVariables = [sy.Function('x')(self.Ts), sy.Function('v')(self.Ts)]
-        self._controlVariables = [sy.Function('u')(self.Ts)]
+        self._timeSymbol = sy.Symbol('t')
+        self._timeInitialSymbol = sy.Symbol('t_0')
+        self._timeFinalSymbol = sy.Symbol('t_f')
+        self._stateVariables = [sy.Function('x')(self._timeSymbol), sy.Function('v')(self._timeSymbol)]
+        self._controlVariables = [sy.Function('u')(self._timeSymbol)]
         self._equationsOfMotion = {self._stateVariables[0]:self._stateVariables[1], self._stateVariables[1] : self._controlVariables[0]}
-        self._pathConstraints = {}
         self._constantSymbols = []
         self._unIntegratedPathCost = self._controlVariables[0]**2
-        self._finalBoundaryConditions = [sy.Function('x')(self._tf) -1, sy.Function('v')(self._tf)]
-
-    @property
-    def StateVariables(self) -> List[sy.Symbol]:
-        return self._stateVariables
-
-    @property
-    def ControlVariables(self) -> List[sy.Symbol]:
-        return self._controlVariables
-
-    @property
-    def EquationsOfMotion(self) -> Dict[sy.Symbol, sy.Expr]:
-        return self._equationsOfMotion
-
-    @property
-    def FinalBoundaryConditions(self) ->List[sy.Expr] : #TODO: Rename to just boundary conditions
-        return self._finalBoundaryConditions
-
-    @property
-    def PathConstraints(self) -> Dict[sy.Symbol, sy.Expr] :
-        return self._pathConstraints
+        self._boundaryConditions = [sy.Function('x')(self._timeFinalSymbol) -1, sy.Function('v')(self._timeFinalSymbol)]
     
     @property
     def ConstantSymbols(self) -> List[sy.Symbol] :
         return self._constantSymbols
-
-    @property
-    def TimeSymbol(self) -> sy.Expr :
-        return self.Ts
-
-    @property 
-    def Time0Symbol(self) -> sy.Expr :
-        return self._t0
-
-    @property 
-    def TimeFinalSymbol(self) -> sy.Expr :     
-        return self._tf
-
-    @property
-    def TerminalCost(self) -> sy.Expr :     
-        return 0.0
-
-    @property
-    def UnIntegratedPathCost(self) -> sy.Expr :  
-        return self._unIntegratedPathCost
 
 class OneDWorkProblem(NumericalOptimizerProblemBase) :
     """A very simple and straight forward optimal control problem.  Although there is an analytical solution 
