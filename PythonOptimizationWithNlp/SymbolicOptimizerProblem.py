@@ -4,7 +4,7 @@ from typing import List, Dict
 from collections import OrderedDict
 from PythonOptimizationWithNlp.Symbolics.Vectors import Vector
 from abc import abstractmethod, ABC
-
+import numpy as np
 class SymbolicProblem(ABC) :
     def __init__(self) :
         """Initialize a new instance.
@@ -475,3 +475,33 @@ class SymbolicProblem(ABC) :
                 tbr.append(SymbolicProblem.SafeSubs(thing, substitutionDictionary))
             return tbr
         raise Exception("Don't know how to do the subs")
+
+    def plotHamiltonianProblemsFromSomeSetOfResults(self, lambdas, solution, tArray, hamiltonian, controlSolved) :
+        import matplotlib.pyplot as plt
+        stateForEom = [self.TimeSymbol]
+        stateForEom.append(self.StateVariables)
+        stateForEom.append(lambdas)
+
+        stateForHaml = []
+        constantsSubsDict = self.SubstitutionDictionary
+        stateForHaml.extend(stateForEom)
+        stateForHaml.append(self.TimeSymbol)
+        dHdu = self.CreateHamiltonianControlExpressions(hamiltonian).doit()[0]
+        d2Hdu2 = self.CreateHamiltonianControlExpressions(dHdu).doit()[0]
+        hamltEpx = sy.lambdify(stateForEom, hamiltonian.subs(self.ControlVariables[0], controlSolved).trigsimp(deep=True).subs(constantsSubsDict))
+        hamltVals = hamltEpx(tArray, [solution[:,0],solution[:,1],solution[:,2],solution[:,3]],[solution[:,4],solution[:,5],solution[:,6]])
+        dhduExp = sy.lambdify(stateForEom, dHdu.subs(self.ControlVariables[0], controlSolved).trigsimp(deep=True).subs(constantsSubsDict))
+        dhduValus = dhduExp(tArray, [solution[:,0],solution[:,1],solution[:,2],solution[:,3]],[solution[:,4],solution[:,5],solution[:,6]])
+        if float(dhduValus) == 0 :
+            dhduValus = np.zeros(len(tArray))
+        d2hdu2Exp = sy.lambdify(stateForEom, d2Hdu2.subs(self.ControlVariables[0], controlSolved).trigsimp(deep=True).subs(constantsSubsDict))
+        d2hdu2Valus = d2hdu2Exp(tArray, [solution[:,0],solution[:,1],solution[:,2],solution[:,3]],[solution[:,4],solution[:,5],solution[:,6]])
+        plt.title("Hamlitonion")
+        plt.plot(tArray, hamltVals, label="Hamlt")
+        plt.plot(tArray, dhduValus, label="dH\du")
+        plt.plot(tArray, d2hdu2Valus, label="d2H\du2")
+
+        plt.tight_layout()
+        plt.grid(alpha=0.5)
+        plt.legend(framealpha=1, shadow=True)
+        plt.show()        

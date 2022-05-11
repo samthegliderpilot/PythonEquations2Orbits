@@ -71,30 +71,29 @@ constantsSubsDict[initialStateValues[3]] = lon0
 constantsSubsDict[initialScaledStateValues[0]] = r0
 constantsSubsDict[initialScaledStateValues[1]] = u0
 constantsSubsDict[initialScaledStateValues[2]] = v0
-constantsSubsDict[initialScaledStateValues[3]] = 0.0
+constantsSubsDict[initialScaledStateValues[3]] = lon0
 if scale :
     constantsSubsDict[initialScaledStateValues[0]] = r0/r0
     constantsSubsDict[initialScaledStateValues[1]] = u0/v0
     constantsSubsDict[initialScaledStateValues[2]] = v0/v0
     constantsSubsDict[initialScaledStateValues[3]] = lon0/1.0
 
-    # constantsSubsDict[initialScaledStateValues[0].subs(problem.TimeInitialSymbol, 0.0)] = r0/r0
-    # constantsSubsDict[initialScaledStateValues[1].subs(problem.TimeInitialSymbol, 0.0)] = u0/v0
-    # constantsSubsDict[initialScaledStateValues[2].subs(problem.TimeInitialSymbol, 0.0)] = v0/v0
-    # constantsSubsDict[initialScaledStateValues[3].subs(problem.TimeInitialSymbol, 0.0)] = 0.0
+    constantsSubsDict[initialScaledStateValues[0].subs(problem.TimeInitialSymbol, 0.0)] = r0/r0
+    constantsSubsDict[initialScaledStateValues[1].subs(problem.TimeInitialSymbol, 0.0)] = u0/v0
+    constantsSubsDict[initialScaledStateValues[2].subs(problem.TimeInitialSymbol, 0.0)] = v0/v0
+    constantsSubsDict[initialScaledStateValues[3].subs(problem.TimeInitialSymbol, 0.0)] = 0.0
 
-    # constantsSubsDict[baseProblem.StateVariables[0].subs(baseProblem.TimeInitialSymbol, 0.0)] = r0
-    # constantsSubsDict[baseProblem.StateVariables[1].subs(baseProblem.TimeInitialSymbol, 0.0)] = u0
-    # constantsSubsDict[baseProblem.StateVariables[2].subs(baseProblem.TimeInitialSymbol, 0.0)] = v0
-    # constantsSubsDict[baseProblem.StateVariables[3].subs(baseProblem.TimeInitialSymbol, 0.0)] = lon0
+    constantsSubsDict[baseProblem.StateVariables[0].subs(baseProblem.TimeSymbol,problem.TimeInitialSymbol)] = r0
+    constantsSubsDict[baseProblem.StateVariables[1].subs(baseProblem.TimeSymbol, problem.TimeInitialSymbol)] = u0
+    constantsSubsDict[baseProblem.StateVariables[2].subs(baseProblem.TimeSymbol, problem.TimeInitialSymbol)] = v0
+    constantsSubsDict[baseProblem.StateVariables[3].subs(baseProblem.TimeSymbol, problem.TimeInitialSymbol)] = lon0
 
     r0= r0/r0
     u0=u0/v0
     v0=v0/v0
     lon0=lon0/1.0
     
-    if scaleTime :
-        constantsSubsDict[problem.TimeFinalSymbolOriginal] = tfOrg
+
 # This is cheating, I know from many previous runs that this is the time needed to go from LEO to GEO.
 # However, below works well wrapped in another fsolve to control the final time for a desired radius.
 
@@ -177,8 +176,9 @@ constantsSubsDict[lmdTheta.subs(problem.TimeSymbol, problem.TimeInitialSymbol)]=
 integrationStateVariableArray = []
 integrationStateVariableArray.extend(problem.StateVariables)
 integrationStateVariableArray.extend(lambdas)
+if scaleTime :
+    constantsSubsDict[problem.TimeFinalSymbolOriginal] = tfOrg
 odeIntEomCallback = ScipyCallbackCreators.CreateSimpleCallbackForOdeInt(problem.TimeSymbol, integrationStateVariableArray, finalEquationsOfMotion, constantsSubsDict)
-
 
 stateForBoundaryConditions = []
 stateForBoundaryConditions.extend(SymbolicProblem.SafeSubs(integrationStateVariableArray, {problem.TimeSymbol: problem.TimeInitialSymbol}))
@@ -192,8 +192,10 @@ allBcAndTransConditions.extend(problem.BoundaryConditions)
 print("here")
 for thing in allBcAndTransConditions :
     display(thing)
+    display(thing.subs(constantsSubsDict))
 boundaryConditionEvaluationCallbacks = ScipyCallbackCreators.createBoundaryConditionCallback(stateForBoundaryConditions, allBcAndTransConditions, constantsSubsDict)
-
+if scaleTime :
+    constantsSubsDict[problem.TimeFinalSymbolOriginal] = tfOrg
 # run a test solution to get a better guess for the final nu values, this is a good technique, but 
 # it is still a custom-to-this-problem piece of code because it is still initial-guess work
 if len(nus) > 0 :
@@ -252,5 +254,5 @@ jh.showEquation(baseProblem.StateVariables[1].subs(problem.TimeSymbol, problem.T
 jh.showEquation(baseProblem.StateVariables[2].subs(problem.TimeSymbol, problem.TimeFinalSymbol), asDict[baseProblem.StateVariables[2]][-1])
 jh.showEquation(baseProblem.StateVariables[3].subs(problem.TimeSymbol, problem.TimeFinalSymbol), (asDict[baseProblem.StateVariables[3]][-1]%(2*math.pi))*180.0/(2*math.pi))
 
-baseProblem.plotHamiltonianProblemsFromSomeSetOfResults(lambdas, solution, tArray, hamiltonian, controlSolved)
+problem.plotHamiltonianProblemsFromSomeSetOfResults(lambdas, solution, tArray, hamiltonian, controlSolved)
 

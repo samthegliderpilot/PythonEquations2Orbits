@@ -1,33 +1,33 @@
+from textwrap import wrap
 import sympy as sy
 from typing import List, Dict
 from PythonOptimizationWithNlp.SymbolicOptimizerProblem import SymbolicProblem
 import numpy as np
+from PythonOptimizationWithNlp.Symbolics.Vectors import Vector
 from PythonOptimizationWithNlp.Utilities.inherit import inherit_docstrings
 
 @inherit_docstrings
 class ScaledSymbolicProblem(SymbolicProblem) :
-    def __init__(self, wrappedProblem : SymbolicProblem, newStateVariableSymbols, valuesToDivideStateVariablesWith : Dict, scaleTime : bool) :
-        
+    def __init__(self, wrappedProblem : SymbolicProblem, newStateVariableSymbols, valuesToDivideStateVariablesWith : Dict, scaleTime : bool) :        
         self._wrappedProblem = wrappedProblem
-        self._scaleTime=scaleTime
-        self._substitutionDictionary = wrappedProblem._substitutionDictionary
-        
 
+        self._timeFinalSymbol = wrappedProblem.TimeFinalSymbol
+        self._timeInitialSymbol = wrappedProblem.TimeInitialSymbol
+        self._timeSymbol = wrappedProblem.TimeSymbol
+        
+        self._scaleTime=scaleTime
+        self._substitutionDictionary = wrappedProblem._substitutionDictionary        
         self._stateVariables = newStateVariableSymbols
         
+        self._scalingDict = valuesToDivideStateVariablesWith
+
         newSvsInTermsOfOldSvs = []
         counter=0
         for sv in wrappedProblem.StateVariables :
             newSvsInTermsOfOldSvs.append(sv/valuesToDivideStateVariablesWith[sv])
             counter=counter+1
 
-        self._scalingDict = valuesToDivideStateVariablesWith
-
-        self._timeFinalSymbol = wrappedProblem.TimeFinalSymbol
-        self._timeInitialSymbol = wrappedProblem.TimeInitialSymbol
-        self._timeSymbol = wrappedProblem.TimeSymbol
-
-        fullSubsDict = {}
+        fullSubsDict = {} # don't add in sv(t_0), that will confuse common scaling paradigms
         counter = 0
         for sv in wrappedProblem.StateVariables :
             fullSubsDict[sv] = newStateVariableSymbols[counter]*valuesToDivideStateVariablesWith[sv]            
@@ -56,10 +56,13 @@ class ScaledSymbolicProblem(SymbolicProblem) :
         bcs = []
         
         for bc in wrappedProblem.BoundaryConditions :
+
             bcs.append(bc.subs(bcSubsDict))
         self._boundaryConditions = bcs
         
-        self._unIntegratedPathCost = wrappedProblem.UnIntegratedPathCost
+        # should the path cost get scaled?  I think so, but if you know better, or if it doesn't work...
+        self._unIntegratedPathCost = SymbolicProblem.SafeSubs(wrappedProblem.UnIntegratedPathCost, fullSubsDict)
+        # do not scale the cost function! conditions made from the cost get scaled later
         self._terminalCost = wrappedProblem.TerminalCost
         if scaleTime :
             tau = sy.Symbol(r'\tau')
@@ -121,3 +124,27 @@ class ScaledSymbolicProblem(SymbolicProblem) :
         for var in orgVariables :
             baredVariables.append(sy.Function(r'\bar{' + var.name+ '}')(timeSymbol))
         return baredVariables
+
+
+    def ScaleExpressions(self, finalConditions):
+        scaledFinalConditions = []
+        simpleSubsDict={} # for terminal cost
+        counter=0
+        for sv in self.StateVariables :
+            oldSv = self.WrappedProblem.StateVariables[counter]
+            simpleSubsDict[oldSv] = sv*self.ScalingVector[oldSv]
+            simpleSubsDict[oldSv.subs(self.TimeSymbol, self.TimeFinalSymbol)] = sv.subs(self.WrappedProblem.TimeSymbol, self.WrappedProblem.TimeFinalSymbol)*self.ScalingVector[oldSv]
+            counter=counter+1
+
+        for cond in finalConditions :
+            scaledFinalConditions.append(cond.subs(simpleSubsDict))
+        return scaledFinalConditions 
+
+    def TransversalityConditionsByAugmentation(self, lambdas, nus) :
+        finalConditions = self.WrappedProblem.TransversalityConditionsByAugmentation(lambdas, nus)
+        return self.ScaleExpressions(finalConditions)
+    
+    def CreateDifferentialTransversalityConditions(self, hamiltonian, lambdasFinal, dtf) :
+        finalConditions = self.WrappedProblem.CreateDifferentialTransversalityConditions(hamiltonian, lambdasFinal, dtf)
+        return self.ScaleExpressions(finalConditions)
+       
