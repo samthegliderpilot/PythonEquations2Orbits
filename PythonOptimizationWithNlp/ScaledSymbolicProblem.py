@@ -65,23 +65,49 @@ class ScaledSymbolicProblem(SymbolicProblem) :
         # do not scale the cost function! conditions made from the cost get scaled later
         self._terminalCost = wrappedProblem.TerminalCost
         if scaleTime :
+            self._tfOrg=wrappedProblem.TimeFinalSymbol
+            tf = self._tfOrg
             tau = sy.Symbol(r'\tau')
             tauF = sy.Symbol(r'\tau_f')
             tau0 = sy.Symbol(r'\tau_0')
-            timeSubs = {self.TimeInitialSymbol: tau0, wrappedProblem.TimeSymbol: tau, wrappedProblem.TimeFinalSymbol:tauF}
+            timeSubs = {wrappedProblem.TimeInitialSymbol: tau0, wrappedProblem.TimeSymbol: tau, wrappedProblem.TimeFinalSymbol:tauF}
             self._controlVariables = ScaledSymbolicProblem.SafeSubs(self._controlVariables, timeSubs)
             orgSv = self._stateVariables
             self._stateVariables = ScaledSymbolicProblem.SafeSubs(self._stateVariables, timeSubs)
             self._unIntegratedPathCost = ScaledSymbolicProblem.SafeSubs(self._unIntegratedPathCost, timeSubs)
             self._terminalCost = ScaledSymbolicProblem.SafeSubs(self._terminalCost, timeSubs)
             self._boundaryConditions = ScaledSymbolicProblem.SafeSubs(self._boundaryConditions, timeSubs)
+
+            # the correct thing to do is to make your state and control variables functions of time in Sympy
+            # myCv = sy.Function('Control')(t)
+            # BUT, we need to substitute t with tau*tf
+            # BUT, we don't want myCv to be a function of tau*tf, just of tau
+            # I don't know how to make the sympy subs function not go deep like that, so, we substitute these back...
+            toSimple = {}
+            fromSimple = {}
+            correctVariablesSubsDict = {}
+            for sv in self._stateVariables :
+                adjustedSv = sv.subs(tau, self._wrappedProblem.TimeSymbol)
+                toSimple[adjustedSv] = sy.Symbol(sv.name)
+                fromSimple[toSimple[adjustedSv]] = sv
+                #correctVariablesSubsDict[sv.subs(tau, tau*tf)] = sv
+                
+            for cv in self._controlVariables :
+                adjustedCv = cv.subs(tau, self._wrappedProblem.TimeSymbol)
+                toSimple[adjustedCv] = sy.Symbol(cv.name)
+                fromSimple[toSimple[adjustedCv]] = cv
+
+                #correctVariablesSubsDict[cv.subs(tau, tau*tf)] = cv
             realEom = {}
             i = 0
+            timeSubs = { wrappedProblem.TimeSymbol: tau*tf}
             for sv in orgSv :
-                realEom[self._stateVariables[i]] = ScaledSymbolicProblem.SafeSubs(self._equationsOfMotion[sv], timeSubs)*self.TimeFinalSymbol
+                realEom[self._stateVariables[i]] = ScaledSymbolicProblem.SafeSubs(self._equationsOfMotion[sv], toSimple)
+                realEom[self._stateVariables[i]] = ScaledSymbolicProblem.SafeSubs(realEom[self._stateVariables[i]], timeSubs)*wrappedProblem.TimeFinalSymbol
+                realEom[self._stateVariables[i]] = ScaledSymbolicProblem.SafeSubs(realEom[self._stateVariables[i]], fromSimple)
                 i=i+1
             self._equationsOfMotion = realEom
-            self._tfOrg=self.TimeFinalSymbol
+            
             self._timeSymbol = tau 
             self._timeInitialSymbol = tau0
             self._timeFinalSymbol = tauF
@@ -133,7 +159,7 @@ class ScaledSymbolicProblem(SymbolicProblem) :
         for sv in self.StateVariables :
             oldSv = self.WrappedProblem.StateVariables[counter]
             simpleSubsDict[oldSv] = sv*self.ScalingVector[oldSv]
-            simpleSubsDict[oldSv.subs(self.TimeSymbol, self.TimeFinalSymbol)] = sv.subs(self.WrappedProblem.TimeSymbol, self.WrappedProblem.TimeFinalSymbol)*self.ScalingVector[oldSv]
+            simpleSubsDict[oldSv.subs(self.WrappedProblem.TimeSymbol, self.WrappedProblem.TimeFinalSymbol)] = sv.subs(self.TimeSymbol, self.TimeFinalSymbol)*self.ScalingVector[oldSv]
             counter=counter+1
 
         for cond in finalConditions :

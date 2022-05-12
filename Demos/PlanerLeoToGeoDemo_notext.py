@@ -31,7 +31,7 @@ tfVal  = 3600*3.97152*24
 tArray = np.linspace(0, tfVal, 1200)
 
 scale = True
-scaleTime = scale and False
+scaleTime = scale and True
 # your choice of the nu vector here controls which transversality condition we use
 #nus = [sy.Symbol('B_{u_f}'), sy.Symbol('B_{v_f}')]
 nus = []
@@ -55,6 +55,7 @@ baseProblem.RegisterConstantValue(baseProblem.Thrust, thrust)
 if scaleTime:
     tfOrg = tfVal
     tfVal = 1.0
+    tArray = np.linspace(0.0, 1.0, 1200)
 jh.t = problem._timeSymbol
 constantsSubsDict = problem.SubstitutionDictionary
 initialStateValues = baseProblem.CreateVariablesAtTime0()
@@ -78,10 +79,10 @@ if scale :
     constantsSubsDict[initialScaledStateValues[2]] = v0/v0
     constantsSubsDict[initialScaledStateValues[3]] = lon0/1.0
 
-    constantsSubsDict[initialScaledStateValues[0].subs(problem.TimeInitialSymbol, 0.0)] = r0/r0
-    constantsSubsDict[initialScaledStateValues[1].subs(problem.TimeInitialSymbol, 0.0)] = u0/v0
-    constantsSubsDict[initialScaledStateValues[2].subs(problem.TimeInitialSymbol, 0.0)] = v0/v0
-    constantsSubsDict[initialScaledStateValues[3].subs(problem.TimeInitialSymbol, 0.0)] = 0.0
+    # constantsSubsDict[initialScaledStateValues[0].subs(problem.TimeInitialSymbol, 0.0)] = r0/r0
+    # constantsSubsDict[initialScaledStateValues[1].subs(problem.TimeInitialSymbol, 0.0)] = u0/v0
+    # constantsSubsDict[initialScaledStateValues[2].subs(problem.TimeInitialSymbol, 0.0)] = v0/v0
+    # constantsSubsDict[initialScaledStateValues[3].subs(problem.TimeInitialSymbol, 0.0)] = 0.0
 
     constantsSubsDict[baseProblem.StateVariables[0].subs(baseProblem.TimeSymbol,problem.TimeInitialSymbol)] = r0
     constantsSubsDict[baseProblem.StateVariables[1].subs(baseProblem.TimeSymbol, problem.TimeInitialSymbol)] = u0
@@ -102,7 +103,8 @@ lambdas = problem.CreateCoVector(problem.StateVariables, r'\lambda', problem.Tim
 hamiltonian = problem.CreateHamiltonian(lambdas)
 jh.showEquation("H", hamiltonian)
 dHdu = problem.CreateHamiltonianControlExpressions(hamiltonian).doit()[0]
-d2Hdu2 = problem.CreateHamiltonianControlExpressions(dHdu).doit()[0]
+jh.showEquation(dHdu)
+#d2Hdu2 = problem.CreateHamiltonianControlExpressions(dHdu).doit()[0]
 controlSolved = sy.solve(dHdu, problem.ControlVariables[0])[0]
 jh.showEquation(baseProblem.ControlVariables[0], controlSolved)
 
@@ -170,15 +172,41 @@ lmdsF.pop()
 constantsSubsDict[lmdTheta]=0
 constantsSubsDict[lmdTheta.subs(problem.TimeSymbol, problem.TimeFinalSymbol)]=0
 constantsSubsDict[lmdTheta.subs(problem.TimeSymbol, problem.TimeInitialSymbol)]=0
+#%%
 
+from typing import List, Dict
+def CreateSimpleCallbackForOdeInt(timeSymbol, integrationVariableSymbols : List[sy.Expr], equationsOfMotion : Dict[sy.Expr, sy.Expr], substitutionDictionary : Dict[sy.Expr, float], otherArgs: List[sy.Expr]= None) : 
+    valuesArray = [timeSymbol, integrationVariableSymbols]
+    if otherArgs != None :
+        valuesArray.append(otherArgs)
+
+    eomList = []
+    for sv in integrationVariableSymbols :
+        thisEom = equationsOfMotion[sv].subs(substitutionDictionary)        
+        eomList.append(thisEom)   
+        sy.lambdify(valuesArray, thisEom)
+    eomCallback = sy.lambdify(valuesArray, eomList)
+    if otherArgs == None :
+        return lambda y,t : eomCallback(t, y)
+    else :
+        def callbackFunc(y, t, args) :
+            fullState = []
+            fullState.extend(y)
+            if hasattr(args, "__len__") :
+                fullState.extend(args)
+            else:
+                fullState.append([args])
+            return eomCallback(t, y, [args])
+        return callbackFunc
 
 # start the conversion to a numerical answer
 integrationStateVariableArray = []
 integrationStateVariableArray.extend(problem.StateVariables)
 integrationStateVariableArray.extend(lambdas)
+otherArgs = None
 if scaleTime :
-    constantsSubsDict[problem.TimeFinalSymbolOriginal] = tfOrg
-odeIntEomCallback = ScipyCallbackCreators.CreateSimpleCallbackForOdeInt(problem.TimeSymbol, integrationStateVariableArray, finalEquationsOfMotion, constantsSubsDict)
+    otherArgs = [baseProblem.TimeFinalSymbol]
+odeIntEomCallback = CreateSimpleCallbackForOdeInt(problem.TimeSymbol, integrationStateVariableArray, finalEquationsOfMotion, constantsSubsDict, otherArgs)
 
 stateForBoundaryConditions = []
 stateForBoundaryConditions.extend(SymbolicProblem.SafeSubs(integrationStateVariableArray, {problem.TimeSymbol: problem.TimeInitialSymbol}))
@@ -190,12 +218,11 @@ allBcAndTransConditions = []
 allBcAndTransConditions.extend(transversalityCondition)
 allBcAndTransConditions.extend(problem.BoundaryConditions)
 print("here")
-for thing in allBcAndTransConditions :
-    display(thing)
-    display(thing.subs(constantsSubsDict))
+#for thing in allBcAndTransConditions :
+    #display(thing)
+    #display(thing.subs(constantsSubsDict))
 boundaryConditionEvaluationCallbacks = ScipyCallbackCreators.createBoundaryConditionCallback(stateForBoundaryConditions, allBcAndTransConditions, constantsSubsDict)
-if scaleTime :
-    constantsSubsDict[problem.TimeFinalSymbolOriginal] = tfOrg
+
 # run a test solution to get a better guess for the final nu values, this is a good technique, but 
 # it is still a custom-to-this-problem piece of code because it is still initial-guess work
 if len(nus) > 0 :
@@ -218,12 +245,12 @@ def createCallbackForFSolve(initialEomState, timeArray, eomCallback, bcCallback,
     # BUT, I will keep thinking about how best to generalize this.  I keep thinking this ought to be some kind of 
     # helper function, but whenever I try it, I always end up with some overspecialized "helper" function, or 
     # hiding how it comes together (I still want the end user to call fsolve)
-    def callbackForFsolve(costateAndCostateVariableGuesses) :
+    def callbackForFsolve(costateAndCostateVariableGuesses, args) :
         z0 = []
         z0.extend(initialEomState)
         z0.extend(costateAndCostateVariableGuesses[0:includeFSolveStateValuesInEomEquationBeforeThisIndex])
         
-        ans = odeint(eomCallback, z0, timeArray)
+        ans = odeint(eomCallback, z0, timeArray, args=(args,))#TODO: can be null, multiple values...
         finalState = []
         # add initial state
         finalState.extend(ans[0]) # the fact that this function needs to know how to create this overall state for the BC callback...
@@ -239,16 +266,16 @@ def createCallbackForFSolve(initialEomState, timeArray, eomCallback, bcCallback,
 
 
 fSolveCallback = createCallbackForFSolve([r0, u0, v0, lon0], tArray, odeIntEomCallback, boundaryConditionEvaluationCallbacks, len(lambdas))
-fSolveSol = fsolve(fSolveCallback, initialLmdGuesses, epsfcn=0.00001, full_output=True) # just to speed things up and see how the initial one works
-print(fSolveSol)
+fSolveSol = fsolve(fSolveCallback, initialLmdGuesses, epsfcn=0.00001, full_output=True, args=(tfOrg,)) # just to speed things up and see how the initial one works
+#print(fSolveSol)
 # final run with answer
-solution = odeint(odeIntEomCallback, [r0, u0, v0, lon0, *fSolveSol[0][0:3]], tArray)
-#solution = odeint(odeIntEomCallback, [r0, u0, v0, lon0, 26.0, 1.0, 27.0], tArray)
+solution = odeint(odeIntEomCallback, [r0, u0, v0, lon0, *fSolveSol[0][0:3]], tArray, args=(tfOrg,))
+#solution = odeint(odeIntEomCallback, [r0, u0, v0, lon0, 26.0, 1.0, 27.0], tArray, args=(tfOrg,))
 asDict = ScipyCallbackCreators.ConvertOdeIntResultsToDictionary(integrationStateVariableArray, solution)
 if scale :
     asDict = problem.DescaleResults(asDict, constantsSubsDict)
 
-baseProblem.PlotSolution(tArray, asDict, "Test")
+baseProblem.PlotSolution(tArray*tfOrg, asDict, "Test")
 jh.showEquation(baseProblem.StateVariables[0].subs(problem.TimeSymbol, problem.TimeFinalSymbol), asDict[baseProblem.StateVariables[0]][-1])
 jh.showEquation(baseProblem.StateVariables[1].subs(problem.TimeSymbol, problem.TimeFinalSymbol), asDict[baseProblem.StateVariables[1]][-1])
 jh.showEquation(baseProblem.StateVariables[2].subs(problem.TimeSymbol, problem.TimeFinalSymbol), asDict[baseProblem.StateVariables[2]][-1])
