@@ -478,24 +478,32 @@ class SymbolicProblem(ABC) :
 
     def plotHamiltonianProblemsFromSomeSetOfResults(self, lambdas, solution, tArray, hamiltonian, controlSolved) :
         import matplotlib.pyplot as plt
+        from IPython.display import display
         stateForEom = [self.TimeSymbol]
-        stateForEom.append(self.StateVariables)
-        stateForEom.append(lambdas)
+        stateForEom.extend(self.StateVariables)
+        stateForEom.extend(lambdas)
 
         stateForHaml = []
         constantsSubsDict = self.SubstitutionDictionary
         stateForHaml.extend(stateForEom)
         stateForHaml.append(self.TimeSymbol)
         dHdu = self.CreateHamiltonianControlExpressions(hamiltonian).doit()[0]
-        d2Hdu2 = self.CreateHamiltonianControlExpressions(dHdu).doit()[0]
-        hamltEpx = sy.lambdify(stateForEom, hamiltonian.subs(self.ControlVariables[0], controlSolved).trigsimp(deep=True).subs(constantsSubsDict))
-        hamltVals = hamltEpx(tArray, [solution[:,0],solution[:,1],solution[:,2],solution[:,3]],[solution[:,4],solution[:,5],solution[:,6]])
+        #d2Hdu2 = sy.diff(hamiltonian, self.ControlVariables[0], 2)
+        d2Hdu2 =  self.CreateHamiltonianControlExpressions(dHdu).doit()[0]
+        toEval = hamiltonian.subs(self.ControlVariables[0], controlSolved).trigsimp(deep=True).subs(constantsSubsDict)
+        hamltEpx = sy.lambdify(stateForEom, toEval)
+        solArray = []
+        for sv in self.StateVariables :
+            solArray.append(solution[sv])
+        for lmd in lambdas :
+            solArray.append(solution[lmd])
+        hamltVals = hamltEpx(tArray, *solArray)
         dhduExp = sy.lambdify(stateForEom, dHdu.subs(self.ControlVariables[0], controlSolved).trigsimp(deep=True).subs(constantsSubsDict))
-        dhduValus = dhduExp(tArray, [solution[:,0],solution[:,1],solution[:,2],solution[:,3]],[solution[:,4],solution[:,5],solution[:,6]])
-        if float(dhduValus) == 0 :
+        dhduValus = dhduExp(tArray, *solArray)
+        if float(dhduValus) == 0 : #TODO: Tolerance check?
             dhduValus = np.zeros(len(tArray))
         d2hdu2Exp = sy.lambdify(stateForEom, d2Hdu2.subs(self.ControlVariables[0], controlSolved).trigsimp(deep=True).subs(constantsSubsDict))
-        d2hdu2Valus = d2hdu2Exp(tArray, [solution[:,0],solution[:,1],solution[:,2],solution[:,3]],[solution[:,4],solution[:,5],solution[:,6]])
+        d2hdu2Valus = d2hdu2Exp(tArray, *solArray)
         plt.title("Hamlitonion")
         plt.plot(tArray, hamltVals, label="Hamlt")
         plt.plot(tArray, dhduValus, label="dH\du")

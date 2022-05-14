@@ -4,21 +4,37 @@ import sympy as sy
 
 from PythonOptimizationWithNlp.SymbolicOptimizerProblem import SymbolicProblem
 
-def CreateSimpleCallbackForSolveIvp(timeSymbol, integrationVariableSymbols : List[sy.Expr], equationsOfMotion : Dict[sy.Expr, sy.Expr], substitutionDictionary : Dict[sy.Expr, float]) :
-    eomList = []
-    for sv in integrationVariableSymbols :
-        thisEom = equationsOfMotion[sv].subs(substitutionDictionary)
-        eomList.append(thisEom)   
-    eomCallback = sy.lambdify([timeSymbol, integrationVariableSymbols], eomList)
-    return lambda t,y : eomCallback(t, y)
+def CreateSimpleCallbackForSolveIvp(timeSymbol, integrationVariableSymbols : List[sy.Expr], equationsOfMotion : Dict[sy.Expr, sy.Expr], substitutionDictionary : Dict[sy.Expr, float], otherArgs: List[sy.Expr]= None) : 
+    valuesArray = [timeSymbol, integrationVariableSymbols]
+    if otherArgs != None :
+        valuesArray.append(otherArgs)
 
-def CreateSimpleCallbackForOdeInt(timeSymbol, integrationVariableSymbols : List[sy.Expr], equationsOfMotion : Dict[sy.Expr, sy.Expr], substitutionDictionary : Dict[sy.Expr, float]) :
     eomList = []
     for sv in integrationVariableSymbols :
-        thisEom = equationsOfMotion[sv].subs(substitutionDictionary)
+        thisEom = equationsOfMotion[sv].subs(substitutionDictionary)        
         eomList.append(thisEom)   
-    eomCallback = sy.lambdify([timeSymbol, integrationVariableSymbols], eomList)
-    return lambda y,t : eomCallback(t, y)
+        sy.lambdify(valuesArray, thisEom)
+    eomCallback = sy.lambdify(valuesArray, eomList)
+
+    def callbackFunc(t, y, *args) :
+        return eomCallback(t, y, args)
+    return callbackFunc
+
+def CreateSimpleCallbackForOdeInt(timeSymbol, integrationVariableSymbols : List[sy.Expr], equationsOfMotion : Dict[sy.Expr, sy.Expr], substitutionDictionary : Dict[sy.Expr, float], otherArgs: List[sy.Expr]= None) : 
+    valuesArray = [timeSymbol, integrationVariableSymbols]
+    if otherArgs != None :
+        valuesArray.append(otherArgs)
+
+    eomList = []
+    for sv in integrationVariableSymbols :
+        thisEom = equationsOfMotion[sv].subs(substitutionDictionary)        
+        eomList.append(thisEom)   
+        sy.lambdify(valuesArray, thisEom)
+    eomCallback = sy.lambdify(valuesArray, eomList)
+
+    def callbackFunc(y, t, *args) :
+        return eomCallback(t, y, args)
+    return callbackFunc
 
 def createBoundaryConditionCallback(boundaryConditionState, allBcAndTransConditions, constantsSubsDict) :
     bcs = []
