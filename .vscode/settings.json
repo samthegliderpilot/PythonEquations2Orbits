@@ -16,6 +16,7 @@
         "dxdt",
         "GPOPS",
         "interp",
+        "Lambdify",
         "Longuski",
         "pygmo",
         "scipy",

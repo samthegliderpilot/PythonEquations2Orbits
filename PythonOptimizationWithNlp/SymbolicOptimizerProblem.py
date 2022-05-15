@@ -5,6 +5,8 @@ from collections import OrderedDict
 from PythonOptimizationWithNlp.Symbolics.Vectors import Vector
 from abc import abstractmethod, ABC
 import numpy as np
+import matplotlib.pyplot as plt
+
 class SymbolicProblem(ABC) :
     def __init__(self) :
         """Initialize a new instance.
@@ -118,7 +120,17 @@ class SymbolicProblem(ABC) :
         x = self.StateVariablesInMatrixForm()
         return -1*sy.Derivative(hamiltonian, x).doit()
 
-    def TransversalityConditionsByAugmentation(self, lambdas, nus) :
+    def TransversalityConditionsByAugmentation(self, lambdas : List[sy.Expr], nus : List[sy.Symbol]) -> List[sy.Expr]:
+        """Creates the transversality conditions by augmenting the terminal constraints to the terminal cost.
+
+        Args:
+            lambdas (List[sy.Expr]): The costate variables.
+            nus (List[sy.Symbol]): The constant parameters to augment the constraints to the terminal cost with.
+
+        Returns:
+            List[sy.Expr]: The list of the final conditions that need to be solved to 0 for the solution to be optimal.
+        """
+
         termFunc = self.TerminalCost.subs(self.TimeSymbol, self.TimeFinalSymbol) + (Vector.fromArray(nus).transpose()*Vector.fromArray(self.BoundaryConditions))[0,0]
         finalConditions = []
         i=0
@@ -130,7 +142,18 @@ class SymbolicProblem(ABC) :
 
         return finalConditions
 
-    def CreateDifferentialTransversalityConditions(self, hamiltonian, lambdasFinal, dtf) :
+    def TransversalityConditionInTheDifferentialForm(self, hamiltonian : sy.Expr, lambdasFinal : List[sy.Expr], dtf) ->List[sy.Expr]:
+        """Creates the differential form of the transversality condition.
+
+        Args:
+            hamiltonian (sy.Expr): The hamiltonian.
+            lambdasFinal (List[sy.Expr]): The costate variables at the final time.
+            dtf (_type_): If the final time is fixed, then this should be 0.  However, if the final time is not fixed then 
+            this should be a sy.Expr for the final time (it can be as simple as sy.Symbol('dt_f').
+
+        Returns:
+            List[sy.Expr]: The transversality conditions.
+        """
         variationVector = []
         valuesAtEndSymbols = []
         if isinstance(self.TerminalCost, float) :
@@ -202,16 +225,6 @@ class SymbolicProblem(ABC) :
         """
         return self._stateVariables
     
-    # @StateVariables.setter
-    # def set_stateVariable(self, stateVariables : List[sy.Symbol]) :
-    #     """Sets the state variables for this problem.  Note that this will swap out the entire 
-    #     list of variables.  These should by sympy expressions of time if appropriate.
-
-    #     Args:
-    #         stateVariables (List[sy.Symbol]): The new set of state variables
-    #     """
-    #     self._stateVariables = stateVariables
-
     @property
     def ControlVariables(self) -> List[sy.Symbol]:
         """Gets a list of the control variables.  These should be in terms of TimeSymbol. 
@@ -221,16 +234,6 @@ class SymbolicProblem(ABC) :
             List[sy.Symbol]: The list of the control variables.
         """
         return self._controlVariables
-
-    # @ControlVariables.setter
-    # def set_ControlVariables(self, value : List[sy.Symbol]) :
-    #     """Sets the control variables.  This will swap out the entire list of variables.  These 
-    #     should by sympy expressions of time if appropriate.
-
-    #     Args:
-    #         value (List[sy.Symbol]): The new list of control variables.
-    #     """
-    #     self._controlVariables = value
 
     @property
     def CostFunction(self) -> sy.Expr :
@@ -287,15 +290,6 @@ class SymbolicProblem(ABC) :
         """
         return self._equationsOfMotion
     
-    # @EquationsOfMotion.setter
-    # def set_EquationsOfMotion(self, value: Dict[sy.Symbol, sy.Expr]):
-    #     """Sets the entire equations of motion dictionary.
-
-    #     Args:
-    #         value (Dict[sy.Symbol, sy.Expr]): The equations of motion for each of the state variables.
-    #     """
-    #     self._equationsOfMotion = value
-
     @property
     def BoundaryConditions(self) ->List[sy.Eq] :
         """Gets the boundary conditions on the system.  These expressions 
@@ -306,17 +300,6 @@ class SymbolicProblem(ABC) :
             List[sy.Eq]: The boundary conditions. 
         """
         return self._boundaryConditions
-
-    # @BoundaryConditions.setter
-    # def set_BoundaryConditions(self, value :List[sy.Eq]) :
-    #     """Sets the boundary conditions on the system.  These expressions 
-    #     must equal 0 and symbols in them need to be in terms of Time0Symbol 
-    #     or TimeFinalSymbol as appropriate.
-
-    #     Args:
-    #         value (List[sy.Eq]): The boundary conditions.
-    #     """
-    #     self._boundaryConditions = value
 
     @property
     def TimeSymbol(self) -> sy.Expr :
@@ -453,14 +436,35 @@ class SymbolicProblem(ABC) :
             subsDict[lm.subs(self.TimeSymbol, self.TimeInitialSymbol)] = initialValuesArray[i]
             i = i+1
 
-    def CreateVariablesAtTime0(self, listToSubs = None) :
-        if listToSubs == None :
-            listToSubs = self.StateVariables
+    def CreateVariablesAtTime0(self, thingWithSymbols):
+        """Substitutes the problems TimeSymbol and TimeFinalSymbol with the TimeInitialSymbol.
+        This is generally used to change state or control variables from being functions of TimeSymbol 
+        to functions of TimeInitialSymbol.
 
-        return SymbolicProblem.SafeSubs(listToSubs, {self.TimeSymbol: self.TimeInitialSymbol, self.TimeFinalSymbol:self.TimeInitialSymbol})
+        Args:
+            thingWithSymbols: Some set of expressions.
+
+        Returns:
+            same type as list of expressions: The expressions where the time variables has been set to the TimeInitialSymbol.
+        """
+        
+        return SymbolicProblem.SafeSubs(thingWithSymbols, {self.TimeSymbol: self.TimeInitialSymbol, self.TimeFinalSymbol:self.TimeInitialSymbol})
 
     @staticmethod
     def SafeSubs(thingWithSymbols, substitutionDictionary : Dict) :
+        """Safely substitute a dictionary into something with sympy expressions returning 
+        the same type as thingsWithSymbols.
+
+        Args:
+            thingWithSymbols: Either a sympy Expression, or a List of expressions, or a sy.Matrix.  If this is a float, it will be returned
+            substitutionDictionary (Dict): The dictionary of things to substitution into thingWithSymbols
+
+        Raises:
+            Exception: If this function doesn't know how to do the substitution, an exception will be thrown.
+
+        Returns:
+            (same type as thingWithSymbols) : thingWithSymbols substituted with substitutionDictionary
+        """
         if isinstance(thingWithSymbols, float) or isinstance(thingWithSymbols, int) or ((hasattr(thingWithSymbols, "is_Float") and thingWithSymbols.is_Float)):
             return thingWithSymbols # it's float, send it back
 
@@ -476,21 +480,37 @@ class SymbolicProblem(ABC) :
             return tbr
         raise Exception("Don't know how to do the subs")
 
-    def plotHamiltonianProblemsFromSomeSetOfResults(self, lambdas, solution, tArray, hamiltonian, controlSolved) :
-        import matplotlib.pyplot as plt
-        from IPython.display import display
+    def EvaluateHamiltonianAndItsFirstTwoDerivatives(self, lambdas : List[sy.Expr], solution : Dict[sy.Expr, List[float]], tArray: List[float], hamiltonian : sy.Expr, controlSolved :List[sy.Expr], moreSubs :Dict[sy.Expr, float]) ->List[List[float]]:
+        """Evaluates the Hamiltonian and its first 2 derivatives.  This is useful to 
+        see if the related conditions are truly satisfied.
+
+        Args:
+            lambdas (List[sy.Expr]): The costate variables.
+            solution (Dict[sy.Expr, List[float]]): The solution of the optimal control problem.
+            tArray (List[float]): The time coorsiponding to the solution.
+            hamiltonian (sy.Expr): The Hamiltonian expression.
+            controlSolved (List[sy.Expr]): The Hamiltonian is likely in terms of the original control variable instead of the costate values.  If that is the case, this should be the expression of the control variables in terms of the costate variables.
+            moreSubs (Dict[sy.Expr, float]): Any additional values to substitute into the expressions (if the final time was solved for, or if there were other parameters not included in the problems SubstitutionDictionary).
+
+        Returns:
+            List[List[float]]: The values of the Hamiltonian, its first derivative and second derivative for the entered solution.
+        """
+
         stateForEom = [self.TimeSymbol]
         stateForEom.extend(self.StateVariables)
         stateForEom.extend(lambdas)
 
-        stateForHaml = []
         constantsSubsDict = self.SubstitutionDictionary
-        stateForHaml.extend(stateForEom)
-        stateForHaml.append(self.TimeSymbol)
+
         dHdu = self.CreateHamiltonianControlExpressions(hamiltonian).doit()[0]
-        #d2Hdu2 = sy.diff(hamiltonian, self.ControlVariables[0], 2)
-        d2Hdu2 =  self.CreateHamiltonianControlExpressions(dHdu).doit()[0]
-        toEval = hamiltonian.subs(self.ControlVariables[0], controlSolved).trigsimp(deep=True).subs(constantsSubsDict)
+        d2Hdu2 = sy.diff(hamiltonian, self.ControlVariables[0], 2)
+        #d2Hdu2 =  self.CreateHamiltonianControlExpressions(dHdu).doit()[0]
+        controlsSubs = {}
+        i=0
+        for cv in self.ControlVariables  :
+            controlsSubs[cv] = controlSolved[i]
+            i=i+1
+        toEval = hamiltonian.subs(controlsSubs).subs(moreSubs).trigsimp(deep=True).subs(constantsSubsDict)
         hamltEpx = sy.lambdify(stateForEom, toEval)
         solArray = []
         for sv in self.StateVariables :
@@ -498,18 +518,11 @@ class SymbolicProblem(ABC) :
         for lmd in lambdas :
             solArray.append(solution[lmd])
         hamltVals = hamltEpx(tArray, *solArray)
-        dhduExp = sy.lambdify(stateForEom, dHdu.subs(self.ControlVariables[0], controlSolved).trigsimp(deep=True).subs(constantsSubsDict))
+        dhduExp = sy.lambdify(stateForEom, dHdu.subs(controlsSubs).subs(moreSubs).trigsimp(deep=True).subs(constantsSubsDict))
         dhduValus = dhduExp(tArray, *solArray)
-        if float(dhduValus) == 0 : #TODO: Tolerance check?
+        if float(dhduValus) == 0 : 
             dhduValus = np.zeros(len(tArray))
-        d2hdu2Exp = sy.lambdify(stateForEom, d2Hdu2.subs(self.ControlVariables[0], controlSolved).trigsimp(deep=True).subs(constantsSubsDict))
+        d2hdu2Exp = sy.lambdify(stateForEom, d2Hdu2.subs(controlsSubs).subs(moreSubs).trigsimp(deep=True).subs(constantsSubsDict))
         d2hdu2Valus = d2hdu2Exp(tArray, *solArray)
-        plt.title("Hamlitonion")
-        plt.plot(tArray, hamltVals, label="Hamlt")
-        plt.plot(tArray, dhduValus, label="dH\du")
-        plt.plot(tArray, d2hdu2Valus, label="d2H\du2")
-
-        plt.tight_layout()
-        plt.grid(alpha=0.5)
-        plt.legend(framealpha=1, shadow=True)
-        plt.show()        
+        return [hamltVals, dhduValus, d2hdu2Valus]
+     

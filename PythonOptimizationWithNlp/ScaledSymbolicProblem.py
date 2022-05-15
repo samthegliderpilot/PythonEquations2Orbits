@@ -116,7 +116,6 @@ class ScaledSymbolicProblem(SymbolicProblem) :
     def ScaleTime(self) -> bool :
         return self._scaleTime
 
-
     @property
     def ScalingVector(self) -> Dict :
         return self._scalingDict
@@ -124,7 +123,6 @@ class ScaledSymbolicProblem(SymbolicProblem) :
     @property
     def WrappedProblem(self) -> SymbolicProblem :
         return self._wrappedProblem
-
 
     def DescaleResults(self, resultsDictionary : Dict[sy.Symbol, List[float]], subsDict) -> Dict[sy.Symbol, List[float]] :
         returnDict = {}
@@ -151,7 +149,6 @@ class ScaledSymbolicProblem(SymbolicProblem) :
             baredVariables.append(sy.Function(r'\bar{' + var.name+ '}')(timeSymbol))
         return baredVariables
 
-
     def ScaleExpressions(self, finalConditions):
         scaledFinalConditions = []
         simpleSubsDict={} # for terminal cost
@@ -170,7 +167,7 @@ class ScaledSymbolicProblem(SymbolicProblem) :
         finalConditions = self.WrappedProblem.TransversalityConditionsByAugmentation(lambdas, nus)
         return self.ScaleExpressions(finalConditions)
     
-    def CreateDifferentialTransversalityConditions(self, hamiltonian, lambdasFinal, dtf) :
-        finalConditions = self.WrappedProblem.CreateDifferentialTransversalityConditions(hamiltonian, lambdasFinal, dtf)
+    def TransversalityConditionInTheDifferentialForm(self, hamiltonian, lambdasFinal, dtf) :
+        finalConditions = self.WrappedProblem.TransversalityConditionInTheDifferentialForm(hamiltonian, lambdasFinal, dtf)
         return self.ScaleExpressions(finalConditions)
        

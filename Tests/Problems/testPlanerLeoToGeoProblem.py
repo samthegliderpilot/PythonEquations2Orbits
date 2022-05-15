@@ -1,9 +1,10 @@
 import unittest
-from PythonOptimizationWithNlp.Problems.ContinuousThrustCircularOrbitTransferProblem import PlanerLeoToGeoProblem
-
+from PythonOptimizationWithNlp.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
+from PythonOptimizationWithNlp.SymbolicOptimizerProblem import SymbolicProblem
+import sympy as sy
 class testPlanerLeoToGeoProblem(unittest.TestCase) :
     def testInitialization(self) :
-        problem = PlanerLeoToGeoProblem()
+        problem = ContinuousThrustCircularOrbitTransferProblem()
         self.assertEqual(problem.StateVariables[0].subs(problem.TimeSymbol, problem.TimeFinalSymbol), problem.TerminalCost, msg="terminal cost")
         self.assertEqual(4, len(problem.StateVariables), msg="count of state variables")
         self.assertEqual(1, len(problem.ControlVariables), msg="count of control variables")
@@ -14,3 +15,13 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
         # thorough testing of EOM's and Boundary Conditions will be covered with solver/regression tests
         self.assertEqual(4, len(problem.EquationsOfMotion), msg="number of EOM's")
         self.assertEqual(2, len(problem.BoundaryConditions), msg="number of BCs")
+
+    def testDifferentialTransversalityCondition(self) :
+        problem = ContinuousThrustCircularOrbitTransferProblem()
+        lambdas = SymbolicProblem.CreateCoVector(problem.StateVariables, 'L', problem.TimeFinalSymbol)
+        hamiltonian = problem.CreateHamiltonian(lambdas)
+        xversality = problem.TransversalityConditionInTheDifferentialForm(hamiltonian, lambdas, 0.0) # not allowing final time to vary
+
+        zeroedOutCondition =(xversality[0]-(sy.sqrt(problem.Mu)*lambdas[2]/(2*problem.StateVariables[0].subs(problem.TimeSymbol, problem.TimeFinalSymbol)**(3/2)) - lambdas[0] + 1)).expand().simplify()
+        self.assertTrue((zeroedOutCondition).is_zero, msg="first xvers cond")
+        self.assertTrue((xversality[1]+lambdas[-1]).is_zero, msg="lmd theta condition")        

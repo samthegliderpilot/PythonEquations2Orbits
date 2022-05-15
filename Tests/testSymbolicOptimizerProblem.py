@@ -3,7 +3,9 @@ import unittest
 import sympy as sy
 from PythonOptimizationWithNlp.SymbolicOptimizerProblem import SymbolicProblem
 from PythonOptimizationWithNlp.Problems.OneDimensionalMinimalWorkProblem import OneDWorkSymbolicProblem
+from PythonOptimizationWithNlp.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
 from PythonOptimizationWithNlp.Symbolics.Vectors import Vector
+import math
 class testSymbolicOptimizerProblem(unittest.TestCase) :
 
     def testCreateCoVectorFromList(self) :
@@ -51,13 +53,42 @@ class testSymbolicOptimizerProblem(unittest.TestCase) :
         self.assertTrue((expectedLambdaXDot-actualLambdaDots[0,0]).is_zero, msg="lmdXDot")
         self.assertTrue((expectedLambdaVDot-actualLambdaDots[1,0]).is_zero, msg="lmdVDot")
 
-    def testCreatingTransversalityCondition(self) :
-        # this is a pretty sad test, once a more complicated example is available, use it
-        prob = OneDWorkSymbolicProblem()
-        lambdas = SymbolicProblem.CreateCoVector(prob.StateVariables, 'L', prob.TimeSymbol)
-        hamiltonian = prob.CreateHamiltonian(lambdas)
-        xversality = prob.CreateDifferentialTransversalityConditions(hamiltonian, lambdas, 0.0) # not allowing final time to vary
+    def testCreatingDifferentialTransversalityCondition(self) :
+        problem = ContinuousThrustCircularOrbitTransferProblem()
+        lambdas = SymbolicProblem.CreateCoVector(problem.StateVariables, 'L', problem.TimeFinalSymbol)
+        hamiltonian = problem.CreateHamiltonian(lambdas)
+        xversality = problem.TransversalityConditionInTheDifferentialForm(hamiltonian, lambdas, 0.0) # not allowing final time to vary
+
+        zeroedOutCondition =(xversality[0]-(sy.sqrt(problem.Mu)*lambdas[2]/(2*problem.StateVariables[0].subs(problem.TimeSymbol, problem.TimeFinalSymbol)**(3/2)) - lambdas[0] + 1)).expand().simplify()
+        self.assertTrue((zeroedOutCondition).is_zero, msg="first xvers cond")
+        self.assertTrue((xversality[1]+lambdas[-1]).is_zero, msg="lmd theta condition")
+
+    def testCreatingAugmentedTransversalityCondition(self) :
+        problem = ContinuousThrustCircularOrbitTransferProblem()
+        lambdas = SymbolicProblem.CreateCoVector(problem.StateVariables, 'l', problem.TimeFinalSymbol)
+        l_r = lambdas[0]
+        l_u = lambdas[1]
+        l_v = lambdas[2]
+        l_theta = lambdas[3]
+        mu = problem.Mu
+        r = problem.StateVariables[0].subs(problem.TimeSymbol, problem.TimeFinalSymbol)
+        b1=sy.Symbol('b1')
+        b2=sy.Symbol('b2')
+        aug = [b1,b2 ]
+        xversality = problem.TransversalityConditionsByAugmentation(lambdas, aug)
         print(xversality)
+
+        firstZeroExpression = (xversality[0]-(-sy.sqrt(mu)*b2/(2*r**(3/2)) + l_r - 1)).expand().simplify()
+        print(firstZeroExpression)
+        secondsZeroExp = xversality[1]-(-b1 + l_u).expand().simplify()
+        thirdZeroExp = xversality[2]-(-b2 + l_v).expand().simplify()
+        fourthZeroExp = xversality[3]-(l_theta).expand().simplify()
+
+        self.assertTrue(firstZeroExpression.is_zero, msg="first")
+        self.assertTrue(secondsZeroExp.is_zero, msg="second")
+        self.assertTrue(thirdZeroExp.is_zero, msg="third")
+        self.assertTrue(fourthZeroExp.is_zero, msg="fourth")
+
 
     def testCreateEquationOfMotionsAsEquations(self):
         prob = OneDWorkSymbolicProblem()
@@ -116,4 +147,17 @@ class testSymbolicOptimizerProblem(unittest.TestCase) :
         self.assertEqual(initialState[1], subsDict[initialSvs[1]], msg="vx was added")        
         self.assertEqual(initialState[2], subsDict[lambdas[0]], msg="lmd x was added")
         self.assertEqual(initialState[3], subsDict[lambdas[1]], msg="lmd vx was added")        
+
+    def testSafeSubs(self) :
+        a = sy.Symbol('a')
+        b = sy.Symbol('b')
+        b = sy.Symbol('c')
+        expr = a+b
+        expr2 = a*a
+        self.assertEqual(2, SymbolicProblem.SafeSubs(2, {a:b}), msg="int")
+        self.assertEqual(2.0, SymbolicProblem.SafeSubs(2.0, {a:b}), msg="float")
+        self.assertEqual(b, SymbolicProblem.SafeSubs(a, {a:b}), msg="just a symbol")
+        self.assertEqual(2*b, SymbolicProblem.SafeSubs(expr, {a:b}), msg="an expression")
+        self.assertEqual([2*b, b**2], SymbolicProblem.SafeSubs([expr, expr2], {a:b}), msg="list of expressions")
+
 

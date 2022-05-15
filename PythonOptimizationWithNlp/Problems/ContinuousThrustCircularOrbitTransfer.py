@@ -8,7 +8,7 @@ import numpy as np
 from PythonOptimizationWithNlp.Utilities.inherit import inherit_docstrings
 
 @inherit_docstrings
-class PlanerLeoToGeoProblem(SymbolicProblem) :
+class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
     def __init__(self) :
         """Initializes a new instance.
         """

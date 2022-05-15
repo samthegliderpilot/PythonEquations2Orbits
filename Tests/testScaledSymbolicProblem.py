@@ -2,7 +2,7 @@ import unittest
 import sympy as sy
 from PythonOptimizationWithNlp.ScaledSymbolicProblem import ScaledSymbolicProblem
 from PythonOptimizationWithNlp.Problems.OneDimensionalMinimalWorkProblem import OneDWorkSymbolicProblem
-from PythonOptimizationWithNlp.Problems.ContinuousThrustCircularOrbitTransferProblem import PlanerLeoToGeoProblem
+from PythonOptimizationWithNlp.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
 
 class testScaledSymbolicProblem(unittest.TestCase) :
 
@@ -20,7 +20,7 @@ class testScaledSymbolicProblem(unittest.TestCase) :
 
 
     def testScalingComplicatedProblem(self) :
-        baseProblem = PlanerLeoToGeoProblem()
+        baseProblem = ContinuousThrustCircularOrbitTransferProblem()
         newSvs = ScaledSymbolicProblem.CreateBarVariables(baseProblem.StateVariables, baseProblem.TimeSymbol)
         r0=sy.Symbol('r_0')
         u0=sy.Symbol('u_0')
