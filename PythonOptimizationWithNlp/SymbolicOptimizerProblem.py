@@ -480,7 +480,7 @@ class SymbolicProblem(ABC) :
             return tbr
         raise Exception("Don't know how to do the subs")
 
-    def EvaluateHamiltonianAndItsFirstTwoDerivatives(self, lambdas : List[sy.Expr], solution : Dict[sy.Expr, List[float]], tArray: List[float], hamiltonian : sy.Expr, controlSolved :List[sy.Expr], moreSubs :Dict[sy.Expr, float]) ->List[List[float]]:
+    def EvaluateHamiltonianAndItsFirstTwoDerivatives(self, lambdas : List[sy.Expr], solution : Dict[sy.Expr, List[float]], tArray: List[float], hamiltonian : sy.Expr, controlSolved :Dict[sy.Expr, sy.Expr], moreSubs :Dict[sy.Expr, float]) ->List[List[float]]:
         """Evaluates the Hamiltonian and its first 2 derivatives.  This is useful to 
         see if the related conditions are truly satisfied.
 
@@ -489,7 +489,7 @@ class SymbolicProblem(ABC) :
             solution (Dict[sy.Expr, List[float]]): The solution of the optimal control problem.
             tArray (List[float]): The time coorsiponding to the solution.
             hamiltonian (sy.Expr): The Hamiltonian expression.
-            controlSolved (List[sy.Expr]): The Hamiltonian is likely in terms of the original control variable instead of the costate values.  If that is the case, this should be the expression of the control variables in terms of the costate variables.
+            controlSolved ([sy.Expr, sy.Expr]): The Hamiltonian is likely in terms of the original control variable instead of the costate values.  If that is the case, this should be the expression of the control variables in terms of the costate variables.
             moreSubs (Dict[sy.Expr, float]): Any additional values to substitute into the expressions (if the final time was solved for, or if there were other parameters not included in the problems SubstitutionDictionary).
 
         Returns:
@@ -505,24 +505,17 @@ class SymbolicProblem(ABC) :
         dHdu = self.CreateHamiltonianControlExpressions(hamiltonian).doit()[0]
         d2Hdu2 = sy.diff(hamiltonian, self.ControlVariables[0], 2)
         #d2Hdu2 =  self.CreateHamiltonianControlExpressions(dHdu).doit()[0]
-        controlsSubs = {}
-        i=0
-        for cv in self.ControlVariables  :
-            controlsSubs[cv] = controlSolved[i]
-            i=i+1
-        toEval = hamiltonian.subs(controlsSubs).subs(moreSubs).trigsimp(deep=True).subs(constantsSubsDict)
+        toEval = hamiltonian.subs(controlSolved).subs(moreSubs).trigsimp(deep=True).subs(constantsSubsDict)
         hamltEpx = sy.lambdify(stateForEom, toEval)
         solArray = []
         for sv in self.StateVariables :
-            solArray.append(solution[sv])
+            solArray.append(np.array(solution[sv]))
         for lmd in lambdas :
-            solArray.append(solution[lmd])
+            solArray.append(np.array(solution[lmd]))
         hamltVals = hamltEpx(tArray, *solArray)
-        dhduExp = sy.lambdify(stateForEom, dHdu.subs(controlsSubs).subs(moreSubs).trigsimp(deep=True).subs(constantsSubsDict))
-        dhduValus = dhduExp(tArray, *solArray)
-        if float(dhduValus) == 0 : 
-            dhduValus = np.zeros(len(tArray))
-        d2hdu2Exp = sy.lambdify(stateForEom, d2Hdu2.subs(controlsSubs).subs(moreSubs).trigsimp(deep=True).subs(constantsSubsDict))
+        dhduExp = sy.lambdify(stateForEom, dHdu.subs(controlSolved).subs(moreSubs).trigsimp(deep=True).subs(constantsSubsDict))
+        dhduValus = dhduExp(tArray, *solArray)       
+        d2hdu2Exp = sy.lambdify(stateForEom, d2Hdu2.subs(controlSolved).subs(moreSubs).trigsimp(deep=True).subs(constantsSubsDict))
         d2hdu2Valus = d2hdu2Exp(tArray, *solArray)
         return [hamltVals, dhduValus, d2hdu2Valus]
      
