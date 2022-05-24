@@ -60,7 +60,7 @@ def CreateSimpleCallbackForOdeint(timeSymbol : sy.Expr, integrationVariableSymbo
         return eomCallback(t, y, args)
     return callbackFunc
 
-def CreateLambdifiedExpressions(stateExpressionList : List[sy.Expr], expressionsToLambdify : List[sy.Expr], constantsSubstitutionDictionary : Dict[sy.Expr, float]) :
+def CreateLambdifiedExpressions(stateExpressionList : List[sy.Expr], expressionsToLambdify : List[sy.Expr], constantsSubstitutionDictionary : Dict[sy.Expr, float]) ->sy.Expr :
     """ A helper function to create a lambdified callback of some expressions while also substituting in constant values into the expressions. One common problem that 
     might come up is if the constantsSubstitutionDictionary contains an independent variable of one of the symbols in the state (for example, if one of your state 
     variables is x(t) and you put a constant value of t into the constantsSubstitutionDictionary, this turns x(t) into x(2) and things get confusing quickly). Generally

@@ -70,7 +70,7 @@ constantsSubsDict[initialStateValues[3]] = lon0
 
 if scale :
     # we need the initial unscaled values at tau_0 in the substitution dictionary (equations below will 
-    # change t for tau, and we still need the unscaled values to evaluate correctly
+    # change t for tau, and we still need the unscaled values to evaluate correctly)
     constantsSubsDict[baseProblem.StateVariables[0].subs(baseProblem.TimeSymbol, problem.TimeInitialSymbol)] = r0
     constantsSubsDict[baseProblem.StateVariables[1].subs(baseProblem.TimeSymbol, problem.TimeInitialSymbol)] = u0
     constantsSubsDict[baseProblem.StateVariables[2].subs(baseProblem.TimeSymbol, problem.TimeInitialSymbol)] = v0
@@ -197,7 +197,7 @@ if len(nus) > 0 :
     initialFSolveStateGuess[-1] = testSolution[:,6][-1]
 print("here")
 print(initialFSolveStateGuess)
-def createOdeIntSingleShootingCallbackForFSolve(problem : SymbolicProblem, nonLambdaEomStateInitialValues, timeArray, odeIntEomCallback, boundaryConditionExpressions, fSolveParametersToAppendToEom, fSolveOnlyParameters) :
+def createOdeIntSingleShootingCallbackForFSolve(problem : SymbolicProblem, integrationStateVariableArray, nonLambdaEomStateInitialValues, timeArray, odeIntEomCallback, boundaryConditionExpressions, fSolveParametersToAppendToEom, fSolveOnlyParameters) :
     stateForBoundaryConditions = []
     stateForBoundaryConditions.extend(SymbolicProblem.SafeSubs(integrationStateVariableArray, {problem.TimeSymbol: problem.TimeInitialSymbol}))
     stateForBoundaryConditions.extend(SymbolicProblem.SafeSubs(integrationStateVariableArray, {problem.TimeSymbol: problem.TimeFinalSymbol}))
@@ -224,7 +224,7 @@ def createOdeIntSingleShootingCallbackForFSolve(problem : SymbolicProblem, nonLa
         return finalAnswers    
     return callbackForFsolve
 
-fSolveCallback = createOdeIntSingleShootingCallbackForFSolve(problem, [r0, u0, v0, lon0], tArray, odeIntEomCallback, allBcAndTransConditions, lambdas, otherArgs)
+fSolveCallback = createOdeIntSingleShootingCallbackForFSolve(problem, integrationStateVariableArray, [r0, u0, v0, lon0], tArray, odeIntEomCallback, allBcAndTransConditions, lambdas, otherArgs)
 fSolveSol = fsolve(fSolveCallback, initialFSolveStateGuess, epsfcn=0.00001, full_output=True) # just to speed things up and see how the initial one works
 print(fSolveSol)
 # final run with answer
@@ -243,7 +243,7 @@ jh.showEquation(baseProblem.StateVariables[0].subs(problem.TimeSymbol, problem.T
 jh.showEquation(baseProblem.StateVariables[1].subs(problem.TimeSymbol, problem.TimeFinalSymbol), unscaledResults[baseProblem.StateVariables[1]][-1])
 jh.showEquation(baseProblem.StateVariables[2].subs(problem.TimeSymbol, problem.TimeFinalSymbol), unscaledResults[baseProblem.StateVariables[2]][-1])
 jh.showEquation(baseProblem.StateVariables[3].subs(problem.TimeSymbol, problem.TimeFinalSymbol), (unscaledResults[baseProblem.StateVariables[3]][-1]%(2*math.pi))*180.0/(2*math.pi))
-#%%
+
 [hamltVals, dhduValus, d2hdu2Valus] = problem.EvaluateHamiltonianAndItsFirstTwoDerivatives(lambdas, asDict, tArray, hamiltonian, {problem.ControlVariables[0]: controlSolved}, {baseProblem.TimeFinalSymbol: tfOrg})
 plt.title("Hamlitonion and its derivatives")
 plt.plot(tArray/86400, hamltVals, label="Hamiltonian")

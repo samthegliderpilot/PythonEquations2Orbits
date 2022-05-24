@@ -1,6 +1,7 @@
 import sympy as sy
 from typing import TypedDict, List, Dict
 from collections import OrderedDict
+from PythonOptimizationWithNlp.Numerical import ScipyCallbackCreators
 from PythonOptimizationWithNlp.SymbolicOptimizerProblem import SymbolicProblem
 import math
 import matplotlib.pyplot as plt
@@ -138,4 +139,30 @@ class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
         plt.show()
           
 
-
+        @staticmethod
+        def createOdeIntSingleShootingCallbackForFSolve(problem : SymbolicProblem, integrationStateVariableArray, nonLambdaEomStateInitialValues, timeArray, odeIntEomCallback, boundaryConditionExpressions, fSolveParametersToAppendToEom, fSolveOnlyParameters) :
+            stateForBoundaryConditions = []
+            stateForBoundaryConditions.extend(SymbolicProblem.SafeSubs(integrationStateVariableArray, {problem.TimeSymbol: problem.TimeInitialSymbol}))
+            stateForBoundaryConditions.extend(SymbolicProblem.SafeSubs(integrationStateVariableArray, {problem.TimeSymbol: problem.TimeFinalSymbol}))
+            stateForBoundaryConditions.extend(fSolveParametersToAppendToEom)
+            stateForBoundaryConditions.extend(fSolveOnlyParameters)
+            boundaryConditionEvaluationCallbacks = ScipyCallbackCreators.CreateLambdifiedExpressions(stateForBoundaryConditions, boundaryConditionExpressions, problem.SubstitutionDictionary)
+            numberOfLambdasToPassToOdeInt = len(fSolveParametersToAppendToEom)
+            def callbackForFsolve(costateAndCostateVariableGuesses) :
+                z0 = []
+                z0.extend(nonLambdaEomStateInitialValues)
+                z0.extend(costateAndCostateVariableGuesses[0:numberOfLambdasToPassToOdeInt])
+                args = costateAndCostateVariableGuesses[numberOfLambdasToPassToOdeInt:len(costateAndCostateVariableGuesses)]
+                ans = odeint(odeIntEomCallback, z0, timeArray, args=tuple(args))
+                finalState = []
+                # add initial state
+                finalState.extend(ans[0]) # the fact that this function needs to know how to create this overall state for the BC callback...
+                # add final state
+                finalState.extend(ans[-1]) 
+                # add values in fSolve state after what is already there
+                finalState.extend(costateAndCostateVariableGuesses)
+                finalAnswers = []
+                finalAnswers.extend(boundaryConditionEvaluationCallbacks(*finalState))
+            
+                return finalAnswers    
+            return callbackForFsolve

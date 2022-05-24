@@ -514,7 +514,10 @@ class SymbolicProblem(ABC) :
             solArray.append(np.array(solution[lmd]))
         hamltVals = hamltEpx(tArray, *solArray)
         dhduExp = sy.lambdify(stateForEom, dHdu.subs(controlSolved).subs(moreSubs).trigsimp(deep=True).subs(constantsSubsDict))
+        
         dhduValus = dhduExp(tArray, *solArray)       
+        if not hasattr(dhduValus, "__len__") or len(dhduValus) != len(hamltVals) :
+            dhduValus = [dhduValus] * len(hamltVals)
         d2hdu2Exp = sy.lambdify(stateForEom, d2Hdu2.subs(controlSolved).subs(moreSubs).trigsimp(deep=True).subs(constantsSubsDict))
         d2hdu2Valus = d2hdu2Exp(tArray, *solArray)
         return [hamltVals, dhduValus, d2hdu2Valus]

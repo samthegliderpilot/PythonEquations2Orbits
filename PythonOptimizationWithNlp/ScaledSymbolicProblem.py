@@ -6,9 +6,12 @@ import numpy as np
 from PythonOptimizationWithNlp.Symbolics.Vectors import Vector
 from PythonOptimizationWithNlp.Utilities.inherit import inherit_docstrings
 
-@inherit_docstrings
+"""A Symbolic problem that has scaling factors over another problem.  Those 
+factors can be constants, or symbols themselves that are in the substitution 
+dictionary that get used by various solvers.
+"""
 class ScaledSymbolicProblem(SymbolicProblem) :
-    def __init__(self, wrappedProblem : SymbolicProblem, newStateVariableSymbols, valuesToDivideStateVariablesWith : Dict, scaleTime : bool) :        
+    def __init__(self, wrappedProblem : SymbolicProblem, newStateVariableSymbols : Dict, valuesToDivideStateVariablesWith : Dict, scaleTime : bool) :        
         self._wrappedProblem = wrappedProblem
 
         self._timeFinalSymbol = wrappedProblem.TimeFinalSymbol
@@ -85,19 +88,17 @@ class ScaledSymbolicProblem(SymbolicProblem) :
             # I don't know how to make the sympy subs function not go deep like that, so, we substitute these back...
             toSimple = {}
             fromSimple = {}
-            correctVariablesSubsDict = {}
             for sv in self._stateVariables :
                 adjustedSv = sv.subs(tau, self._wrappedProblem.TimeSymbol)
                 toSimple[adjustedSv] = sy.Symbol(sv.name)
                 fromSimple[toSimple[adjustedSv]] = sv
-                #correctVariablesSubsDict[sv.subs(tau, tau*tf)] = sv
+
                 
             for cv in self._controlVariables :
                 adjustedCv = cv.subs(tau, self._wrappedProblem.TimeSymbol)
                 toSimple[adjustedCv] = sy.Symbol(cv.name)
                 fromSimple[toSimple[adjustedCv]] = cv
-
-                #correctVariablesSubsDict[cv.subs(tau, tau*tf)] = cv
+                
             realEom = {}
             i = 0
             timeSubs = { wrappedProblem.TimeSymbol: tau*tf}
@@ -124,7 +125,7 @@ class ScaledSymbolicProblem(SymbolicProblem) :
     def WrappedProblem(self) -> SymbolicProblem :
         return self._wrappedProblem
 
-    def DescaleResults(self, resultsDictionary : Dict[sy.Symbol, List[float]], subsDict) -> Dict[sy.Symbol, List[float]] :
+    def DescaleResults(self, resultsDictionary : Dict[sy.Symbol, List[float]], subsDict : Dict[sy.Symbol, float]) -> Dict[sy.Symbol, List[float]] :
         returnDict = {}
         counter = 0
         for key, value in resultsDictionary.items() :
@@ -139,7 +140,7 @@ class ScaledSymbolicProblem(SymbolicProblem) :
         return returnDict
     
     @property
-    def TimeFinalSymbolOriginal(self)-> sy.Symbol:
+    def w(self)-> sy.Symbol:
         return self._tfOrg
 
     @staticmethod

@@ -1,6 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import List, Dict, Callable
+from typing import List, Dict
 from matplotlib.figure import Figure
 
 class NumericalOptimizerProblemBase(ABC) :
@@ -25,7 +25,7 @@ class NumericalOptimizerProblemBase(ABC) :
     
     @property
     def NumberOfStateVariables(self) ->int :
-        """Returns the number of state variables.  This is the count BEFORE transcription.
+        """Returns the number of state variables.  
         
         Returns:
             int: The number of state variables.
@@ -34,7 +34,7 @@ class NumericalOptimizerProblemBase(ABC) :
 
     @property
     def NumberOfControlVariables(self) ->int :
-        """Returns the number of control variables.  This is the count BEFORE transcription.
+        """Returns the number of control variables.  
         
         Returns:
             int: The number of control variables.
