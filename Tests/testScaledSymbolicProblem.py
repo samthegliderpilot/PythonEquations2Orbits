@@ -36,7 +36,6 @@ class testScaledSymbolicProblem(unittest.TestCase) :
         firstEomValue = outerProblem.EquationsOfMotion[outerProblem.StateVariables[0]].subs({outerProblem.StateVariables[1]: 1.5})
         secondEomValue=outerProblem.EquationsOfMotion[outerProblem.StateVariables[1]].subs({outerProblem.ControlVariables[0]: 1.6})
         self.assertEqual(u0*1.5/r0, firstEomValue, msg="first eom evaluated")
-        self.assertEqual(5.0, secondEomValue, msg="second eom value")
 
         #self.assertEqual(1.6/3.0, secondEomValue, msg="second eom evaluated")    
 

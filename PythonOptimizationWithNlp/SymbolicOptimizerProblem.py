@@ -21,6 +21,8 @@ class SymbolicProblem(ABC) :
         self._timeInitialSymbol = None
         self._timeFinalSymbol= None
         self._substitutionDictionary = {}
+        self._integrationSymbols= []
+        self._costateSymbols = []
 
     def RegisterConstantValue(self, symbol :sy.Expr, value : float) :
         """Registers a constant into the instance's substitution dictionary.
@@ -135,6 +137,8 @@ class SymbolicProblem(ABC) :
         finalConditions = []
         i=0
         for x in self.StateVariables :
+            if i >= len(lambdas) :
+                break
             xf = x.subs(self.TimeSymbol, self.TimeFinalSymbol)
             cond = termFunc.diff(xf)
             finalConditions.append(lambdas[i]-cond)
@@ -175,7 +179,9 @@ class SymbolicProblem(ABC) :
         # for a well posed problem will give us several equations we can use as additional BC's when 
         # we build the entire transversality condition equation and solve for coefficients to be 0
         finalSvs = self.SafeSubs(self.StateVariables, {self.TimeSymbol: self.TimeFinalSymbol})
-        for sv in finalSvs :       
+        for sv in finalSvs :     
+            if sv in lambdasFinal :
+                continue  
             dxfdtf = sy.diff(sv, self.TimeFinalSymbol).doit() 
             notFixed = True # by default we should assume that state variables are not fixed
             for bc in self.BoundaryConditions :
@@ -365,6 +371,18 @@ class SymbolicProblem(ABC) :
         """
         self._timeFinalSymbol = value
 
+    @property
+    def IntegrationSymbols(self) :
+        return self._integrationSymbols
+
+    @property
+    def CostateSymbols(self) :
+        return self._costateSymbols
+
+    @property
+    def Lambdas(self) :
+        return self.CostateSymbols
+
     def CreateEquationOfMotionsAsEquations(self) -> List[sy.Expr] :
         """Converts the equations of motion dictionary into a list in the order of the state variables.
 
@@ -465,6 +483,11 @@ class SymbolicProblem(ABC) :
         Returns:
             (same type as thingWithSymbols) : thingWithSymbols substituted with substitutionDictionary
         """
+        if isinstance(thingWithSymbols, Dict) :
+            for (k,v) in thingWithSymbols.items() :
+                thingWithSymbols[k] = SymbolicProblem.SafeSubs(v, substitutionDictionary)
+            return
+
         if isinstance(thingWithSymbols, float) or isinstance(thingWithSymbols, int) or ((hasattr(thingWithSymbols, "is_Float") and thingWithSymbols.is_Float)):
             return thingWithSymbols # it's float, send it back
 
@@ -480,12 +503,14 @@ class SymbolicProblem(ABC) :
             return tbr
         raise Exception("Don't know how to do the subs")
 
-    def EvaluateHamiltonianAndItsFirstTwoDerivatives(self, lambdas : List[sy.Expr], solution : Dict[sy.Expr, List[float]], tArray: List[float], hamiltonian : sy.Expr, controlSolved :Dict[sy.Expr, sy.Expr], moreSubs :Dict[sy.Expr, float]) ->List[List[float]]:
+    def DescaleResults(self, resultsDictionary : Dict[sy.Symbol, List[float]], subsDict : Dict[sy.Symbol, float]) -> Dict[sy.Symbol, List[float]] :
+        return resultsDictionary
+
+    def EvaluateHamiltonianAndItsFirstTwoDerivatives(self, solution : Dict[sy.Expr, List[float]], tArray: List[float], hamiltonian : sy.Expr, controlSolved :Dict[sy.Expr, sy.Expr], moreSubs :Dict[sy.Expr, float]) ->List[List[float]]:
         """Evaluates the Hamiltonian and its first 2 derivatives.  This is useful to 
         see if the related conditions are truly satisfied.
 
         Args:
-            lambdas (List[sy.Expr]): The costate variables.
             solution (Dict[sy.Expr, List[float]]): The solution of the optimal control problem.
             tArray (List[float]): The time coorsiponding to the solution.
             hamiltonian (sy.Expr): The Hamiltonian expression.
@@ -496,9 +521,7 @@ class SymbolicProblem(ABC) :
             List[List[float]]: The values of the Hamiltonian, its first derivative and second derivative for the entered solution.
         """
 
-        stateForEom = [self.TimeSymbol]
-        stateForEom.extend(self.StateVariables)
-        stateForEom.extend(lambdas)
+        stateForEom = [self.TimeSymbol, *self.IntegrationSymbols]
 
         constantsSubsDict = self.SubstitutionDictionary
 
@@ -508,10 +531,9 @@ class SymbolicProblem(ABC) :
         toEval = hamiltonian.subs(controlSolved).subs(moreSubs).trigsimp(deep=True).subs(constantsSubsDict)
         hamltEpx = sy.lambdify(stateForEom, toEval)
         solArray = []
-        for sv in self.StateVariables :
+        for sv in self.IntegrationSymbols :
             solArray.append(np.array(solution[sv]))
-        for lmd in lambdas :
-            solArray.append(np.array(solution[lmd]))
+
         hamltVals = hamltEpx(tArray, *solArray)
         dhduExp = sy.lambdify(stateForEom, dHdu.subs(controlSolved).subs(moreSubs).trigsimp(deep=True).subs(constantsSubsDict))
         

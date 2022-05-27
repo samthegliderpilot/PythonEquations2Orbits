@@ -96,3 +96,38 @@ def ConvertOdeIntResultsToDictionary(odeintSymbolicState : List[sy.Expr], odeint
         asDict[sv] = odeintResults[:,i]
         i=i+1
     return asDict
+
+def ConvertSolveIvptResultsToDictionary(integrationState : List[sy.Expr], solveIvpResults) ->Dict[sy.Expr, List[float]]:
+    """Converts the results from an odeint call into a dictionary mapping the symbolic expressions to lists of floats.
+
+    Args:
+        integrationState (List[sy.Expr]): The symbolic state expressions of the independent variables that were integrated
+        solveIvpResults: The results from the solve_ivp call (the whole object).
+
+    Returns:
+        Dict[sy.Expr, List[float]]: The mapping of the symbolic state variables to the list of the results for that variable.
+    """
+    asDict = OrderedDict()
+    i = 0
+    for sv in range(0,len(integrationState)) :
+        asDict[integrationState[sv]] = solveIvpResults.y[i]
+        i=i+1
+    return asDict
+
+def ConvertEitherIntegratorResultsToDictionary(integrationState : List[sy.Expr], integratorResults) ->Dict[sy.Expr, List[float]]:
+    if hasattr(integratorResults, "y") :
+        return ConvertSolveIvptResultsToDictionary(integrationState, integratorResults)
+    else :
+        return ConvertOdeIntResultsToDictionary(integrationState, integratorResults)
+
+def GetInitialStateFromIntegratorResults(integratorResults) -> List[float] :
+    if hasattr(integratorResults, "y") :
+        return [y[0] for y in integratorResults.y]
+    else :
+        integratorResults[0]
+
+def GetFinalStateFromIntegratorResults(integratorResults) -> List[float] :
+    if hasattr(integratorResults, "y") :
+        return [y[-1] for y in integratorResults.y]
+    else :
+        integratorResults[-1]        

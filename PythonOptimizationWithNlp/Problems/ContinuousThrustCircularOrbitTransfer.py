@@ -137,32 +137,34 @@ class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
 
         plt.plot(tUnscaled/86400, np.arctan2(solsLists[5], solsLists[6])*180.0/math.pi)
         plt.show()
-          
 
-        @staticmethod
-        def createOdeIntSingleShootingCallbackForFSolve(problem : SymbolicProblem, integrationStateVariableArray, nonLambdaEomStateInitialValues, timeArray, odeIntEomCallback, boundaryConditionExpressions, fSolveParametersToAppendToEom, fSolveOnlyParameters) :
-            stateForBoundaryConditions = []
-            stateForBoundaryConditions.extend(SymbolicProblem.SafeSubs(integrationStateVariableArray, {problem.TimeSymbol: problem.TimeInitialSymbol}))
-            stateForBoundaryConditions.extend(SymbolicProblem.SafeSubs(integrationStateVariableArray, {problem.TimeSymbol: problem.TimeFinalSymbol}))
-            stateForBoundaryConditions.extend(fSolveParametersToAppendToEom)
-            stateForBoundaryConditions.extend(fSolveOnlyParameters)
-            boundaryConditionEvaluationCallbacks = ScipyCallbackCreators.CreateLambdifiedExpressions(stateForBoundaryConditions, boundaryConditionExpressions, problem.SubstitutionDictionary)
-            numberOfLambdasToPassToOdeInt = len(fSolveParametersToAppendToEom)
-            def callbackForFsolve(costateAndCostateVariableGuesses) :
-                z0 = []
-                z0.extend(nonLambdaEomStateInitialValues)
-                z0.extend(costateAndCostateVariableGuesses[0:numberOfLambdasToPassToOdeInt])
-                args = costateAndCostateVariableGuesses[numberOfLambdasToPassToOdeInt:len(costateAndCostateVariableGuesses)]
-                ans = odeint(odeIntEomCallback, z0, timeArray, args=tuple(args))
-                finalState = []
-                # add initial state
-                finalState.extend(ans[0]) # the fact that this function needs to know how to create this overall state for the BC callback...
-                # add final state
-                finalState.extend(ans[-1]) 
-                # add values in fSolve state after what is already there
-                finalState.extend(costateAndCostateVariableGuesses)
-                finalAnswers = []
-                finalAnswers.extend(boundaryConditionEvaluationCallbacks(*finalState))
-            
-                return finalAnswers    
-            return callbackForFsolve
+    @staticmethod
+    def CreateInitialLambdaGuessForLeoToGeo(problem : SymbolicProblem, controlSolved : sy.Expr) :
+        # creating the initial values is unique to each problem, it is luck that 
+        # my intuition pays off and we find a solution later
+        # We want initial alpha to be 0 (or really close to it) per intuition
+        # We can choose lmdv and solve for lmdu.  Start with lmdv to be 1
+        # solve for lmdu with those assumptions        
+        lmdsAtT0 = problem.CreateVariablesAtTime0(problem.CostateSymbols)    
+        constantsForLmdGuesses = problem.SubstitutionDictionary.copy()
+        constantsForLmdGuesses[lmdsAtT0[2]] = 1.0 
+
+        controlAtT0 = problem.CreateVariablesAtTime0(controlSolved)
+        sinOfControlAtT0 = sy.sin(controlAtT0).trigsimp(deep=True).expand().simplify()
+        alphEq = sinOfControlAtT0.subs(lmdsAtT0[2], constantsForLmdGuesses[lmdsAtT0[2]])
+        ans1 = sy.solveset(sy.Eq(0.00,alphEq), lmdsAtT0[1])
+        # doesn't like 0, so let's make it small
+        ans1 = sy.solveset(sy.Eq(0.0001,alphEq), lmdsAtT0[1])
+
+        for thing in ans1 :
+            ansForLmdu = thing
+        constantsForLmdGuesses[lmdsAtT0[1]] = float(ansForLmdu)
+
+        # if we assume that we always want to keep alpha small (0), we can solve dlmd_u/dt=0 for lmdr_0
+        lmdUDotAtT0 = problem.CreateVariablesAtTime0(problem.EquationsOfMotion[problem.CostateSymbols[1]])
+        lmdUDotAtT0 = lmdUDotAtT0.subs(constantsForLmdGuesses)
+        inter=sy.solve(sy.Eq(lmdUDotAtT0, 0), lmdsAtT0[0])
+        lambdaR0Value = float(inter[0].subs(constantsForLmdGuesses)) # we know there is just 1
+        constantsForLmdGuesses[lmdsAtT0[0]] = lambdaR0Value # later on, arrays will care that this MUST be a float
+        initialFSolveStateGuess = [lambdaR0Value, float(ansForLmdu), 1.0]
+        return initialFSolveStateGuess        

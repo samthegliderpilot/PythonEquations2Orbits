@@ -162,15 +162,17 @@ class testSymbolicOptimizerProblem(unittest.TestCase) :
 
     def testEvaluateHamiltonianAndItsFirstTwoDerivatives(self) :
         problem = ContinuousThrustCircularOrbitTransferProblem()
-        lambdas = SymbolicProblem.CreateCoVector(problem.StateVariables, 'l', problem.TimeSymbol)
+        problem.Lambdas.extend(SymbolicProblem.CreateCoVector(problem.StateVariables, 'l', problem.TimeSymbol))
+        problem.IntegrationSymbols.extend(problem.StateVariables)
+        problem.IntegrationSymbols.extend(problem.Lambdas)
         a = sy.Symbol('a')
         fakeHamiltonian = 3.0*sy.cos(problem.ControlVariables[0] * problem.StateVariables[0]*2.0*a)
         answer = {problem.StateVariables[0] : [0.0, math.pi/8.0], problem.StateVariables[1] : [0.0, 0.0], problem.StateVariables[2] : [0.0, 0.0], problem.StateVariables[3] : [0.0, 0.0] }
-        answer[lambdas[0]] = [1.0, 1.0]
-        answer[lambdas[1]] = [0.0, 0.0]
-        answer[lambdas[2]] = [0.0, 0.0]
-        answer[lambdas[3]] = [0.0, 0.0]
-        [h, dh, ddh] = problem.EvaluateHamiltonianAndItsFirstTwoDerivatives(lambdas, answer, [0.0, 1.0], fakeHamiltonian, {problem.ControlVariables[0]: (lambdas[0]+lambdas[1])}, {a: 2.0})
+        answer[problem.Lambdas[0]] = [1.0, 1.0]
+        answer[problem.Lambdas[1]] = [0.0, 0.0]
+        answer[problem.Lambdas[2]] = [0.0, 0.0]
+        answer[problem.Lambdas[3]] = [0.0, 0.0]
+        [h, dh, ddh] = problem.EvaluateHamiltonianAndItsFirstTwoDerivatives(answer, [0.0, 1.0], fakeHamiltonian, {problem.ControlVariables[0]: (problem.Lambdas[0]+problem.Lambdas[1])}, {a: 2.0})
         self.assertAlmostEqual(3.0, h[0], places=10,msg="h0")
         self.assertAlmostEqual(0.0, h[1], places=10, msg="h1")
         self.assertAlmostEqual(0.0, dh[0], places=10,msg="dh0")        

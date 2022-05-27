@@ -12,6 +12,7 @@ dictionary that get used by various solvers.
 """
 class ScaledSymbolicProblem(SymbolicProblem) :
     def __init__(self, wrappedProblem : SymbolicProblem, newStateVariableSymbols : Dict, valuesToDivideStateVariablesWith : Dict, scaleTime : bool) :        
+        super().__init__()
         self._wrappedProblem = wrappedProblem
 
         self._timeFinalSymbol = wrappedProblem.TimeFinalSymbol
@@ -130,7 +131,7 @@ class ScaledSymbolicProblem(SymbolicProblem) :
         counter = 0
         for key, value in resultsDictionary.items() :
             sv = key
-            if sv in self.StateVariables:
+            if sv in self.StateVariables and counter < len(self.WrappedProblem.StateVariables):
                 originalSv = self.WrappedProblem.StateVariables[self.StateVariables.index(sv)]
                 convertedArray = np.array(value, copy=True)* SymbolicProblem.SafeSubs(self.ScalingVector[originalSv], subsDict)
                 returnDict[originalSv] = convertedArray
@@ -154,8 +155,9 @@ class ScaledSymbolicProblem(SymbolicProblem) :
         scaledFinalConditions = []
         simpleSubsDict={} # for terminal cost
         counter=0
-        for sv in self.StateVariables :
-            oldSv = self.WrappedProblem.StateVariables[counter]
+        for sv in self.WrappedProblem.StateVariables :
+            oldSv = sv
+            sv = self.StateVariables[counter]
             simpleSubsDict[oldSv] = sv*self.ScalingVector[oldSv]
             simpleSubsDict[oldSv.subs(self.WrappedProblem.TimeSymbol, self.WrappedProblem.TimeFinalSymbol)] = sv.subs(self.TimeSymbol, self.TimeFinalSymbol)*self.ScalingVector[oldSv]
             counter=counter+1
