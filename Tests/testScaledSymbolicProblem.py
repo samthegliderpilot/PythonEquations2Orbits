@@ -4,6 +4,9 @@ from PythonOptimizationWithNlp.ScaledSymbolicProblem import ScaledSymbolicProble
 from PythonOptimizationWithNlp.ScaledSymbolicProblem import SymbolicProblem
 from PythonOptimizationWithNlp.Problems.OneDimensionalMinimalWorkProblem import OneDWorkSymbolicProblem
 from PythonOptimizationWithNlp.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
+from Tests.Problems.testPlanerLeoToGeoProblem import testPlanerLeoToGeoProblem
+from scipy.integrate import solve_ivp
+from PythonOptimizationWithNlp.Numerical import ScipyCallbackCreators
 
 class testScaledSymbolicProblem(unittest.TestCase) :
 
@@ -38,7 +41,6 @@ class testScaledSymbolicProblem(unittest.TestCase) :
         self.assertEqual(u0*1.5/r0, firstEomValue, msg="first eom evaluated")
 
         #self.assertEqual(1.6/3.0, secondEomValue, msg="second eom evaluated")    
-
 
     def testCreatingDifferentialTransversalityCondition(self) :
         orgProblem = ContinuousThrustCircularOrbitTransferProblem()
@@ -87,3 +89,65 @@ class testScaledSymbolicProblem(unittest.TestCase) :
         self.assertTrue(secondsZeroExp.is_zero, msg="second")
         self.assertTrue(thirdZeroExp.is_zero, msg="third")
         self.assertTrue(fourthZeroExp.is_zero, msg="fourth")
+
+
+    # Regression tests for the scaled problem (for the circle to circle orbit transfer)
+    # Ideally I would make more unit tests, but this will catch when thing break
+    def testScaledStateRegression(self) :
+        (odeSolveIvpCb, fSolveCb, tArray, z0) = testPlanerLeoToGeoProblem.CreateEvaluatableCallbacks(True, False, True)
+        knownAnswer = [14.95703946,  0.84256983, 15.60187053]
+        answer = fSolveCb(knownAnswer)
+        print(z0)
+        i=0
+        for val in answer :
+            self.assertTrue(abs(val) < 0.2, msg=str(i)+"'th value in fsolve answer")
+            i=i+1
+        odeAns = solve_ivp(odeSolveIvpCb, [tArray[0], tArray[-1]], [*z0, *knownAnswer], args=tuple(), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)  
+        finalState = ScipyCallbackCreators.GetFinalStateFromIntegratorResults(odeAns)
+        self.assertAlmostEqual(finalState[0], 6.31357956984563, 1, msg="radius check")
+        self.assertAlmostEqual(finalState[1], 0.000, 2, msg="u check")
+        self.assertAlmostEqual(finalState[2], 0.397980812304531, 1, msg="v check")
+
+    def testScaldStateWithAjoinedTransversalityRegression(self) :
+        (odeSolveIvpCb, fSolveCb, tArray, z0) = testPlanerLeoToGeoProblem.CreateEvaluatableCallbacks(True, False, False)
+        knownAnswer = [14.95703446,  0.84256877, 15.60186291, -7.43265181, 13.6499807]
+        answer = fSolveCb(knownAnswer)
+        i=0
+        for val in answer :
+            self.assertTrue(abs(val) < 0.2, msg=str(i)+"'th value in fsolve answer")
+            i=i+1
+        odeAns = solve_ivp(odeSolveIvpCb, [tArray[0], tArray[-1]], [*z0, *knownAnswer[0:3]], args=tuple(knownAnswer[3:]), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)  
+        finalState = ScipyCallbackCreators.GetFinalStateFromIntegratorResults(odeAns)
+        self.assertAlmostEqual(finalState[0], 6.31357956984563, 1, msg="radius check")
+        self.assertAlmostEqual(finalState[1], 0.000, 2, msg="u check")
+        self.assertAlmostEqual(finalState[2], 0.397980812304531, 1, msg="v check")        
+
+    def testScaledStateAndTimeRegression(self) :
+        (odeSolveIvpCb, fSolveCb, tArray, z0) = testPlanerLeoToGeoProblem.CreateEvaluatableCallbacks(True, True, True)
+        knownAnswer = [1.49570410e+01, 8.42574567e-01, 1.56018729e+01, 3.43139328e+05]
+        answer = fSolveCb(knownAnswer)
+        print(z0)
+        i=0
+        for val in answer :
+            self.assertTrue(abs(val) < 0.2, msg=str(i)+"'th value in fsolve answer")
+            i=i+1
+        odeAns = solve_ivp(odeSolveIvpCb, [tArray[0], tArray[-1]], [*z0, *knownAnswer[0:3]], args=tuple(knownAnswer[3:]), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)  
+        finalState = ScipyCallbackCreators.GetFinalStateFromIntegratorResults(odeAns)
+        self.assertAlmostEqual(finalState[0], 6.31357956984563, 1, msg="radius check")
+        self.assertAlmostEqual(finalState[1], 0.000, 2, msg="u check")
+        self.assertAlmostEqual(finalState[2], 0.397980812304531, 1, msg="v check")        
+
+    def testScaledStateAndTimeAndAjoinedTransversalityRegression(self) :
+        (odeSolveIvpCb, fSolveCb, tArray, z0) = testPlanerLeoToGeoProblem.CreateEvaluatableCallbacks(True, True, False)
+        knownAnswer = [1.49570364e+01,  8.42572232e-01,  1.56018680e+01,  3.43139328e+05, -7.43267414e+00,  1.36499856e+01]
+        answer = fSolveCb(knownAnswer)
+        print(z0)
+        i=0
+        for val in answer :
+            self.assertTrue(abs(val) < 0.2, msg=str(i)+"'th value in fsolve answer")
+            i=i+1
+        odeAns = solve_ivp(odeSolveIvpCb, [tArray[0], tArray[-1]], [*z0, *knownAnswer[0:3]], args=tuple(knownAnswer[3:]), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)  
+        finalState = ScipyCallbackCreators.GetFinalStateFromIntegratorResults(odeAns)
+        self.assertAlmostEqual(finalState[0], 6.31357956984563, 1, msg="radius check")
+        self.assertAlmostEqual(finalState[1], 0.000, 2, msg="u check")
+        self.assertAlmostEqual(finalState[2], 0.397980812304531, 1, msg="v check")            

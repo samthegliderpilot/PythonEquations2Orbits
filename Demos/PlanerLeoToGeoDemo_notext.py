@@ -148,7 +148,7 @@ if len(nus) > 0 :
         argsForOde.append(tfOrg)
     argsForOde.append(initialFSolveStateGuess[1])
     argsForOde.append(initialFSolveStateGuess[2])  
-    testSolution = solve_ivp(odeIntEomCallback, [tArray[0], tArray[-1]], [r0, u0, v0, lon0, *initialFSolveStateGuess[0:3]], args=tuple(argsForOde), t_eval=tArray, dense_output=True, method="LSODA")  
+    testSolution = solve_ivp(odeIntEomCallback, [tArray[0], tArray[-1]], [r0, u0, v0, lon0, *initialFSolveStateGuess[0:3]], args=tuple(argsForOde), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)  
     #testSolution = odeint(odeIntEomCallback, [r0, u0, v0, lon0, *initialFSolveStateGuess[0:3]], tArray, args=tuple(argsForOde))
     finalValues = ScipyCallbackCreators.GetFinalStateFromIntegratorResults(testSolution)
     initialFSolveStateGuess[-2] = finalValues[5]
@@ -170,7 +170,7 @@ def createSolveIvpSingleShootingCallbackForFSolve(problem : SymbolicProblem, int
         z0.extend(costateAndCostateVariableGuesses[0:numberOfLambdasToPassToOdeInt])
         args = costateAndCostateVariableGuesses[numberOfLambdasToPassToOdeInt:len(costateAndCostateVariableGuesses)]
         #ans = odeint(odeIntEomCallback, z0, tArray, args=tuple(args))
-        ans = solve_ivp(odeIntEomCallback, [timeArray[0], timeArray[-1]], z0, args=tuple(args), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-8)
+        ans = solve_ivp(odeIntEomCallback, [timeArray[0], timeArray[-1]], z0, args=tuple(args), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
         finalState = []
         finalState.extend(ScipyCallbackCreators.GetInitialStateFromIntegratorResults(ans))
         finalState.extend(ScipyCallbackCreators.GetFinalStateFromIntegratorResults(ans))
@@ -183,7 +183,7 @@ def createSolveIvpSingleShootingCallbackForFSolve(problem : SymbolicProblem, int
     return callbackForFsolve        
 
 fSolveCallback = createSolveIvpSingleShootingCallbackForFSolve(problem, problem.IntegrationSymbols, [r0, u0, v0, lon0], tArray, odeIntEomCallback, problem.BoundaryConditions, lambdas, otherArgs)
-fSolveSol = fsolve(fSolveCallback, initialFSolveStateGuess, epsfcn=0.0001, full_output=True) # just to speed things up and see how the initial one works
+fSolveSol = fsolve(fSolveCallback, initialFSolveStateGuess, epsfcn=0.00001, full_output=True) # just to speed things up and see how the initial one works
 print(fSolveSol)
 
 # final run with answer
@@ -196,6 +196,12 @@ unscaledTArray = tArray
 unscaledResults = problem.DescaleResults(solutionDictionary, constantsSubsDict)
 if scaleTime:
     unscaledTArray=tfOrg*tArray
+
+if scale:
+    jh.showEquation(problem.StateVariables[0].subs(problem.TimeSymbol, problem.TimeFinalSymbol), solutionDictionary[problem.StateVariables[0]][-1])
+    jh.showEquation(problem.StateVariables[1].subs(problem.TimeSymbol, problem.TimeFinalSymbol), solutionDictionary[problem.StateVariables[1]][-1])
+    jh.showEquation(problem.StateVariables[2].subs(problem.TimeSymbol, problem.TimeFinalSymbol), solutionDictionary[problem.StateVariables[2]][-1])
+    jh.showEquation(problem.StateVariables[3].subs(problem.TimeSymbol, problem.TimeFinalSymbol), (solutionDictionary[problem.StateVariables[3]][-1]%(2*math.pi))*180.0/(2*math.pi))
 
 baseProblem.PlotSolution(tArray*tfOrg, unscaledResults, "Test")
 jh.showEquation(baseProblem.StateVariables[0].subs(problem.TimeSymbol, problem.TimeFinalSymbol), unscaledResults[baseProblem.StateVariables[0]][-1])
