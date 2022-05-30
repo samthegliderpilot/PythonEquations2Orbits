@@ -4,7 +4,6 @@ from PythonOptimizationWithNlp.ScaledSymbolicProblem import ScaledSymbolicProble
 from PythonOptimizationWithNlp.ScaledSymbolicProblem import SymbolicProblem
 from PythonOptimizationWithNlp.Problems.OneDimensionalMinimalWorkProblem import OneDWorkSymbolicProblem
 from PythonOptimizationWithNlp.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
-from Tests.Problems.testPlanerLeoToGeoProblem import testPlanerLeoToGeoProblem
 from scipy.integrate import solve_ivp
 from PythonOptimizationWithNlp.Numerical import ScipyCallbackCreators
 
@@ -20,27 +19,7 @@ class testScaledSymbolicProblem(unittest.TestCase) :
         firstEomValue = outerProblem.EquationsOfMotion[outerProblem.StateVariables[0]].subs({outerProblem.StateVariables[0]: 1.5, outerProblem.StateVariables[1]: 0.4})
         secondEomValue=outerProblem.EquationsOfMotion[outerProblem.StateVariables[1]].subs({outerProblem.ControlVariables[0]: 1.6})
         self.assertEqual(3.0*0.4/2.0, firstEomValue, msg="first eom evaluated")
-        self.assertEqual(1.6/3.0, secondEomValue, msg="second eom evaluated")
-
-
-    def testScalingComplicatedProblem(self) :
-        baseProblem = ContinuousThrustCircularOrbitTransferProblem()
-        newSvs = ScaledSymbolicProblem.CreateBarVariables(baseProblem.StateVariables, baseProblem.TimeSymbol)
-        r0=sy.Symbol('r_0')
-        u0=sy.Symbol('u_0')
-        v0=sy.Symbol('v_0')
-        lon0= sy.Symbol('lon_0')
-        scalingDict = {}
-        scalingDict[baseProblem.StateVariables[0]]=r0
-        scalingDict[baseProblem.StateVariables[1]]=u0
-        scalingDict[baseProblem.StateVariables[2]]=v0
-        scalingDict[baseProblem.StateVariables[3]]=lon0
-        outerProblem = ScaledSymbolicProblem(baseProblem, newSvs, scalingDict, False)
-        firstEomValue = outerProblem.EquationsOfMotion[outerProblem.StateVariables[0]].subs({outerProblem.StateVariables[1]: 1.5})
-        secondEomValue=outerProblem.EquationsOfMotion[outerProblem.StateVariables[1]].subs({outerProblem.ControlVariables[0]: 1.6})
-        self.assertEqual(u0*1.5/r0, firstEomValue, msg="first eom evaluated")
-
-        #self.assertEqual(1.6/3.0, secondEomValue, msg="second eom evaluated")    
+        self.assertEqual(1.6/3.0, secondEomValue, msg="second eom evaluated")  
 
     def testCreatingDifferentialTransversalityCondition(self) :
         orgProblem = ContinuousThrustCircularOrbitTransferProblem()
@@ -54,7 +33,7 @@ class testScaledSymbolicProblem(unittest.TestCase) :
         l_r = lambdas[0]
         l_v = lambdas[2]
         hamiltonian = problem.CreateHamiltonian(lambdas)
-        xversality = problem.TransversalityConditionInTheDifferentialForm(hamiltonian, lambdas, 0.0) # not allowing final time to vary
+        xversality = problem.TransversalityConditionInTheDifferentialForm(hamiltonian, 0.0, lambdas) # not allowing final time to vary
 
         zeroedOutCondition =(xversality[0]-(sy.sqrt(mu)*l_v/(2*(r*4.0)**(3/2)) - l_r + 1)).expand().simplify()
         self.assertTrue((zeroedOutCondition).is_zero, msg="first xvers cond")
@@ -76,7 +55,7 @@ class testScaledSymbolicProblem(unittest.TestCase) :
         b1=sy.Symbol('b1')
         b2=sy.Symbol('b2')
         aug = [b1,b2 ]
-        xversality = problem.TransversalityConditionsByAugmentation(lambdas, aug)
+        xversality = problem.TransversalityConditionsByAugmentation(aug, lambdas)
         print(xversality)
 
         firstZeroExpression = (xversality[0]-(-sy.sqrt(mu)*b2/(2*(r*4.0)**(3/2)) + l_r - 1)).expand().simplify()
@@ -94,7 +73,8 @@ class testScaledSymbolicProblem(unittest.TestCase) :
     # Regression tests for the scaled problem (for the circle to circle orbit transfer)
     # Ideally I would make more unit tests, but this will catch when thing break
     def testScaledStateRegression(self) :
-        (odeSolveIvpCb, fSolveCb, tArray, z0) = testPlanerLeoToGeoProblem.CreateEvaluatableCallbacks(True, False, True)
+        from Tests.Problems.testPlanerLeoToGeoProblem import testPlanerLeoToGeoProblem # including it here to avoid VS Code from finding TestPlanerLeoToGeo twice
+        (odeSolveIvpCb, fSolveCb, tArray, z0, problem) = testPlanerLeoToGeoProblem.CreateEvaluatableCallbacks(True, False, True)
         knownAnswer = [14.95703946,  0.84256983, 15.60187053]
         answer = fSolveCb(knownAnswer)
         print(z0)
@@ -109,7 +89,8 @@ class testScaledSymbolicProblem(unittest.TestCase) :
         self.assertAlmostEqual(finalState[2], 0.397980812304531, 1, msg="v check")
 
     def testScaldStateWithAjoinedTransversalityRegression(self) :
-        (odeSolveIvpCb, fSolveCb, tArray, z0) = testPlanerLeoToGeoProblem.CreateEvaluatableCallbacks(True, False, False)
+        from Tests.Problems.testPlanerLeoToGeoProblem import testPlanerLeoToGeoProblem # including it here to avoid VS Code from finding TestPlanerLeoToGeo twice
+        (odeSolveIvpCb, fSolveCb, tArray, z0, problem) = testPlanerLeoToGeoProblem.CreateEvaluatableCallbacks(True, False, False)
         knownAnswer = [14.95703446,  0.84256877, 15.60186291, -7.43265181, 13.6499807]
         answer = fSolveCb(knownAnswer)
         i=0
@@ -123,7 +104,8 @@ class testScaledSymbolicProblem(unittest.TestCase) :
         self.assertAlmostEqual(finalState[2], 0.397980812304531, 1, msg="v check")        
 
     def testScaledStateAndTimeRegression(self) :
-        (odeSolveIvpCb, fSolveCb, tArray, z0) = testPlanerLeoToGeoProblem.CreateEvaluatableCallbacks(True, True, True)
+        from Tests.Problems.testPlanerLeoToGeoProblem import testPlanerLeoToGeoProblem # including it here to avoid VS Code from finding TestPlanerLeoToGeo twice
+        (odeSolveIvpCb, fSolveCb, tArray, z0, problem) = testPlanerLeoToGeoProblem.CreateEvaluatableCallbacks(True, True, True)
         knownAnswer = [1.49570410e+01, 8.42574567e-01, 1.56018729e+01, 3.43139328e+05]
         answer = fSolveCb(knownAnswer)
         print(z0)
@@ -138,7 +120,8 @@ class testScaledSymbolicProblem(unittest.TestCase) :
         self.assertAlmostEqual(finalState[2], 0.397980812304531, 1, msg="v check")        
 
     def testScaledStateAndTimeAndAjoinedTransversalityRegression(self) :
-        (odeSolveIvpCb, fSolveCb, tArray, z0) = testPlanerLeoToGeoProblem.CreateEvaluatableCallbacks(True, True, False)
+        from Tests.Problems.testPlanerLeoToGeoProblem import testPlanerLeoToGeoProblem # including it here to avoid VS Code from finding TestPlanerLeoToGeo twice
+        (odeSolveIvpCb, fSolveCb, tArray, z0, problem) = testPlanerLeoToGeoProblem.CreateEvaluatableCallbacks(True, True, False)
         knownAnswer = [1.49570364e+01,  8.42572232e-01,  1.56018680e+01,  3.43139328e+05, -7.43267414e+00,  1.36499856e+01]
         answer = fSolveCb(knownAnswer)
         print(z0)
@@ -150,4 +133,10 @@ class testScaledSymbolicProblem(unittest.TestCase) :
         finalState = ScipyCallbackCreators.GetFinalStateFromIntegratorResults(odeAns)
         self.assertAlmostEqual(finalState[0], 6.31357956984563, 1, msg="radius check")
         self.assertAlmostEqual(finalState[1], 0.000, 2, msg="u check")
-        self.assertAlmostEqual(finalState[2], 0.397980812304531, 1, msg="v check")            
+        self.assertAlmostEqual(finalState[2], 0.397980812304531, 1, msg="v check")
+
+        values = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(problem.IntegrationSymbols,  odeAns)
+        descaled = problem.DescaleResults(values)
+        self.assertAlmostEqual(descaled[problem.WrappedProblem.StateVariables[0]][-1], 42162051.145145945, 1, msg="radius check descaled")
+        self.assertAlmostEqual(descaled[problem.WrappedProblem.StateVariables[1]][-1], 0.000, 2, msg="u check descaled")
+        self.assertAlmostEqual(descaled[problem.WrappedProblem.StateVariables[2]][-1], 3074.735, 1, msg="v check descaled")    

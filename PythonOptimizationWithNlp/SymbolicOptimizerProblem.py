@@ -1,15 +1,19 @@
-from inspect import BoundArguments
 import sympy as sy
 from typing import List, Dict
 from collections import OrderedDict
 from PythonOptimizationWithNlp.Symbolics.Vectors import Vector
-from abc import abstractmethod, ABC
+from abc import ABC
 import numpy as np
-import matplotlib.pyplot as plt
 
+# it is likely that this class will get split up into a problem definition and an 
+# indirect solver in the near future
+
+"""Base class for optimization problems where the equations of motion and the 
+boundary conditions are created with sympy.
+"""
 class SymbolicProblem(ABC) :
     def __init__(self) :
-        """Initialize a new instance.
+        """Initialize a new instance. 
         """
         self._stateVariables = []
         self._controlVariables = []
@@ -25,7 +29,8 @@ class SymbolicProblem(ABC) :
         self._costateSymbols = []
 
     def RegisterConstantValue(self, symbol :sy.Expr, value : float) :
-        """Registers a constant into the instance's substitution dictionary.
+        """Registers a constant into the instance's substitution dictionary.  Note that you can just 
+        get the SubstitutionDictionary and add to it directly.
 
         Args:
             symbol (sy.Expr): Some sympy expression
@@ -36,7 +41,8 @@ class SymbolicProblem(ABC) :
     @property
     def SubstitutionDictionary(self) -> Dict[sy.Expr, float] :
         """The dictionary that should be used to store constant values that may appear 
-        in the various expressions.  
+        in the various expressions.  Many helper functions elsewhere want this dictionary 
+        passed to it.
 
         Returns:
             Dict[sy.Expr, float]: The expression-to-values to substitute into expressions.
@@ -122,42 +128,70 @@ class SymbolicProblem(ABC) :
         x = self.StateVariablesInMatrixForm()
         return -1*sy.Derivative(hamiltonian, x).doit()
 
-    def TransversalityConditionsByAugmentation(self, lambdas : List[sy.Expr], nus : List[sy.Symbol]) -> List[sy.Expr]:
+    @property
+    def IntegrationSymbols(self) -> List[sy.Expr]:
+        """Gets the list of values that values that are going to be integrated by the equations of motion. 
+        Calling code needs to manage the order of the EquationsOfMotion.
+
+        Returns:
+            List[sy.Expr]: The values that will be integrated by the equations of motion.
+        """
+        return list(self.EquationsOfMotion.keys() )
+
+    @property
+    def CostateSymbols(self) :
+        return self._costateSymbols
+
+    @property
+    def Lambdas(self) :
+        return self.CostateSymbols
+
+    def TransversalityConditionsByAugmentation(self, nus : List[sy.Symbol], lambdasFinal : List[sy.Symbol] = None) -> List[sy.Expr]:
         """Creates the transversality conditions by augmenting the terminal constraints to the terminal cost.
 
         Args:
-            lambdas (List[sy.Expr]): The costate variables.
             nus (List[sy.Symbol]): The constant parameters to augment the constraints to the terminal cost with.
+            lambdasFinal (List[sy.Symbol]): The costate symbols at the final time.  If None it will use the problems
+            CostateSymbols at the final time, and if those are not set, then an exception will be raised.
 
         Returns:
-            List[sy.Expr]: The list of the final conditions that need to be solved to 0 for the solution to be optimal.
+            List[sy.Expr]: The list of transversality conditions, that ought to be treated like normal boundary conditions.
         """
-
+        if lambdasFinal == None :
+            if self.CostateSymbols != None and len(self.CostateSymbols) > 0:
+                lambdasFinal = SymbolicProblem.SafeSubs(self.CostateSymbols, {self.TimeSymbol: self.TimeFinalSymbol})
+            else :
+                raise Exception("No source of costate symbols.")
         termFunc = self.TerminalCost.subs(self.TimeSymbol, self.TimeFinalSymbol) + (Vector.fromArray(nus).transpose()*Vector.fromArray(self.BoundaryConditions))[0,0]
         finalConditions = []
         i=0
         for x in self.StateVariables :
-            if i >= len(lambdas) :
+            if i >= len(lambdasFinal) :
                 break
             xf = x.subs(self.TimeSymbol, self.TimeFinalSymbol)
             cond = termFunc.diff(xf)
-            finalConditions.append(lambdas[i]-cond)
+            finalConditions.append(lambdasFinal[i]-cond)
             i=i+1
 
         return finalConditions
 
-    def TransversalityConditionInTheDifferentialForm(self, hamiltonian : sy.Expr, lambdasFinal : List[sy.Expr], dtf) ->List[sy.Expr]:
-        """Creates the differential form of the transversality condition.
+    def TransversalityConditionInTheDifferentialForm(self, hamiltonian : sy.Expr, dtf, lambdasFinal : List[sy.Symbol] = None) ->List[sy.Expr]:
+        """Creates the transversality conditions by with the differential form of the transversality conditions. 
 
         Args:
-            hamiltonian (sy.Expr): The hamiltonian.
-            lambdasFinal (List[sy.Expr]): The costate variables at the final time.
-            dtf (_type_): If the final time is fixed, then this should be 0.  However, if the final time is not fixed then 
-            this should be a sy.Expr for the final time (it can be as simple as sy.Symbol('dt_f').
+            hamiltonian (sy.Expr): The hamiltonian in terms of the costate values (as opposed to the control variable)
+            dtf (_type_): Either 0 if the final time is fixed, or a symbol indicating that the final time is not fixed.
+            lambdasFinal (List[sy.Symbol]): The costate symbols at the final time.  If None it will use the problems
+            CostateSymbols at the final time, and if those are not set, then an exception will be raised.
 
         Returns:
-            List[sy.Expr]: The transversality conditions.
+            List[sy.Expr]: The list of transversality conditions, that ought to be treated like normal boundary conditions.
         """
+        if lambdasFinal == None :
+            if self.CostateSymbols != None and len(self.CostateSymbols) > 0:
+                lambdasFinal = SymbolicProblem.SafeSubs(self.CostateSymbols, {self.TimeSymbol: self.TimeFinalSymbol})
+            else :
+                raise Exception("No source of costate symbols.")        
         variationVector = []
         valuesAtEndSymbols = []
         if isinstance(self.TerminalCost, float) :
@@ -289,10 +323,11 @@ class SymbolicProblem(ABC) :
 
     @property
     def EquationsOfMotion(self) -> Dict[sy.Symbol, sy.Expr]:
-        """Gets the equations of motion for each of the state variables.
+        """Gets the equations of motion for each of the state variables.  This is an ordered dictionary,
+        and the integration state is the keys of this ordered dict.
 
         Returns:
-            Dict[sy.Symbol, sy.Expr]: The equations of motion for each of the state variables.
+            Dict[sy.Symbol, sy.Expr]: The ordered dictionary equations of motion for each of the state variables.
         """
         return self._equationsOfMotion
     
@@ -371,17 +406,7 @@ class SymbolicProblem(ABC) :
         """
         self._timeFinalSymbol = value
 
-    @property
-    def IntegrationSymbols(self) :
-        return self._integrationSymbols
 
-    @property
-    def CostateSymbols(self) :
-        return self._costateSymbols
-
-    @property
-    def Lambdas(self) :
-        return self.CostateSymbols
 
     def CreateEquationOfMotionsAsEquations(self) -> List[sy.Expr] :
         """Converts the equations of motion dictionary into a list in the order of the state variables.
@@ -503,8 +528,18 @@ class SymbolicProblem(ABC) :
             return tbr
         raise Exception("Don't know how to do the subs")
 
-    def DescaleResults(self, resultsDictionary : Dict[sy.Symbol, List[float]], subsDict : Dict[sy.Symbol, float]) -> Dict[sy.Symbol, List[float]] :
-        return resultsDictionary
+    def DescaleResults(self, resultsDictionary : Dict[sy.Symbol, List[float]]) -> Dict[sy.Symbol, List[float]] :
+        """Returns the resultsDictionary.  Although there is a derived type that has scaling factors that can be applied, making 
+        this function on the base type helps switching back and forth between the scaled and unscaled problem.
+
+        Args:
+            resultsDictionary (Dict[sy.Symbol, List[float]]): The results of some run where the keys are the symbol and the list of floats are the 
+            time history of that symbol.
+
+        Returns:
+            Dict[sy.Symbol, List[float]]: The same instance of the resultsDictionary
+        """
+        return resultsDictionary # the subsDict is included because the substitution factors might be symbols themselves.  By the time we have results those values ought to be in the substitution dictionary already
 
     def EvaluateHamiltonianAndItsFirstTwoDerivatives(self, solution : Dict[sy.Expr, List[float]], tArray: List[float], hamiltonian : sy.Expr, controlSolved :Dict[sy.Expr, sy.Expr], moreSubs :Dict[sy.Expr, float]) ->List[List[float]]:
         """Evaluates the Hamiltonian and its first 2 derivatives.  This is useful to 
@@ -527,7 +562,7 @@ class SymbolicProblem(ABC) :
 
         dHdu = self.CreateHamiltonianControlExpressions(hamiltonian).doit()[0]
         d2Hdu2 = sy.diff(hamiltonian, self.ControlVariables[0], 2)
-        #d2Hdu2 =  self.CreateHamiltonianControlExpressions(dHdu).doit()[0]
+        #d2Hdu2 =  self.CreateHamiltonianControlExpressions(dHdu).doit()[0] # another way to calculate it, but doesn't seem to be as good
         toEval = hamiltonian.subs(controlSolved).subs(moreSubs).trigsimp(deep=True).subs(constantsSubsDict)
         hamltEpx = sy.lambdify(stateForEom, toEval)
         solArray = []

@@ -4,8 +4,6 @@ from PythonOptimizationWithNlp.SymbolicOptimizerProblem import SymbolicProblem
 from scipy.integrate import solve_ivp
 import numpy as np
 import sympy as sy
-import math
-from scipy.optimize import fsolve
 from PythonOptimizationWithNlp.SymbolicOptimizerProblem import SymbolicProblem
 from PythonOptimizationWithNlp.ScaledSymbolicProblem import ScaledSymbolicProblem
 from PythonOptimizationWithNlp.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
@@ -86,8 +84,7 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
         controlSolved = sy.solve(dHdu, problem.ControlVariables[0])[0] # something that may be different for other problems is when there are multiple control variables
 
         # you are in control of the order of integration variables and what EOM's get evaluated, start updating the problem
-        problem.IntegrationSymbols.extend(problem.StateVariables)
-        problem.IntegrationSymbols.extend(lambdas)
+        # this line sets the lambdas in the equations of motion and integration state
         problem.EquationsOfMotion.update(zip(lambdas, lambdaDotExpressions))
         SymbolicProblem.SafeSubs(problem.EquationsOfMotion, {problem.ControlVariables[0]: controlSolved})
         # the trig simplification needs the deep=True for this problem to make the equations even cleaner
@@ -99,11 +96,10 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
             problem.BoundaryConditions.append(baseProblem.TimeFinalSymbol-tfOrg)
 
         # make the transversality conditions
-        lmdsF = problem.SafeSubs(lambdas, {problem.TimeSymbol: problem.TimeFinalSymbol})
         if len(nus) != 0:
-            transversalityCondition = problem.TransversalityConditionsByAugmentation(lmdsF, nus)
+            transversalityCondition = problem.TransversalityConditionsByAugmentation(nus)
         else:
-            transversalityCondition = problem.TransversalityConditionInTheDifferentialForm(hamiltonian, lmdsF, sy.Symbol(r'dt_f'))
+            transversalityCondition = problem.TransversalityConditionInTheDifferentialForm(hamiltonian, sy.Symbol(r'dt_f'))
         # and add them to the problem
         problem.BoundaryConditions.extend(transversalityCondition)
 
@@ -112,9 +108,7 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
         # lambda_lon is always 0, so do that cleanup
         del problem.EquationsOfMotion[lambdas[3]]
         problem.BoundaryConditions.remove(transversalityCondition[-1])
-        lambdas.pop()
-        lmdTheta = problem.IntegrationSymbols.pop()
-        lmdsF.pop()
+        lmdTheta = lambdas.pop()
         constantsSubsDict[lmdTheta]=0
         constantsSubsDict[lmdTheta.subs(problem.TimeSymbol, problem.TimeFinalSymbol)]=0
         constantsSubsDict[lmdTheta.subs(problem.TimeSymbol, problem.TimeInitialSymbol)]=0
@@ -148,34 +142,8 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
             initialFSolveStateGuess[-2] = finalValues[5]
             initialFSolveStateGuess[-1] = finalValues[6]
 
-        def createSolveIvpSingleShootingCallbackForFSolve(problem : SymbolicProblem, integrationStateVariableArray, nonLambdaEomStateInitialValues, timeArray, odeIntEomCallback, boundaryConditionExpressions, fSolveParametersToAppendToEom, fSolveOnlyParameters) :
-            stateForBoundaryConditions = []
-            stateForBoundaryConditions.extend(SymbolicProblem.SafeSubs(integrationStateVariableArray, {problem.TimeSymbol: problem.TimeInitialSymbol}))
-            stateForBoundaryConditions.extend(SymbolicProblem.SafeSubs(integrationStateVariableArray, {problem.TimeSymbol: problem.TimeFinalSymbol}))
-            stateForBoundaryConditions.extend(fSolveParametersToAppendToEom)
-            stateForBoundaryConditions.extend(fSolveOnlyParameters)
-            boundaryConditionEvaluationCallbacks = ScipyCallbackCreators.CreateLambdifiedExpressions(stateForBoundaryConditions, boundaryConditionExpressions, problem.SubstitutionDictionary)
-            numberOfLambdasToPassToOdeInt = len(fSolveParametersToAppendToEom)
-            def callbackForFsolve(costateAndCostateVariableGuesses) :
-                z0 = []
-                z0.extend(nonLambdaEomStateInitialValues)
-                z0.extend(costateAndCostateVariableGuesses[0:numberOfLambdasToPassToOdeInt])
-                args = costateAndCostateVariableGuesses[numberOfLambdasToPassToOdeInt:len(costateAndCostateVariableGuesses)]
-                #ans = odeint(odeIntEomCallback, z0, tArray, args=tuple(args))
-                ans = solve_ivp(odeIntEomCallback, [timeArray[0], timeArray[-1]], z0, args=tuple(args), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
-                finalState = []
-                finalState.extend(ScipyCallbackCreators.GetInitialStateFromIntegratorResults(ans))
-                finalState.extend(ScipyCallbackCreators.GetFinalStateFromIntegratorResults(ans))
-                # add values in fSolve state after what is already there
-                finalState.extend(costateAndCostateVariableGuesses)
-                finalAnswers = []
-                finalAnswers.extend(boundaryConditionEvaluationCallbacks(*finalState))
-            
-                return finalAnswers    
-            return callbackForFsolve        
-
-        fSolveCallback = createSolveIvpSingleShootingCallbackForFSolve(problem, problem.IntegrationSymbols, [r0, u0, v0, lon0], tArray, odeIntEomCallback, problem.BoundaryConditions, lambdas, otherArgs)
-        return (odeIntEomCallback, fSolveCallback, tArray, [r0, u0, v0, lon0])
+        fSolveCallback = ContinuousThrustCircularOrbitTransferProblem.createSolveIvpSingleShootingCallbackForFSolve(problem, problem.IntegrationSymbols, [r0, u0, v0, lon0], tArray, odeIntEomCallback, problem.BoundaryConditions, lambdas, otherArgs)
+        return (odeIntEomCallback, fSolveCallback, tArray, [r0, u0, v0, lon0], problem)
 
     def testInitialization(self) :
         problem = ContinuousThrustCircularOrbitTransferProblem()
@@ -194,7 +162,7 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
         problem = ContinuousThrustCircularOrbitTransferProblem()
         lambdas = SymbolicProblem.CreateCoVector(problem.StateVariables, 'L', problem.TimeFinalSymbol)
         hamiltonian = problem.CreateHamiltonian(lambdas)
-        xversality = problem.TransversalityConditionInTheDifferentialForm(hamiltonian, lambdas, 0.0) # not allowing final time to vary
+        xversality = problem.TransversalityConditionInTheDifferentialForm(hamiltonian, 0.0, lambdas) # not allowing final time to vary
 
         zeroedOutCondition =(xversality[0]-(sy.sqrt(problem.Mu)*lambdas[2]/(2*problem.StateVariables[0].subs(problem.TimeSymbol, problem.TimeFinalSymbol)**(3/2)) - lambdas[0] + 1)).expand().simplify()
         self.assertTrue((zeroedOutCondition).is_zero, msg="first xvers cond")
@@ -202,7 +170,7 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
 
     # Regression tests. Ideally I would make more unit tests, but this will catch when thing break
     def testRegressionWithDifferentialTransversality(self) :
-        (odeSolveIvpCb, fSolveCb, tArray, z0) = testPlanerLeoToGeoProblem.CreateEvaluatableCallbacks(False, False, True)
+        (odeSolveIvpCb, fSolveCb, tArray, z0, problem) = testPlanerLeoToGeoProblem.CreateEvaluatableCallbacks(False, False, True)
         knownAnswer = [26.22754527,  1277.08055436, 23647.7219169]
         answer = fSolveCb(knownAnswer)
         i=0
@@ -216,7 +184,7 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
         self.assertAlmostEqual(finalState[2], 3074.735, 1, msg="v check")
 
     def testRegressionWithAjoinedTransversality(self) :
-        (odeSolveIvpCb, fSolveCb, tArray, z0) = testPlanerLeoToGeoProblem.CreateEvaluatableCallbacks(False, False, False)
+        (odeSolveIvpCb, fSolveCb, tArray, z0, problem) = testPlanerLeoToGeoProblem.CreateEvaluatableCallbacks(False, False, False)
         knownAnswer = [26.22755418,   1277.08146331,  23647.73092022, -11265.69782522, 20689.28488067]
         answer = fSolveCb(knownAnswer)
         i=0

@@ -57,7 +57,7 @@ class testSymbolicOptimizerProblem(unittest.TestCase) :
         problem = ContinuousThrustCircularOrbitTransferProblem()
         lambdas = SymbolicProblem.CreateCoVector(problem.StateVariables, 'L', problem.TimeFinalSymbol)
         hamiltonian = problem.CreateHamiltonian(lambdas)
-        xversality = problem.TransversalityConditionInTheDifferentialForm(hamiltonian, lambdas, 0.0) # not allowing final time to vary
+        xversality = problem.TransversalityConditionInTheDifferentialForm(hamiltonian, 0.0, lambdas) # not allowing final time to vary
 
         zeroedOutCondition =(xversality[0]-(sy.sqrt(problem.Mu)*lambdas[2]/(2*problem.StateVariables[0].subs(problem.TimeSymbol, problem.TimeFinalSymbol)**(3/2)) - lambdas[0] + 1)).expand().simplify()
         self.assertTrue((zeroedOutCondition).is_zero, msg="first xvers cond")
@@ -75,7 +75,7 @@ class testSymbolicOptimizerProblem(unittest.TestCase) :
         b1=sy.Symbol('b1')
         b2=sy.Symbol('b2')
         aug = [b1,b2 ]
-        xversality = problem.TransversalityConditionsByAugmentation(lambdas, aug)
+        xversality = problem.TransversalityConditionsByAugmentation(aug, lambdas)
         print(xversality)
 
         firstZeroExpression = (xversality[0]-(-sy.sqrt(mu)*b2/(2*r**(3/2)) + l_r - 1)).expand().simplify()
@@ -163,8 +163,7 @@ class testSymbolicOptimizerProblem(unittest.TestCase) :
     def testEvaluateHamiltonianAndItsFirstTwoDerivatives(self) :
         problem = ContinuousThrustCircularOrbitTransferProblem()
         problem.Lambdas.extend(SymbolicProblem.CreateCoVector(problem.StateVariables, 'l', problem.TimeSymbol))
-        problem.IntegrationSymbols.extend(problem.StateVariables)
-        problem.IntegrationSymbols.extend(problem.Lambdas)
+        problem.EquationsOfMotion.update(zip(problem.Lambdas, [0.0,0.0,0.0,0.0]))        
         a = sy.Symbol('a')
         fakeHamiltonian = 3.0*sy.cos(problem.ControlVariables[0] * problem.StateVariables[0]*2.0*a)
         answer = {problem.StateVariables[0] : [0.0, math.pi/8.0], problem.StateVariables[1] : [0.0, 0.0], problem.StateVariables[2] : [0.0, 0.0], problem.StateVariables[3] : [0.0, 0.0] }
@@ -179,5 +178,10 @@ class testSymbolicOptimizerProblem(unittest.TestCase) :
         self.assertAlmostEqual(-4.71238898038469, dh[1], places=10, msg="dh1")
         self.assertAlmostEqual(0.0, ddh[0], places=10,msg="ddh0")
         self.assertAlmostEqual(0.0, ddh[1], places=10, msg="dh1")
+
+    def testDefaultDescaleResults(self) :
+        problem = ContinuousThrustCircularOrbitTransferProblem()
+        someDict = {problem.StateVariables[0]: {1.0,2.0,3.0}}
+        self.assertEqual(someDict, problem.DescaleResults(someDict))
 
 

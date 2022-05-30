@@ -11,7 +11,7 @@ def CreateSimpleCallbackForSolveIvp(timeSymbol : sy.Expr, integrationVariableSym
         timeSymbol (sy.Expr): The time symbol.
         integrationVariableSymbols (List[sy.Expr]): The integration state variable.s
         equationsOfMotion (Dict[sy.Expr, sy.Expr]): The equations of motion.
-        substitutionDictionary (Dict[sy.Expr, float]): Constants that ought to be subsitituted into the equations of motion ahead of time
+        substitutionDictionary (Dict[sy.Expr, float]): Constants that ought to be substituted into the equations of motion ahead of time
         otherArgs (List[sy.Expr], optional): Symbols of other constants to be passed in as args to the callback.. Defaults to None.
 
     Returns:
@@ -92,6 +92,8 @@ def ConvertOdeIntResultsToDictionary(odeintSymbolicState : List[sy.Expr], odeint
     """
     asDict = OrderedDict()
     i = 0
+    if len(odeintResults[0]) != len(odeintResults[1])  : # this is not a good check for if full_output was true or not, but it is good enough in most cases
+        odeintResults = odeintResults[0]
     for sv in odeintSymbolicState :
         asDict[sv] = odeintResults[:,i]
         i=i+1
@@ -115,19 +117,49 @@ def ConvertSolveIvptResultsToDictionary(integrationState : List[sy.Expr], solveI
     return asDict
 
 def ConvertEitherIntegratorResultsToDictionary(integrationState : List[sy.Expr], integratorResults) ->Dict[sy.Expr, List[float]]:
+    """Converts either an odeint results or a solve_ivp results to a dictionary of history of values keyed off of the 
+    passed in integration values.
+
+    Args:
+        integrationState (List[sy.Expr]): The integration symbols.
+        integratorResults (_type_): The results from an odeint or solve_ivp run.
+
+    Returns:
+        Dict[sy.Expr, List[float]]: The results dictionary.
+    """
     if hasattr(integratorResults, "y") :
         return ConvertSolveIvptResultsToDictionary(integrationState, integratorResults)
     else :
         return ConvertOdeIntResultsToDictionary(integrationState, integratorResults)
 
 def GetInitialStateFromIntegratorResults(integratorResults) -> List[float] :
+    """Gets the initial state from the integrator results, regardless if it was evaluated with odeint or solve_ivp
+
+    Args:
+        integratorResults: The results from solve_ivp or odeint
+
+    Returns:
+        List[float]: The initial values of the results.
+    """
     if hasattr(integratorResults, "y") :
         return [y[0] for y in integratorResults.y]
     else :
-        integratorResults[0]
+        if len(integratorResults[0]) != len(integratorResults[1])  : # this is not a good check for if full_output was true or not, but it is good enough in most cases
+            integratorResults = integratorResults[0]
+        return integratorResults[0]
 
 def GetFinalStateFromIntegratorResults(integratorResults) -> List[float] :
+    """Gets the final state from the integrator results, regardless if it was evaluated with odeint or solve_ivp
+
+    Args:
+        integratorResults: The results from solve_ivp or odeint
+
+    Returns:
+        List[float]: The final values of the results.
+    """
     if hasattr(integratorResults, "y") :
         return [y[-1] for y in integratorResults.y]
     else :
-        integratorResults[-1]        
+        if len(integratorResults[0]) != len(integratorResults[1])  : # this is not a good check for if full_output was true or not, but it is good enough in most cases
+            integratorResults = integratorResults[0]        
+        return integratorResults[-1]        

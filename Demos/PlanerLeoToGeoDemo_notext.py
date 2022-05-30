@@ -92,8 +92,7 @@ dHdu = problem.CreateHamiltonianControlExpressions(hamiltonian)[0]
 controlSolved = sy.solve(dHdu, problem.ControlVariables[0])[0] # something that may be different for other problems is when there are multiple control variables
 
 # you are in control of the order of integration variables and what EOM's get evaluated, start updating the problem
-problem.IntegrationSymbols.extend(problem.StateVariables)
-problem.IntegrationSymbols.extend(lambdas)
+# NOTE that this call adds the lambdas to the integration state
 problem.EquationsOfMotion.update(zip(lambdas, lambdaDotExpressions))
 SymbolicProblem.SafeSubs(problem.EquationsOfMotion, {problem.ControlVariables[0]: controlSolved})
 # the trig simplification needs the deep=True for this problem to make the equations even cleaner
@@ -105,11 +104,10 @@ if scaleTime : # add BC if we are working with the final time (kind of silly for
     problem.BoundaryConditions.append(baseProblem.TimeFinalSymbol-tfOrg)
 
 # make the transversality conditions
-lmdsF = problem.SafeSubs(lambdas, {problem.TimeSymbol: problem.TimeFinalSymbol})
 if len(nus) != 0:
-    transversalityCondition = problem.TransversalityConditionsByAugmentation(lmdsF, nus)
+    transversalityCondition = problem.TransversalityConditionsByAugmentation(nus)
 else:
-    transversalityCondition = problem.TransversalityConditionInTheDifferentialForm(hamiltonian, lmdsF, sy.Symbol(r'dt_f'))
+    transversalityCondition = problem.TransversalityConditionInTheDifferentialForm(hamiltonian, sy.Symbol(r'dt_f'))
 # and add them to the problem
 problem.BoundaryConditions.extend(transversalityCondition)
 
@@ -120,7 +118,6 @@ del problem.EquationsOfMotion[lambdas[3]]
 problem.BoundaryConditions.remove(transversalityCondition[-1])
 lambdas.pop()
 lmdTheta = problem.IntegrationSymbols.pop()
-lmdsF.pop()
 constantsSubsDict[lmdTheta]=0
 constantsSubsDict[lmdTheta.subs(problem.TimeSymbol, problem.TimeFinalSymbol)]=0
 constantsSubsDict[lmdTheta.subs(problem.TimeSymbol, problem.TimeInitialSymbol)]=0
@@ -156,33 +153,7 @@ if len(nus) > 0 :
 
 print(initialFSolveStateGuess)
 
-def createSolveIvpSingleShootingCallbackForFSolve(problem : SymbolicProblem, integrationStateVariableArray, nonLambdaEomStateInitialValues, timeArray, odeIntEomCallback, boundaryConditionExpressions, fSolveParametersToAppendToEom, fSolveOnlyParameters) :
-    stateForBoundaryConditions = []
-    stateForBoundaryConditions.extend(SymbolicProblem.SafeSubs(integrationStateVariableArray, {problem.TimeSymbol: problem.TimeInitialSymbol}))
-    stateForBoundaryConditions.extend(SymbolicProblem.SafeSubs(integrationStateVariableArray, {problem.TimeSymbol: problem.TimeFinalSymbol}))
-    stateForBoundaryConditions.extend(fSolveParametersToAppendToEom)
-    stateForBoundaryConditions.extend(fSolveOnlyParameters)
-    boundaryConditionEvaluationCallbacks = ScipyCallbackCreators.CreateLambdifiedExpressions(stateForBoundaryConditions, boundaryConditionExpressions, problem.SubstitutionDictionary)
-    numberOfLambdasToPassToOdeInt = len(fSolveParametersToAppendToEom)
-    def callbackForFsolve(costateAndCostateVariableGuesses) :
-        z0 = []
-        z0.extend(nonLambdaEomStateInitialValues)
-        z0.extend(costateAndCostateVariableGuesses[0:numberOfLambdasToPassToOdeInt])
-        args = costateAndCostateVariableGuesses[numberOfLambdasToPassToOdeInt:len(costateAndCostateVariableGuesses)]
-        #ans = odeint(odeIntEomCallback, z0, tArray, args=tuple(args))
-        ans = solve_ivp(odeIntEomCallback, [timeArray[0], timeArray[-1]], z0, args=tuple(args), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
-        finalState = []
-        finalState.extend(ScipyCallbackCreators.GetInitialStateFromIntegratorResults(ans))
-        finalState.extend(ScipyCallbackCreators.GetFinalStateFromIntegratorResults(ans))
-        # add values in fSolve state after what is already there
-        finalState.extend(costateAndCostateVariableGuesses)
-        finalAnswers = []
-        finalAnswers.extend(boundaryConditionEvaluationCallbacks(*finalState))
-    
-        return finalAnswers    
-    return callbackForFsolve        
-
-fSolveCallback = createSolveIvpSingleShootingCallbackForFSolve(problem, problem.IntegrationSymbols, [r0, u0, v0, lon0], tArray, odeIntEomCallback, problem.BoundaryConditions, lambdas, otherArgs)
+fSolveCallback = ContinuousThrustCircularOrbitTransferProblem.createSolveIvpSingleShootingCallbackForFSolve(problem, problem.IntegrationSymbols, [r0, u0, v0, lon0], tArray, odeIntEomCallback, problem.BoundaryConditions, lambdas, otherArgs)
 fSolveSol = fsolve(fSolveCallback, initialFSolveStateGuess, epsfcn=0.00001, full_output=True) # just to speed things up and see how the initial one works
 print(fSolveSol)
 
@@ -193,7 +164,7 @@ solution = solve_ivp(odeIntEomCallback, [tArray[0], tArray[-1]], [r0, u0, v0, lo
 solutionDictionary = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(problem.IntegrationSymbols, solution)
 unscaledResults = solutionDictionary
 unscaledTArray = tArray
-unscaledResults = problem.DescaleResults(solutionDictionary, constantsSubsDict)
+unscaledResults = problem.DescaleResults(solutionDictionary)
 if scaleTime:
     unscaledTArray=tfOrg*tArray
 

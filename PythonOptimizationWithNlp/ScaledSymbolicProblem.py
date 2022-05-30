@@ -1,10 +1,7 @@
-from textwrap import wrap
 import sympy as sy
 from typing import List, Dict
 from PythonOptimizationWithNlp.SymbolicOptimizerProblem import SymbolicProblem
 import numpy as np
-from PythonOptimizationWithNlp.Symbolics.Vectors import Vector
-from PythonOptimizationWithNlp.Utilities.inherit import inherit_docstrings
 
 """A Symbolic problem that has scaling factors over another problem.  Those 
 factors can be constants, or symbols themselves that are in the substitution 
@@ -12,6 +9,16 @@ dictionary that get used by various solvers.
 """
 class ScaledSymbolicProblem(SymbolicProblem) :
     def __init__(self, wrappedProblem : SymbolicProblem, newStateVariableSymbols : Dict, valuesToDivideStateVariablesWith : Dict, scaleTime : bool) :        
+        """Initializes a new instance.
+
+        Args:
+            wrappedProblem (SymbolicProblem): The problem to scale.
+            newStateVariableSymbols (Dict): The new state variables.  Often these are the same ones with some accent on them.  These should still be in terms 
+            the wrappedProblems time symbol.
+            valuesToDivideStateVariablesWith (Dict): The scaling factors on the state variables. These can be floats, or symbols of some sort that 
+            end up being constants in the SubstitutionDictionary
+            scaleTime (bool): Should the time be scaled to be between 0 and 1.
+        """
         super().__init__()
         self._wrappedProblem = wrappedProblem
 
@@ -69,8 +76,7 @@ class ScaledSymbolicProblem(SymbolicProblem) :
         # do not scale the cost function! conditions made from the cost get scaled later
         self._terminalCost = wrappedProblem.TerminalCost
         if scaleTime :
-            self._tfOrg=wrappedProblem.TimeFinalSymbol
-            tf = self._tfOrg
+            tf = wrappedProblem.TimeFinalSymbol
             tau = sy.Symbol(r'\tau')
             tauF = sy.Symbol(r'\tau_f')
             tau0 = sy.Symbol(r'\tau_0')
@@ -93,7 +99,6 @@ class ScaledSymbolicProblem(SymbolicProblem) :
                 adjustedSv = sv.subs(tau, self._wrappedProblem.TimeSymbol)
                 toSimple[adjustedSv] = sy.Symbol(sv.name)
                 fromSimple[toSimple[adjustedSv]] = sv
-
                 
             for cv in self._controlVariables :
                 adjustedCv = cv.subs(tau, self._wrappedProblem.TimeSymbol)
@@ -104,8 +109,11 @@ class ScaledSymbolicProblem(SymbolicProblem) :
             i = 0
             timeSubs = { wrappedProblem.TimeSymbol: tau*tf}
             for sv in orgSv :
+                # substitute in the dummy symbols in terms of something other than time or tau
                 realEom[self._stateVariables[i]] = ScaledSymbolicProblem.SafeSubs(self._equationsOfMotion[sv], toSimple)
+                # substitute in the scaled values
                 realEom[self._stateVariables[i]] = ScaledSymbolicProblem.SafeSubs(realEom[self._stateVariables[i]], timeSubs)*wrappedProblem.TimeFinalSymbol
+                # substitute back in the state variables in terms of time
                 realEom[self._stateVariables[i]] = ScaledSymbolicProblem.SafeSubs(realEom[self._stateVariables[i]], fromSimple)
                 i=i+1
             self._equationsOfMotion = realEom
@@ -116,24 +124,48 @@ class ScaledSymbolicProblem(SymbolicProblem) :
 
     @property
     def ScaleTime(self) -> bool :
+        """Gets if the time should be scaled.  This cannot be changed.
+
+        Returns:
+            bool: Will the time be scaled.
+        """
         return self._scaleTime
 
     @property
-    def ScalingVector(self) -> Dict :
+    def ScalingValues(self) -> Dict :
+        """Gets the scaling parameters.
+
+        Returns:
+            Dict: The scaling parameters.
+        """
         return self._scalingDict
 
     @property
     def WrappedProblem(self) -> SymbolicProblem :
+        """Gets the wrapped problem.
+
+        Returns:
+            SymbolicProblem: The problem getting scaled.
+        """
         return self._wrappedProblem
 
-    def DescaleResults(self, resultsDictionary : Dict[sy.Symbol, List[float]], subsDict : Dict[sy.Symbol, float]) -> Dict[sy.Symbol, List[float]] :
+    def DescaleResults(self, resultsDictionary : Dict[sy.Symbol, List[float]]) -> Dict[sy.Symbol, List[float]] :
+        """After evaluating the problem numerically, descale the results to be back in terms of the original units.
+
+        Args:
+            resultsDictionary (Dict[sy.Symbol, List[float]]): The results dictionary.
+
+        Returns:
+            Dict[sy.Symbol, List[float]]: A new dictionary where the values are descaled AND the keys are the wrappedProblems's 
+            state variables.
+        """
         returnDict = {}
         counter = 0
         for key, value in resultsDictionary.items() :
             sv = key
             if sv in self.StateVariables and counter < len(self.WrappedProblem.StateVariables):
                 originalSv = self.WrappedProblem.StateVariables[self.StateVariables.index(sv)]
-                convertedArray = np.array(value, copy=True)* SymbolicProblem.SafeSubs(self.ScalingVector[originalSv], subsDict)
+                convertedArray = np.array(value, copy=True)* SymbolicProblem.SafeSubs(self.ScalingValues[originalSv], self.SubstitutionDictionary)
                 returnDict[originalSv] = convertedArray
                 counter = counter+1
             else :
@@ -141,36 +173,90 @@ class ScaledSymbolicProblem(SymbolicProblem) :
         return returnDict
     
     @property
-    def w(self)-> sy.Symbol:
-        return self._tfOrg
+    def TimeFinalSymbolOriginal(self)-> sy.Symbol:
+        """Gets the original time final symbol from the wrapped problem.
+
+        Returns:
+            sy.Symbol: The wrapped time final symbol.
+        """
+        return self.WrappedProblem.TimeFinalSymbol
 
     @staticmethod
     def CreateBarVariables(orgVariables : List[sy.Expr], timeSymbol :sy.Expr) :
+        """A helper function to make a 
+
+        Args:
+            orgVariables (List[sy.Expr]): _description_
+            timeSymbol (sy.Expr): _description_
+
+        Returns:
+            _type_: _description_
+        """
         baredVariables = []
         for var in orgVariables :
             baredVariables.append(sy.Function(r'\bar{' + var.name+ '}')(timeSymbol))
         return baredVariables
 
-    def ScaleExpressions(self, finalConditions):
-        scaledFinalConditions = []
+    def ScaleExpressions(self, expressions : List[sy.Expr]) -> List[sy.Expr]:
+        """For some expression (or list of expressions), 
+
+        Args:
+            expressions (List[sy.Expr]): The expressions to scale.
+
+        Returns:
+            List[sy.Expr]: The scaled expressions
+        """
         simpleSubsDict={} # for terminal cost
         counter=0
         for sv in self.WrappedProblem.StateVariables :
             oldSv = sv
             sv = self.StateVariables[counter]
-            simpleSubsDict[oldSv] = sv*self.ScalingVector[oldSv]
-            simpleSubsDict[oldSv.subs(self.WrappedProblem.TimeSymbol, self.WrappedProblem.TimeFinalSymbol)] = sv.subs(self.TimeSymbol, self.TimeFinalSymbol)*self.ScalingVector[oldSv]
+            simpleSubsDict[oldSv] = sv*self.ScalingValues[oldSv]
+            simpleSubsDict[oldSv.subs(self.WrappedProblem.TimeSymbol, self.WrappedProblem.TimeFinalSymbol)] = sv.subs(self.TimeSymbol, self.TimeFinalSymbol)*self.ScalingValues[oldSv]
             counter=counter+1
 
-        for cond in finalConditions :
-            scaledFinalConditions.append(cond.subs(simpleSubsDict))
-        return scaledFinalConditions 
+        return SymbolicProblem.SafeSubs(expressions, simpleSubsDict)
 
-    def TransversalityConditionsByAugmentation(self, lambdas, nus) :
-        finalConditions = self.WrappedProblem.TransversalityConditionsByAugmentation(lambdas, nus)
+    def TransversalityConditionsByAugmentation(self, nus : List[sy.Symbol], lambdasFinal : List[sy.Symbol] = None) -> List[sy.Expr]:
+        """Creates the transversality conditions by augmenting the terminal constraints to the terminal cost. Note that 
+        this calls the wrapped problems TransversalityConditionsByAugmentation and then scales that expression.
+
+        Args:
+            nus (List[sy.Symbol]): The constant parameters to augment the constraints to the terminal cost with.
+            lambdasFinal (List[sy.Symbol]): The costate symbols at the final time.  If None it will use the problems
+            CostateSymbols at the final time, and if those are not set, then an exception will be raised.
+
+        Returns:
+            List[sy.Expr]: The list of transversality conditions, that ought to be treated like normal boundary conditions.
+        """
+        if lambdasFinal == None :
+            if self.CostateSymbols != None and len(self.CostateSymbols) > 0:
+                lambdasFinal = SymbolicProblem.SafeSubs(self.CostateSymbols, {self.TimeSymbol: self.TimeFinalSymbol})
+            else :
+                raise Exception("No source of costate symbols.") 
+
+        finalConditions = self.WrappedProblem.TransversalityConditionsByAugmentation(nus, lambdasFinal)
         return self.ScaleExpressions(finalConditions)
     
-    def TransversalityConditionInTheDifferentialForm(self, hamiltonian, lambdasFinal, dtf) :
-        finalConditions = self.WrappedProblem.TransversalityConditionInTheDifferentialForm(hamiltonian, lambdasFinal, dtf)
+    def TransversalityConditionInTheDifferentialForm(self, hamiltonian : sy.Expr, dtf, lambdasFinal : List[sy.Symbol] = None) ->List[sy.Expr]:
+        """Creates the transversality conditions by with the differential form of the transversality conditions. Note that 
+        this calls the wrapped problems TransversalityConditionsByAugmentation and then scales that expression.
+
+        Args:
+            hamiltonian (sy.Expr): The hamiltonian in terms of the costate values (as opposed to the control variable)
+            dtf (_type_): Either 0 if the final time is fixed, or a symbol indicating that the final time is not fixed.
+            lambdasFinal (List[sy.Symbol]): The costate symbols at the final time.  If None it will use the problems
+            CostateSymbols at the final time, and if those are not set, then an exception will be raised.
+
+        Returns:
+            List[sy.Expr]: The list of transversality conditions, that ought to be treated like normal boundary conditions.
+        """
+        if lambdasFinal == None :
+            if self.CostateSymbols != None and len(self.CostateSymbols) > 0:
+                lambdasFinal = SymbolicProblem.SafeSubs(self.CostateSymbols, {self.TimeSymbol: self.TimeFinalSymbol})
+            else :
+                raise Exception("No source of costate symbols.") 
+
+        finalConditions = self.WrappedProblem.TransversalityConditionInTheDifferentialForm(hamiltonian, dtf, lambdasFinal)
         return self.ScaleExpressions(finalConditions)
        

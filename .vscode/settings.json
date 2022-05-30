@@ -24,4 +24,7 @@
         "sympy",
         "ylabel"
     ]
+"files.exclude": {
+        "**/__pycache__": true
+    }	
 }

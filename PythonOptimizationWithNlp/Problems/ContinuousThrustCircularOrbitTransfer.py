@@ -1,17 +1,17 @@
 import sympy as sy
-from typing import TypedDict, List, Dict
-from collections import OrderedDict
+from typing import List, Dict
 from PythonOptimizationWithNlp.Numerical import ScipyCallbackCreators
 from PythonOptimizationWithNlp.SymbolicOptimizerProblem import SymbolicProblem
 import math
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.integrate import solve_ivp
 from PythonOptimizationWithNlp.Utilities.inherit import inherit_docstrings
 
 @inherit_docstrings
 class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
     def __init__(self) :
-        """Initializes a new instance.
+        """Initializes a new instance.  The equations of motion will be set in the order [r, u, v, longitude].
         """
         super().__init__()
 
@@ -50,8 +50,6 @@ class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
 
         self._terminalCost = self._stateVariables[0].subs(self._timeSymbol, self._timeFinalSymbol) # maximization problem
 
-        #self._terminalCost = 0.0
-        #self._unintegratedCost = -1*self.StateVariables[0].diff(self.Ts) - self.StateVariables[0].subs(self.Ts, self._t0)
         rs = self._stateVariables[0]
         us = self._stateVariables[1]
         vs = self._stateVariables[2]
@@ -83,6 +81,48 @@ class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
         existingDict[self.ConstantSymbols[2]] = m0Val
         existingDict[self.ConstantSymbols[3]] = gVal
         existingDict[self.ConstantSymbols[4]] = ispVal
+
+    @staticmethod
+    def createSolveIvpSingleShootingCallbackForFSolve(problem : SymbolicProblem, integrationStateVariableArray, nonLambdaEomStateInitialValues, timeArray, solveIvpCallback, boundaryConditionExpressions, fSolveParametersToAppendToEom, fSolveOnlyParameters) :
+        """A function showing a potential way to solve the boundary conditions for this problem in a shooting method with fsolve.  
+
+        Args:
+            problem (SymbolicProblem): The problem we are solving.  This can be a ContinuousThrustCircularOrbitTransferProblem or it wrapped in a ScaledSymbolicProblem
+            integrationStateVariableArray (_type_): The integration state variables.
+            nonLambdaEomStateInitialValues (_type_): The non-costate values that fsolve will be solving for.
+            timeArray (_type_): The time array that the solution will be over.
+            solveIvpCallback (_type_): The equation of motion callback that solve_ivp will solve.
+            boundaryConditionExpressions (_type_): The boundary conditions (including transversality conditions) that the single shooting method will solve for.
+            fSolveParametersToAppendToEom (_type_): Additional parameters that appear in the boundaryConditionExpressions that should also be passed to the equations of motion.
+            fSolveOnlyParameters (_type_): Additional parameters that are in the boundaryConditionExpressions that should not be passed to the equations of motion.
+
+        Returns:
+            _type_: A callback to feed into scipy's fsolve for a single shooting method.
+        """
+        stateForBoundaryConditions = []
+        stateForBoundaryConditions.extend(SymbolicProblem.SafeSubs(integrationStateVariableArray, {problem.TimeSymbol: problem.TimeInitialSymbol}))
+        stateForBoundaryConditions.extend(SymbolicProblem.SafeSubs(integrationStateVariableArray, {problem.TimeSymbol: problem.TimeFinalSymbol}))
+        stateForBoundaryConditions.extend(fSolveParametersToAppendToEom)
+        stateForBoundaryConditions.extend(fSolveOnlyParameters)
+        boundaryConditionEvaluationCallbacks = ScipyCallbackCreators.CreateLambdifiedExpressions(stateForBoundaryConditions, boundaryConditionExpressions, problem.SubstitutionDictionary)
+        numberOfLambdasToPassToOdeInt = len(fSolveParametersToAppendToEom)
+        def callbackForFsolve(costateAndCostateVariableGuesses) :
+            z0 = []
+            z0.extend(nonLambdaEomStateInitialValues)
+            z0.extend(costateAndCostateVariableGuesses[0:numberOfLambdasToPassToOdeInt])
+            args = costateAndCostateVariableGuesses[numberOfLambdasToPassToOdeInt:len(costateAndCostateVariableGuesses)]
+            #ans = odeint(odeIntEomCallback, z0, tArray, args=tuple(args))
+            ans = solve_ivp(solveIvpCallback, [timeArray[0], timeArray[-1]], z0, args=tuple(args), t_eval=timeArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
+            finalState = []
+            finalState.extend(ScipyCallbackCreators.GetInitialStateFromIntegratorResults(ans))
+            finalState.extend(ScipyCallbackCreators.GetFinalStateFromIntegratorResults(ans))
+            # add values in fSolve state after what is already there
+            finalState.extend(costateAndCostateVariableGuesses)
+            finalAnswers = []
+            finalAnswers.extend(boundaryConditionEvaluationCallbacks(*finalState))
+        
+            return finalAnswers    
+        return callbackForFsolve
 
     def PlotSolution(self, tUnscaled : List[float], orderedDictOfUnScaledValues : Dict[object, List[float]], label : str) :
         
