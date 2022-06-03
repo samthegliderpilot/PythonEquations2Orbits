@@ -69,11 +69,11 @@ constantsSubsDict[baseProblem.Mu]= mu
 constantsSubsDict[baseProblem.Thrust] = thrust
 
 # register initial state values
-constantsSubsDict.update(zip(initialStateValues, [r0, u0, v0, 1.0]))
+constantsSubsDict.update(zip(initialStateValues, [r0, u0, v0, lon0]))
 if scale :
     # and reset the real initial values using tau_0 instead of time
     initialValuesAtTau0 = SymbolicProblem.SafeSubs(initialStateValues, {baseProblem.TimeInitialSymbol: problem.TimeInitialSymbol})
-    constantsSubsDict.update(zip(initialValuesAtTau0, [r0, u0, v0, 1.0]))
+    constantsSubsDict.update(zip(initialValuesAtTau0, [r0, u0, v0, lon0]))
 
     r0= r0/r0
     u0=u0/v0
@@ -81,7 +81,7 @@ if scale :
     lon0=lon0/1.0
     # add the scaled initial values (at tau_0).  We should NOT need to add these at t_0
     initialScaledStateValues = problem.CreateVariablesAtTime0(problem.StateVariables)
-    constantsSubsDict.update(zip(initialScaledStateValues, [r0, u0, v0, 1.0])) 
+    constantsSubsDict.update(zip(initialScaledStateValues, [r0, u0, v0, lon0])) 
     
 # this next block does most of the problem, pretty standard optimal control actions
 problem.Lambdas.extend(problem.CreateCoVector(problem.StateVariables, r'\lambda', problem.TimeSymbol))

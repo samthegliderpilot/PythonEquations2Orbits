@@ -11,6 +11,7 @@ from scipy.integrate import solve_ivp, solve_bvp, odeint
 from sympy.utilities.lambdify import lambdify
 import numpy as np
 import matplotlib.pyplot as plt
+from collections import OrderedDict
 
 # to get pyomo to work on windows, must also install this library:
 # conda install -c conda-forge pynumero_libraries
@@ -75,11 +76,11 @@ constantsSubsDict[baseProblem.Mu]= mu
 constantsSubsDict[baseProblem.Thrust] = thrust
 
 # register initial state values
-constantsSubsDict.update(zip(initialStateValues, [r0, u0, v0, 1.0]))
+constantsSubsDict.update(zip(initialStateValues, [r0, u0, v0, lon0]))
 if scale :
     # and reset the real initial values using tau_0 instead of time
     initialValuesAtTau0 = SymbolicProblem.SafeSubs(initialStateValues, {baseProblem.TimeInitialSymbol: problem.TimeInitialSymbol})
-    constantsSubsDict.update(zip(initialValuesAtTau0, [r0, u0, v0, 1.0]))
+    constantsSubsDict.update(zip(initialValuesAtTau0, [r0, u0, v0, lon0]))
 
     r0= r0/r0
     u0=u0/v0
@@ -87,7 +88,7 @@ if scale :
     lon0=lon0/1.0
     # add the scaled initial values (at tau_0).  We should NOT need to add these at t_0
     initialScaledStateValues = problem.CreateVariablesAtTime0(problem.StateVariables)
-    constantsSubsDict.update(zip(initialScaledStateValues, [r0, u0, v0, 1.0])) 
+    constantsSubsDict.update(zip(initialScaledStateValues, [r0, u0, v0, lon0])) 
     
     
 
@@ -120,7 +121,7 @@ model = poenv.ConcreteModel()
 model.t = podae.ContinuousSet(initialize=tSpace, domain=poenv.NonNegativeReals)
 
 velBound = 1.5*abs(v0)
-model.r = poenv.Var(model.t, bounds=[0.9, 1.2*42164000.0/r0], initialize=float(r0))
+model.r = poenv.Var(model.t, bounds=[0.9, 10.0], initialize=float(r0))
 model.u = poenv.Var(model.t, bounds=[-1*velBound, velBound], initialize=float(u0))
 model.v = poenv.Var(model.t,  bounds=[-1*velBound, velBound], initialize=float(v0))
 model.theta = poenv.Var(model.t, bounds=[lon0, 29.0*2.0*math.pi], initialize=float(lon0))
@@ -193,8 +194,8 @@ solver = poenv.SolverFactory('cyipopt')
 
 #solver.options['halt_on_ampl_error'] = 'yes'
 solver.solve(model, tee=True)
-
-def plotPyomoSolution(model, scaleVector):
+#%%
+def plotPyomoSolution(model, stateSymbols):
     tSpace =np.array( [t for t in model.t]) * model.Tf.value
     rSym = np.array([model.r[t]() for t in model.t])
     uSym = np.array([model.u[t]() for t in model.t])
@@ -202,9 +203,20 @@ def plotPyomoSolution(model, scaleVector):
     lonSim = np.array([model.theta[t]() for t in model.t])
     controls = np.array([model.control[t]() for t in model.t])
     print("control 0 = " + str(controls[0]))
+    ansAsDict = OrderedDict()
+    stateSymbols[0]= rSym
+    stateSymbols[1]= uSym
+    stateSymbols[2]= vSym
+    stateSymbols[3]=  lonSim
 
+    return [tSpace, ansAsDict]
+
+[tArray, solutionDictionary] = plotPyomoSolution(model, problem.StateVariables)
+unscaledResults = problem.DescaleResults(solutionDictionary)
+baseProblem.PlotSolution(tArray, unscaledResults, "Test")
 
 
 #     plotOdeIntSolution(tSpace, rSym, uSym, vSym, lonSim, scaleVector, controls)
 # plotPyomoSolution(model, numScaleVector)
 print("Tf = " + str(model.Tf.value/86400))
+
