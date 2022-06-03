@@ -116,8 +116,8 @@ initialFSolveStateGuess = ContinuousThrustCircularOrbitTransferProblem.CreateIni
 # lambda_lon is always 0, so do that cleanup
 del problem.EquationsOfMotion[lambdas[3]]
 problem.BoundaryConditions.remove(transversalityCondition[-1])
-lambdas.pop()
-lmdTheta = problem.IntegrationSymbols.pop()
+lmdTheta = lambdas.pop()
+problem.IntegrationSymbols.pop()
 constantsSubsDict[lmdTheta]=0
 constantsSubsDict[lmdTheta.subs(problem.TimeSymbol, problem.TimeFinalSymbol)]=0
 constantsSubsDict[lmdTheta.subs(problem.TimeSymbol, problem.TimeInitialSymbol)]=0
