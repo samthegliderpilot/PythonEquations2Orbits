@@ -90,9 +90,6 @@ if scale :
     initialScaledStateValues = problem.CreateVariablesAtTime0(problem.StateVariables)
     constantsSubsDict.update(zip(initialScaledStateValues, [r0, u0, v0, lon0])) 
     
-    
-
-from scipy.integrate import quadrature, LSODA, ode
 
 import pyomo.environ as poenv
 allOdes = []
@@ -105,7 +102,7 @@ for odet in allOdes:
 
 #allOdesEvaluable = ScipyCallbackCreators.CreateSimpleCallbackForSolveIvp(problem.TimeSymbol, problem.IntegrationSymbols,  problem.EquationsOfMotion, constantsSubsDict, problem.ControlVariables)
 
-n=120
+n=200
 tSpace = np.linspace(0.0, 1.0, n)
 
 # def odeCallback(tau, y0, tf) :
@@ -121,7 +118,7 @@ model = poenv.ConcreteModel()
 model.t = podae.ContinuousSet(initialize=tSpace, domain=poenv.NonNegativeReals)
 
 velBound = 1.5*abs(v0)
-model.r = poenv.Var(model.t, bounds=[0.9, 10.0], initialize=float(r0))
+model.r = poenv.Var(model.t, bounds=[0.9, 7.57], initialize=float(r0))
 model.u = poenv.Var(model.t, bounds=[-1*velBound, velBound], initialize=float(u0))
 model.v = poenv.Var(model.t,  bounds=[-1*velBound, velBound], initialize=float(v0))
 model.theta = poenv.Var(model.t, bounds=[lon0, 29.0*2.0*math.pi], initialize=float(lon0))
@@ -154,7 +151,7 @@ model.v[0].fix(float(v0))
 model.theta[0].fix(0.0)
 
 def vIsCircularConstraint(mod) :
-    return mod.v[1.0]/8000.0 == poenv.sqrt(float(constantsSubsDict[baseProblem.Mu])/(mod.r[1.0]*8000.0))
+    return mod.v[1.0] == poenv.sqrt(float(1)/(mod.r[1.0]))
 
 def uIsZero(mod) :
     return mod.u[1.0] <= 0.00001
@@ -194,7 +191,7 @@ solver = poenv.SolverFactory('cyipopt')
 
 #solver.options['halt_on_ampl_error'] = 'yes'
 solver.solve(model, tee=True)
-#%%
+
 def plotPyomoSolution(model, stateSymbols):
     tSpace =np.array( [t for t in model.t]) * model.Tf.value
     rSym = np.array([model.r[t]() for t in model.t])
@@ -204,10 +201,10 @@ def plotPyomoSolution(model, stateSymbols):
     controls = np.array([model.control[t]() for t in model.t])
     print("control 0 = " + str(controls[0]))
     ansAsDict = OrderedDict()
-    stateSymbols[0]= rSym
-    stateSymbols[1]= uSym
-    stateSymbols[2]= vSym
-    stateSymbols[3]=  lonSim
+    ansAsDict[stateSymbols[0]]= rSym
+    ansAsDict[stateSymbols[1]]= uSym
+    ansAsDict[stateSymbols[2]]= vSym
+    ansAsDict[stateSymbols[3]]=  lonSim
 
     return [tSpace, ansAsDict]
 

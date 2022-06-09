@@ -143,7 +143,8 @@ class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
         plt.grid(alpha=0.5)
         plt.legend(framealpha=1, shadow=True)
         plt.show()
-
+        if len(solsLists) <= 4 :
+            return
         plt.title('Lambdas')
         plt.plot(tUnscaled/86400, solsLists[4], label=r'$\lambda_r$ = ' + str(solsLists[4][0]))
         plt.plot(tUnscaled/86400, solsLists[5], label=r'$\lambda_u$ = ' + str(solsLists[5][0]))
