@@ -1,5 +1,6 @@
 #%%
 # DECLARE all the things!
+from textwrap import wrap
 import __init__
 import sys
 sys.path.append("..") # treating this as a jupyter-like cell requires adding one directory up
@@ -36,7 +37,7 @@ v0 = sy.sqrt(mu/r0) # circular
 lon0 = 0.0
 # I know from many previous runs that this is the time needed to go from LEO to GEO.
 # However, below works well wrapped in another fsolve to control the final time for a desired radius.
-tfVal  = 3600*3.97152*24 
+tfVal  = 3600*3.97152*24
 tfOrg = tfVal
 
 # these are options to switch to try different things
@@ -100,78 +101,151 @@ for odet in allOdes:
     subsed = odet.subs(problem.SubstitutionDictionary)
     allOdesEvaluable.append(lambdify(zState, subsed, modules={'sqrt': poenv.sqrt, 'sin': poenv.sin, 'cos':poenv.cos}))
 
-#allOdesEvaluable = ScipyCallbackCreators.CreateSimpleCallbackForSolveIvp(problem.TimeSymbol, problem.IntegrationSymbols,  problem.EquationsOfMotion, constantsSubsDict, problem.ControlVariables)
+
+
+import pyomo.dae as podae
+from typing import List, Dict
+from PythonOptimizationWithNlp.NumericalOptimizerProblem import NumericalOptimizerProblemBase
+from matplotlib.figure import Figure
+
+lambdiafyFunctionMap = {'sqrt': poenv.sqrt, 'sin': poenv.sin, 'cos':poenv.cos}
+
+class NumericalProblemFromSymbolicProblem(NumericalOptimizerProblemBase) :
+    def __init__(self, wrappedProblem : SymbolicProblem, functionMap : Dict) :
+        super.__init__(self, wrappedProblem.TimeSymbol)
+        entireState = [wrappedProblem.TimeSymbol, *wrappedProblem.StateVariables, *wrappedProblem.ControlVariables]
+        finalState = SymbolicProblem.SafeSubs(entireState, {wrappedProblem.TimeSymbol, wrappedProblem.TimeFinalSymbol})
+        self._terminalCost = lambdify(finalState, wrappedProblem.TerminalCost.subs(wrappedProblem.SubstitutionDictionary), functionMap)
+        self._unintegratedPathCost = lambdify(entireState, wrappedProblem.UnIntegratedPathCost.subs(wrappedProblem.SubstitutionDictionary), functionMap)
+        self._equationOfMotionList = []
+        for (sv, eom) in wrappedProblem.EquationsOfMotion.items() :
+            eomCb = lambdify(entireState, eom.subs(wrappedProblem.SubstitutionDictionary), functionMap)
+            self._equationOfMotionList.append(eomCb) 
+
+        for bc in wrappedProblem.BoundaryConditions :
+            bcCallback = lambdify(finalState, bc.TerminalCost.subs(wrappedProblem.SubstitutionDictionary), functionMap)
+            self.FinalBoundaryConditions.append(bcCallback)            
+
+    @property
+    def ContolValueAtTCallbackForInitialGuess(self):
+        return self._controlCallback
+
+    @ContolValueAtTCallbackForInitialGuess.setter
+    def setContolValueAtTCallbackForInitialGuess(self, callback) :
+        self._controlCallback = callback
+
+    def InitialGuessCallback(self, t : float) -> List[float] :
+        """A function to produce an initial state at t, 
+
+        Args:
+            t (float): _description_
+
+        Returns:
+            List[float]: A list the values in the state followed by the values of the controls at t.
+        """
+        pass
+
+    def EquationOfMotion(self, t : float, stateAndControlAtT : List[float]) -> List[float] :
+        """The equations of motion.  
+
+        Args:
+            t (float): The time.  
+            stateAndControlAtT (List[float]): The current state and control at t to evaluate the equations of motion.
+
+        Returns:
+            List[float]: The derivative of the state variables 
+        """  
+        ans = []
+        for i in range(0, len(stateAndControlAtT)) :
+            ans.append(self.SingleEquationOfMotion(t, stateAndControlAtT, i))
+        return ans
+
+    def SingleEquationOfMotion(self, t : float, stateAndControlAtT : List[float], indexOfEom : int) -> float :
+        return self._equationOfMotionList[indexOfEom](t, stateAndControlAtT)
+
+    def UnIntegratedPathCostCallback(self) :
+        return self._unintegratedPathCost
+    
+    def TerminalCost(self) :
+        return self._terminalCost
+
+    def CostFunction(self, t : List[float], stateAndControl : Dict[object, List[float]]) -> float:
+        """The cost of the problem.  
+
+        Args:
+            t (: List[float]): The time array being evaluated.
+            state (: List[float]): The state as seen by the optimizer (the discretized x's and v's)
+            control (: List[float]): The control as controlled by the optimizer (the discretized u).
+
+        Returns:
+            float: The cost.
+        """
+        pass
+
+    def AddResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[object, List[float]], label : str) -> None:
+        """Adds the contents of dictionaryOfValueArraysKeyedOffState to the plot.
+
+        Args:
+            figure (matplotlib.figure.Figure): The figure the data is getting added to.
+            t (List[float]): The time corresponding to the data in dictionaryOfValueArraysKeyedOffState.
+            dictionaryOfValueArraysKeyedOffState (Dict[object, List[float]]): The data to get added.  The keys must match the values in self.State and self.Control.
+            label (str): A label for the data to use in the plot legend.
+        """
+        pass
+
 
 n=200
 tSpace = np.linspace(0.0, 1.0, n)
 
-# def odeCallback(tau, y0, tf) :
-#     ans = []
-#     for eq in allOdesEvaluable :
-#         ans.append(eq(*y0, tau, tf))
-#     ans.append(0.0)
-#     return ans
-
-import pyomo.dae as podae
+def mapping(m, t, expre) :
+    return expre(m.r[t], m.u[t], m.v[t], m.theta[t], m.control[t], t, m.Tf)
 
 model = poenv.ConcreteModel()
 model.t = podae.ContinuousSet(initialize=tSpace, domain=poenv.NonNegativeReals)
 
+def setEverythingOnPyomoModel(mdl, name, t, bounds, iv) :
+    if iv is None :
+        setattr(mdl, name, poenv.Var(t, bounds=bounds))
+    else :
+        setattr(mdl, name, poenv.Var(t, bounds=bounds, initialize=float(iv)))
+        getattr(mdl, name)[0].fix(float(iv))        
+    setattr(mdl, name+"Dot", podae.DerivativeVar(getattr(mdl, name), wrt=t))
+
+def setEom(mdl, name, t, eom) :
+    setattr(mdl, name+"Eom", poenv.Constraint(t, rule =lambda m, t2: getattr(mdl, name+"Dot")[t2] == mapping(m, t2, eom)))
+
 velBound = 1.5*abs(v0)
-model.r = poenv.Var(model.t, bounds=[0.9, 7.57], initialize=float(r0))
-model.u = poenv.Var(model.t, bounds=[-1*velBound, velBound], initialize=float(u0))
-model.v = poenv.Var(model.t,  bounds=[-1*velBound, velBound], initialize=float(v0))
-model.theta = poenv.Var(model.t, bounds=[lon0, 29.0*2.0*math.pi], initialize=float(lon0))
+model.Tf = poenv.Var(bounds=[tfOrg-2, tfOrg+2], initialize=float(tfOrg))
 
-model.control = poenv.Var(model.t, bounds=[-1*math.pi/2.0, math.pi/2.0])
+setEverythingOnPyomoModel(model, "r",     model.t, [0.9, 8.0],              r0)
+setEverythingOnPyomoModel(model, "u",     model.t, [-1*velBound, velBound],  u0)
+setEverythingOnPyomoModel(model, "v",     model.t, [-1*velBound, velBound],  v0)
+setEverythingOnPyomoModel(model, "theta", model.t, [lon0, 29.0*2.0*math.pi], lon0)
+setEverythingOnPyomoModel(model, "control", model.t, [-1*math.pi/2.0, math.pi/2.0], None)
 
-model.rDot = podae.DerivativeVar(model.r, wrt=model.t)
-model.uDot = podae.DerivativeVar(model.u, wrt=model.t)
-model.vDot = podae.DerivativeVar(model.v, wrt=model.t)
-model.thetaDot = podae.DerivativeVar(model.theta, wrt=model.t)
-model.Tf = poenv.Var(bounds=[tfOrg-100, tfOrg+100], initialize=float(tfOrg))
-#model.Thetaf = poenv.Var(bounds=[0.0, 2*math.pi], initialize=float((2.0/3.0)*math.pi))
-
-def mapping(m, t, expre) :
-    return expre(m.r[t], m.u[t], m.v[t], m.theta[t], m.control[t], t, m.Tf)
-
-model.ode1 = poenv.Constraint(model.t, rule = lambda m, t: model.rDot[t] == mapping(m, t, allOdesEvaluable[0]))
-model.ode2 = poenv.Constraint(model.t, rule = lambda m, t: model.uDot[t] == mapping(m, t, allOdesEvaluable[1]))
-model.ode3 = poenv.Constraint(model.t, rule = lambda m, t: model.vDot[t] == mapping(m, t, allOdesEvaluable[2]))
-model.ode4 = poenv.Constraint(model.t, rule = lambda m, t: model.thetaDot[t] == mapping(m, t, allOdesEvaluable[3]))
+setEom(model, "r",     model.t, allOdesEvaluable[0])
+setEom(model, "u",     model.t, allOdesEvaluable[1])
+setEom(model, "v",     model.t, allOdesEvaluable[2])
+setEom(model, "theta", model.t, allOdesEvaluable[3])
 
 model.radiusObjective = poenv.Objective(expr = lambda mod : mod.r[1.0], sense=poenv.maximize) # max radius 
 #model.timeObjective = poenv.Objective(expr = lambda mod : mod.Tf, sense=poenv.minimize) # minimize Tf
-
-#model.control[0].fix(float(0.05))
-
-model.r[0].fix(float(r0))
-model.u[0].fix(float(u0))
-model.v[0].fix(float(v0))
-model.theta[0].fix(0.0)
 
 def vIsCircularConstraint(mod) :
     return mod.v[1.0] == poenv.sqrt(float(1)/(mod.r[1.0]))
 
 def uIsZero(mod) :
-    return mod.u[1.0] <= 0.00001
-
-def uIsZero2(mod) :
-    return mod.u[1.0] >= -0.00001
+    return mod.u[1.0] <= 0.0000001
 
 model.vConst = poenv.Constraint(rule=vIsCircularConstraint)
-model.uConst = poenv.Constraint(rule = lambda m : m.u[1.0]==0.0)
 #model.thetaConst = poenv.Constraint(rule = lambda m : m.theta[1.0] == 26*2*math.pi + 1.15*math.pi)
-#model.uConst1 = poenv.Constraint(rule = uIsZero)
-#model.uConst2= poenv.Constraint(rule = uIsZero2)
+model.uConst1 = poenv.Constraint(rule = uIsZero)
 #model.rConst = poenv.Constraint(rule = lambda m : m.r[1.0]==float(xfBcVals[rs]))
-
-#model.controlConst = poenv.Constraint(rule = lambda m : m.control[0.0]==0.05)
 
 model.var_input = poenv.Suffix(direction=poenv.Suffix.LOCAL)
 sim = podae.Simulator(model, package='scipy') 
 
-model.var_input[model.control] = {0: 0.05}
+model.var_input[model.control] = {0: 0.00}
 model.var_input[model.Tf] = {0: tfOrg}
 tsim, profiles = sim.simulate(numpoints=n, varying_inputs=model.var_input, integrator='dop853', initcon=np.array([r0,u0, v0, lon0], dtype=float))
 debugMessage = True
@@ -181,15 +255,7 @@ debugMessage = True
 poenv.TransformationFactory('dae.collocation').apply_to(model, wrt=model.t, nfe=n,ncp=3, scheme='LAGRANGE-RADAU')
 #['LAGRANGE-RADAU', 'LAGRANGE-LEGENDRE']
 sim.initialize_model()
-#model.display()
 solver = poenv.SolverFactory('cyipopt')
-#solver.options['tol'] = 1E-12
-#solver.options['nlp_scaling_method'] = 'none'
-#solver.options['print_level'] = 6
-#solver.options['OMP_NUM_THREADS'] = 10
-#solver.options['max_iter'] = 2000
-
-#solver.options['halt_on_ampl_error'] = 'yes'
 solver.solve(model, tee=True)
 
 def plotPyomoSolution(model, stateSymbols):
@@ -200,6 +266,12 @@ def plotPyomoSolution(model, stateSymbols):
     lonSim = np.array([model.theta[t]() for t in model.t])
     controls = np.array([model.control[t]() for t in model.t])
     print("control 0 = " + str(controls[0]))
+    plt.title("Thrust Angle")
+    plt.plot(tSpace/86400, controls*180.0/math.pi)
+    plt.tight_layout()
+    plt.grid(alpha=0.5)
+    plt.legend(framealpha=1, shadow=True)
+    plt.show()    
     ansAsDict = OrderedDict()
     ansAsDict[stateSymbols[0]]= rSym
     ansAsDict[stateSymbols[1]]= uSym
@@ -216,4 +288,6 @@ baseProblem.PlotSolution(tArray, unscaledResults, "Test")
 #     plotOdeIntSolution(tSpace, rSym, uSym, vSym, lonSim, scaleVector, controls)
 # plotPyomoSolution(model, numScaleVector)
 print("Tf = " + str(model.Tf.value/86400))
-
+jh.showEquation("r_f", unscaledResults[baseProblem.StateVariables[0]][-1]) 
+jh.showEquation("u_f", unscaledResults[baseProblem.StateVariables[1]][-1]) 
+jh.showEquation("v_f", unscaledResults[baseProblem.StateVariables[2]][-1])     

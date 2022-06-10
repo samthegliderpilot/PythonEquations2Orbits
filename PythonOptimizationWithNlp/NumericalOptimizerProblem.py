@@ -1,5 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
+from subprocess import call
 from typing import List, Dict
 from matplotlib.figure import Figure
 
@@ -89,6 +90,17 @@ class NumericalOptimizerProblemBase(ABC) :
         """  
         pass
 
+    def SingleEquationOfMotion(self, t : float, stateAndControlAtT : List[float], indexOfEom : int) -> float :
+        return self.EquationOfMotion(t, stateAndControlAtT)[indexOfEom]
+
+    def ListOfEquationsOfMotionCallbacks(self) -> List :
+        callbacks = []
+        for i in len(self.State) :
+            b =i*2
+            callback = lambda t, stateAndControlAtT : self.SingleEquationOfMotion(t, stateAndControlAtT, int(b/2))
+            callbacks.append(callback)
+        return callbacks
+
     @abstractmethod 
     def CostFunction(self, t : List[float], stateAndControl : Dict[object, List[float]]) -> float:
         """The cost of the problem.  
@@ -101,6 +113,14 @@ class NumericalOptimizerProblemBase(ABC) :
         Returns:
             float: The cost.
         """
+        pass
+
+    @abstractmethod 
+    def UnIntegratedPathCostCallback(self) :
+        pass
+    
+    @abstractmethod 
+    def TerminalCost(self) :
         pass
 
     @abstractmethod    
