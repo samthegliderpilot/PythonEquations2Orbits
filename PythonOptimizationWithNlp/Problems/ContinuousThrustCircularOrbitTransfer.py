@@ -1,3 +1,4 @@
+from matplotlib.figure import Figure
 import sympy as sy
 from typing import List, Dict
 from PythonOptimizationWithNlp.Numerical import ScipyCallbackCreators
@@ -209,3 +210,14 @@ class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
         constantsForLmdGuesses[lmdsAtT0[0]] = lambdaR0Value # later on, arrays will care that this MUST be a float
         initialFSolveStateGuess = [lambdaR0Value, float(ansForLmdu), 1.0]
         return initialFSolveStateGuess        
+    
+    def AddStandardResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[object, List[float]], label : str) -> None:
+        """Adds the contents of dictionaryOfValueArraysKeyedOffState to the plot.
+
+        Args:
+            figure (matplotlib.figure.Figure): The figure the data is getting added to.
+            t (List[float]): The time corresponding to the data in dictionaryOfValueArraysKeyedOffState.
+            dictionaryOfValueArraysKeyedOffState (Dict[object, List[float]]): The data to get added.  The keys must match the values in self.State and self.Control.
+            label (str): A label for the data to use in the plot legend.
+        """
+        pass        

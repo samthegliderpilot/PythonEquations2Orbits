@@ -2,8 +2,9 @@ import sympy as sy
 from typing import List, Dict
 from collections import OrderedDict
 from PythonOptimizationWithNlp.Symbolics.Vectors import Vector
-from abc import ABC
+from abc import ABC, abstractmethod
 import numpy as np
+from matplotlib.figure import Figure
 
 # it is likely that this class will get split up into a problem definition and an 
 # indirect solver in the near future
@@ -578,4 +579,16 @@ class SymbolicProblem(ABC) :
         d2hdu2Exp = sy.lambdify(stateForEom, d2Hdu2.subs(controlSolved).subs(moreSubs).trigsimp(deep=True).subs(constantsSubsDict))
         d2hdu2Valus = d2hdu2Exp(tArray, *solArray)
         return [hamltVals, dhduValus, d2hdu2Valus]
+
+    @abstractmethod
+    def AddStandardResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[object, List[float]], label : str) -> None:
+        """Adds the contents of dictionaryOfValueArraysKeyedOffState to the plot.
+
+        Args:
+            figure (matplotlib.figure.Figure): The figure the data is getting added to.
+            t (List[float]): The time corresponding to the data in dictionaryOfValueArraysKeyedOffState.
+            dictionaryOfValueArraysKeyedOffState (Dict[object, List[float]]): The data to get added.  The keys must match the values in self.State and self.Control.
+            label (str): A label for the data to use in the plot legend.
+        """
+        pass
      

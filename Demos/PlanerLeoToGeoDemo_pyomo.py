@@ -93,38 +93,40 @@ if scale :
     
 
 import pyomo.environ as poenv
-allOdes = []
-allOdes.extend(problem.EquationsOfMotion.values())
-allOdesEvaluable = [ ]
-zState = [*problem.IntegrationSymbols, problem.ControlVariables[0], problem.TimeSymbol, baseProblem.TimeFinalSymbol]
-for odet in allOdes:
-    subsed = odet.subs(problem.SubstitutionDictionary)
-    allOdesEvaluable.append(lambdify(zState, subsed, modules={'sqrt': poenv.sqrt, 'sin': poenv.sin, 'cos':poenv.cos}))
-
-
 
 import pyomo.dae as podae
 from typing import List, Dict
 from PythonOptimizationWithNlp.NumericalOptimizerProblem import NumericalOptimizerProblemBase
 from matplotlib.figure import Figure
 
-lambdiafyFunctionMap = {'sqrt': poenv.sqrt, 'sin': poenv.sin, 'cos':poenv.cos}
+lambdiafyFunctionMap = {'sqrt': poenv.sqrt, 'sin': poenv.sin, 'cos':poenv.cos} #TODO: MORE!!!!
 
 class NumericalProblemFromSymbolicProblem(NumericalOptimizerProblemBase) :
     def __init__(self, wrappedProblem : SymbolicProblem, functionMap : Dict) :
-        super.__init__(self, wrappedProblem.TimeSymbol)
+        super().__init__(wrappedProblem.TimeSymbol)
+        self._wrappedProblem = wrappedProblem
         entireState = [wrappedProblem.TimeSymbol, *wrappedProblem.StateVariables, *wrappedProblem.ControlVariables]
-        finalState = SymbolicProblem.SafeSubs(entireState, {wrappedProblem.TimeSymbol, wrappedProblem.TimeFinalSymbol})
-        self._terminalCost = lambdify(finalState, wrappedProblem.TerminalCost.subs(wrappedProblem.SubstitutionDictionary), functionMap)
-        self._unintegratedPathCost = lambdify(entireState, wrappedProblem.UnIntegratedPathCost.subs(wrappedProblem.SubstitutionDictionary), functionMap)
+        if isinstance(wrappedProblem, ScaledSymbolicProblem) and wrappedProblem.ScaleTime :
+            entireState.append(wrappedProblem.TimeFinalSymbolOriginal)
+        finalState = SymbolicProblem.SafeSubs(entireState, {wrappedProblem.TimeSymbol: wrappedProblem.TimeFinalSymbol})
+        display(wrappedProblem.TerminalCost.subs(wrappedProblem.SubstitutionDictionary))
+        display(finalState)
+        self._terminalCost = lambdify([finalState], wrappedProblem.TerminalCost.subs(wrappedProblem.SubstitutionDictionary), functionMap)
+        display(self._terminalCost)
+        self._unintegratedPathCost = 0.0
+        if wrappedProblem.UnIntegratedPathCost != None and wrappedProblem.UnIntegratedPathCost != 0.0 :
+            self._unintegratedPathCost = lambdify(entireState, wrappedProblem.UnIntegratedPathCost.subs(wrappedProblem.SubstitutionDictionary), functionMap)
         self._equationOfMotionList = []
         for (sv, eom) in wrappedProblem.EquationsOfMotion.items() :
             eomCb = lambdify(entireState, eom.subs(wrappedProblem.SubstitutionDictionary), functionMap)
             self._equationOfMotionList.append(eomCb) 
 
         for bc in wrappedProblem.BoundaryConditions :
-            bcCallback = lambdify(finalState, bc.TerminalCost.subs(wrappedProblem.SubstitutionDictionary), functionMap)
+            bcCallback = lambdify([finalState], bc.subs(wrappedProblem.SubstitutionDictionary), functionMap)
             self.FinalBoundaryConditions.append(bcCallback)            
+
+    def StandardState(self) :
+        return 
 
     @property
     def ContolValueAtTCallbackForInitialGuess(self):
@@ -157,11 +159,14 @@ class NumericalProblemFromSymbolicProblem(NumericalOptimizerProblemBase) :
         """  
         ans = []
         for i in range(0, len(stateAndControlAtT)) :
-            ans.append(self.SingleEquationOfMotion(t, stateAndControlAtT, i))
+            ans.append(self.SingleEquationOfMotion(t, *stateAndControlAtT, i))
         return ans
 
     def SingleEquationOfMotion(self, t : float, stateAndControlAtT : List[float], indexOfEom : int) -> float :
         return self._equationOfMotionList[indexOfEom](t, stateAndControlAtT)
+
+    def SingleEquationOfMotionWithTInState(self, state, indexOfEom) :
+        return self._equationOfMotionList[indexOfEom](state[0], *state[1:])
 
     def UnIntegratedPathCostCallback(self) :
         return self._unintegratedPathCost
@@ -191,56 +196,64 @@ class NumericalProblemFromSymbolicProblem(NumericalOptimizerProblemBase) :
             dictionaryOfValueArraysKeyedOffState (Dict[object, List[float]]): The data to get added.  The keys must match the values in self.State and self.Control.
             label (str): A label for the data to use in the plot legend.
         """
-        pass
+        self._wrappedProblem.AddStandardResultsToFigure(figure, t, dictionaryOfValueArraysKeyedOffState, label)
 
+
+asNumericalProblem = NumericalProblemFromSymbolicProblem(problem, lambdiafyFunctionMap)
 
 n=200
 tSpace = np.linspace(0.0, 1.0, n)
-
-def mapping(m, t, expre) :
-    return expre(m.r[t], m.u[t], m.v[t], m.theta[t], m.control[t], t, m.Tf)
 
 model = poenv.ConcreteModel()
 model.t = podae.ContinuousSet(initialize=tSpace, domain=poenv.NonNegativeReals)
 
 def setEverythingOnPyomoModel(mdl, name, t, bounds, iv) :
-    if iv is None :
+    if t == None and iv != None :
+        setattr(mdl, name, poenv.Var(bounds=bounds, initialize=float(iv)))
+    elif iv is None :
         setattr(mdl, name, poenv.Var(t, bounds=bounds))
     else :
         setattr(mdl, name, poenv.Var(t, bounds=bounds, initialize=float(iv)))
         getattr(mdl, name)[0].fix(float(iv))        
-    setattr(mdl, name+"Dot", podae.DerivativeVar(getattr(mdl, name), wrt=t))
+    if t != None :
+        setattr(mdl, name+"Dot", podae.DerivativeVar(getattr(mdl, name), wrt=t))
 
 def setEom(mdl, name, t, eom) :
     setattr(mdl, name+"Eom", poenv.Constraint(t, rule =lambda m, t2: getattr(mdl, name+"Dot")[t2] == mapping(m, t2, eom)))
 
 velBound = 1.5*abs(v0)
-model.Tf = poenv.Var(bounds=[tfOrg-2, tfOrg+2], initialize=float(tfOrg))
 
 setEverythingOnPyomoModel(model, "r",     model.t, [0.9, 8.0],              r0)
 setEverythingOnPyomoModel(model, "u",     model.t, [-1*velBound, velBound],  u0)
 setEverythingOnPyomoModel(model, "v",     model.t, [-1*velBound, velBound],  v0)
 setEverythingOnPyomoModel(model, "theta", model.t, [lon0, 29.0*2.0*math.pi], lon0)
 setEverythingOnPyomoModel(model, "control", model.t, [-1*math.pi/2.0, math.pi/2.0], None)
+setEverythingOnPyomoModel(model, "Tf", None, [tfOrg-2, tfOrg+2], tfOrg)
 
-setEom(model, "r",     model.t, allOdesEvaluable[0])
-setEom(model, "u",     model.t, allOdesEvaluable[1])
-setEom(model, "v",     model.t, allOdesEvaluable[2])
-setEom(model, "theta", model.t, allOdesEvaluable[3])
+def mapping(m, t, expre) :
+    return expre([t, m.r[t], m.u[t], m.v[t], m.theta[t], m.control[t], m.Tf])
 
-model.radiusObjective = poenv.Objective(expr = lambda mod : mod.r[1.0], sense=poenv.maximize) # max radius 
-#model.timeObjective = poenv.Objective(expr = lambda mod : mod.Tf, sense=poenv.minimize) # minimize Tf
+setEom(model, "r",     model.t, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 0))
+setEom(model, "u",     model.t, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 1))
+setEom(model, "v",     model.t, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 2))
+setEom(model, "theta", model.t, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 3))
+display(asNumericalProblem._terminalCost([1,2,3,4,5,6,7]))
+#%%
+def createTerminalCost(mdl, name, theProblem) :
+    cb = theProblem._terminalCost    
+    innerLmd = lambda mod1 : mapping(mod1, 1.0, cb)
+    setattr(mdl, "objective" + str(i), poenv.Objective(expr = innerLmd, sense=poenv.maximize))
+createTerminalCost(model, "radius", asNumericalProblem)
+#model.radiusObjective = poenv.Objective(expr = lambda mod : mod.r[1.0], sense=poenv.maximize) # max radius 
 
-def vIsCircularConstraint(mod) :
-    return mod.v[1.0] == poenv.sqrt(float(1)/(mod.r[1.0]))
 
-def uIsZero(mod) :
-    return mod.u[1.0] <= 0.0000001
-
-model.vConst = poenv.Constraint(rule=vIsCircularConstraint)
-#model.thetaConst = poenv.Constraint(rule = lambda m : m.theta[1.0] == 26*2*math.pi + 1.15*math.pi)
-model.uConst1 = poenv.Constraint(rule = uIsZero)
-#model.rConst = poenv.Constraint(rule = lambda m : m.r[1.0]==float(xfBcVals[rs]))
+i = 1
+for bc in asNumericalProblem.FinalBoundaryConditions :
+    def makeInnerLmd(bc) :
+        return lambda mod1 : 0 == mapping(mod1, 1.0, bc)
+    innerLmd = makeInnerLmd(bc)
+    setattr(model, "bc" + str(i), poenv.Constraint(rule = innerLmd))
+    i=i+1
 
 model.var_input = poenv.Suffix(direction=poenv.Suffix.LOCAL)
 sim = podae.Simulator(model, package='scipy') 
@@ -284,9 +297,6 @@ def plotPyomoSolution(model, stateSymbols):
 unscaledResults = problem.DescaleResults(solutionDictionary)
 baseProblem.PlotSolution(tArray, unscaledResults, "Test")
 
-
-#     plotOdeIntSolution(tSpace, rSym, uSym, vSym, lonSim, scaleVector, controls)
-# plotPyomoSolution(model, numScaleVector)
 print("Tf = " + str(model.Tf.value/86400))
 jh.showEquation("r_f", unscaledResults[baseProblem.StateVariables[0]][-1]) 
 jh.showEquation("u_f", unscaledResults[baseProblem.StateVariables[1]][-1]) 

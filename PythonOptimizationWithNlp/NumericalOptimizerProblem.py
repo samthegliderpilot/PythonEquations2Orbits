@@ -18,8 +18,8 @@ class NumericalOptimizerProblemBase(ABC) :
             n (int): The count of segments that the trajectory will be broken up by.
         """
         self.State = []
-        self.InitialBoundaryConditions = {}
-        self.FinalBoundaryConditions = {}
+        self.InitialBoundaryConditions = []
+        self.FinalBoundaryConditions = []
         self.Time = t
         self.T0 = 0
         self.Control = []        

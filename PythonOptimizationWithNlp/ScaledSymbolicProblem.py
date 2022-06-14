@@ -1,3 +1,4 @@
+from matplotlib.figure import Figure
 import sympy as sy
 from typing import List, Dict
 from PythonOptimizationWithNlp.SymbolicOptimizerProblem import SymbolicProblem
@@ -73,8 +74,8 @@ class ScaledSymbolicProblem(SymbolicProblem) :
         
         # should the path cost get scaled?  I think so, but if you know better, or if it doesn't work...
         self._unIntegratedPathCost = SymbolicProblem.SafeSubs(wrappedProblem.UnIntegratedPathCost, fullSubsDict)
-        # do not scale the cost function! conditions made from the cost get scaled later
-        self._terminalCost = wrappedProblem.TerminalCost
+        #TODO: Scale the costs!  the way we are doing the xversality conditions are fine with them scaled here (I think)
+        self._terminalCost = SymbolicProblem.SafeSubs(wrappedProblem.TerminalCost, newSvsInTermsOfOldSvs.subs(self.TimeSymbol, self.TimeFinalSymbol))
         if scaleTime :
             tf = wrappedProblem.TimeFinalSymbol
             tau = sy.Symbol(r'\tau')
@@ -259,4 +260,14 @@ class ScaledSymbolicProblem(SymbolicProblem) :
 
         finalConditions = self.WrappedProblem.TransversalityConditionInTheDifferentialForm(hamiltonian, dtf, lambdasFinal)
         return self.ScaleExpressions(finalConditions)
-       
+
+    def AddStandardResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[object, List[float]], label : str) -> None:
+        """Adds the contents of dictionaryOfValueArraysKeyedOffState to the plot.
+
+        Args:
+            figure (matplotlib.figure.Figure): The figure the data is getting added to.
+            t (List[float]): The time corresponding to the data in dictionaryOfValueArraysKeyedOffState.
+            dictionaryOfValueArraysKeyedOffState (Dict[object, List[float]]): The data to get added.  The keys must match the values in self.State and self.Control.
+            label (str): A label for the data to use in the plot legend.
+        """
+        self._wrappedProblem.AddStandardResultsToFigure(figure, t, dictionaryOfValueArraysKeyedOffState, label)       
