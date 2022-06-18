@@ -33,6 +33,9 @@ class ScaledSymbolicProblem(SymbolicProblem) :
         
         self._scalingDict = valuesToDivideStateVariablesWith
 
+        svAtTf=SymbolicProblem.SafeSubs(wrappedProblem.StateVariables, {wrappedProblem.TimeSymbol: wrappedProblem.TimeFinalSymbol})
+        newSvAtTf=SymbolicProblem.SafeSubs(newStateVariableSymbols, {wrappedProblem.TimeSymbol: wrappedProblem.TimeFinalSymbol})
+        svAtTfSubsDict = dict(zip(svAtTf, newSvAtTf))
         newSvsInTermsOfOldSvs = []
         counter=0
         for sv in wrappedProblem.StateVariables :
@@ -61,9 +64,8 @@ class ScaledSymbolicProblem(SymbolicProblem) :
         counter = 0
         bcSubsDict = {}
         for sv in wrappedProblem.StateVariables :
-            svAtTf=sv.subs(wrappedProblem.TimeSymbol, wrappedProblem.TimeFinalSymbol)
             newSvAtTf = newStateVariableSymbols[counter].subs(self.TimeSymbol, self.TimeFinalSymbol)
-            bcSubsDict[svAtTf] = newSvAtTf*valuesToDivideStateVariablesWith[sv]
+            bcSubsDict[svAtTf[counter]] = newSvAtTf*valuesToDivideStateVariablesWith[sv]
             counter = counter+1
         bcs = []
         
@@ -75,7 +77,7 @@ class ScaledSymbolicProblem(SymbolicProblem) :
         # should the path cost get scaled?  I think so, but if you know better, or if it doesn't work...
         self._unIntegratedPathCost = SymbolicProblem.SafeSubs(wrappedProblem.UnIntegratedPathCost, fullSubsDict)
         #TODO: Scale the costs!  the way we are doing the xversality conditions are fine with them scaled here (I think)
-        self._terminalCost = SymbolicProblem.SafeSubs(wrappedProblem.TerminalCost, newSvsInTermsOfOldSvs.subs(self.TimeSymbol, self.TimeFinalSymbol))
+        self._terminalCost = SymbolicProblem.SafeSubs(wrappedProblem.TerminalCost, svAtTfSubsDict)
         if scaleTime :
             tf = wrappedProblem.TimeFinalSymbol
             tau = sy.Symbol(r'\tau')

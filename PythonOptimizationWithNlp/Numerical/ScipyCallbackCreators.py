@@ -4,6 +4,8 @@ import sympy as sy
 
 from PythonOptimizationWithNlp.SymbolicOptimizerProblem import SymbolicProblem
 
+
+
 def CreateSimpleCallbackForSolveIvp(timeSymbol : sy.Expr, integrationVariableSymbols : List[sy.Expr], equationsOfMotion : Dict[sy.Expr, sy.Expr], substitutionDictionary : Dict[sy.Expr, float], otherArgs: List[sy.Expr]= None) : 
     """Creates a callback to evaluate equations of motion with scipy.solveIvp.
 
@@ -25,7 +27,7 @@ def CreateSimpleCallbackForSolveIvp(timeSymbol : sy.Expr, integrationVariableSym
     for sv in integrationVariableSymbols :
         thisEom = equationsOfMotion[sv].subs(substitutionDictionary)        
         eomList.append(thisEom)   
-        sy.lambdify(valuesArray, thisEom)
+        #sy.lambdify(valuesArray, thisEom)
     eomCallback = sy.lambdify(valuesArray, eomList)
 
     def callbackFunc(t, y, *args) :

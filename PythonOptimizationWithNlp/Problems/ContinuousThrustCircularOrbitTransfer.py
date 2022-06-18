@@ -103,7 +103,7 @@ class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
         stateForBoundaryConditions = []
         stateForBoundaryConditions.extend(SymbolicProblem.SafeSubs(integrationStateVariableArray, {problem.TimeSymbol: problem.TimeInitialSymbol}))
         stateForBoundaryConditions.extend(SymbolicProblem.SafeSubs(integrationStateVariableArray, {problem.TimeSymbol: problem.TimeFinalSymbol}))
-        stateForBoundaryConditions.extend(fSolveParametersToAppendToEom)
+        #stateForBoundaryConditions.extend(fSolveParametersToAppendToEom)
         stateForBoundaryConditions.extend(fSolveOnlyParameters)
         boundaryConditionEvaluationCallbacks = ScipyCallbackCreators.CreateLambdifiedExpressions(stateForBoundaryConditions, boundaryConditionExpressions, problem.SubstitutionDictionary)
         numberOfLambdasToPassToOdeInt = len(fSolveParametersToAppendToEom)
@@ -118,7 +118,7 @@ class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
             finalState.extend(ScipyCallbackCreators.GetInitialStateFromIntegratorResults(ans))
             finalState.extend(ScipyCallbackCreators.GetFinalStateFromIntegratorResults(ans))
             # add values in fSolve state after what is already there
-            finalState.extend(costateAndCostateVariableGuesses)
+            finalState.extend(costateAndCostateVariableGuesses[numberOfLambdasToPassToOdeInt:])
             finalAnswers = []
             finalAnswers.extend(boundaryConditionEvaluationCallbacks(*finalState))
         

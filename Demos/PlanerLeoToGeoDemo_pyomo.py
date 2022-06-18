@@ -109,20 +109,17 @@ class NumericalProblemFromSymbolicProblem(NumericalOptimizerProblemBase) :
         if isinstance(wrappedProblem, ScaledSymbolicProblem) and wrappedProblem.ScaleTime :
             entireState.append(wrappedProblem.TimeFinalSymbolOriginal)
         finalState = SymbolicProblem.SafeSubs(entireState, {wrappedProblem.TimeSymbol: wrappedProblem.TimeFinalSymbol})
-        display(wrappedProblem.TerminalCost.subs(wrappedProblem.SubstitutionDictionary))
-        display(finalState)
-        self._terminalCost = lambdify([finalState], wrappedProblem.TerminalCost.subs(wrappedProblem.SubstitutionDictionary), functionMap)
-        display(self._terminalCost)
+        self._terminalCost = lambdify([finalState], wrappedProblem.TerminalCost.subs(wrappedProblem.SubstitutionDictionary).simplify(), functionMap)
         self._unintegratedPathCost = 0.0
         if wrappedProblem.UnIntegratedPathCost != None and wrappedProblem.UnIntegratedPathCost != 0.0 :
-            self._unintegratedPathCost = lambdify(entireState, wrappedProblem.UnIntegratedPathCost.subs(wrappedProblem.SubstitutionDictionary), functionMap)
+            self._unintegratedPathCost = lambdify(entireState, wrappedProblem.UnIntegratedPathCost.subs(wrappedProblem.SubstitutionDictionary).simplify(), functionMap)
         self._equationOfMotionList = []
         for (sv, eom) in wrappedProblem.EquationsOfMotion.items() :
-            eomCb = lambdify(entireState, eom.subs(wrappedProblem.SubstitutionDictionary), functionMap)
+            eomCb = lambdify(entireState, eom.subs(wrappedProblem.SubstitutionDictionary).simplify(), functionMap)
             self._equationOfMotionList.append(eomCb) 
 
         for bc in wrappedProblem.BoundaryConditions :
-            bcCallback = lambdify([finalState], bc.subs(wrappedProblem.SubstitutionDictionary), functionMap)
+            bcCallback = lambdify([finalState], bc.subs(wrappedProblem.SubstitutionDictionary).simplify(), functionMap)
             self.FinalBoundaryConditions.append(bcCallback)            
 
     def StandardState(self) :
@@ -237,13 +234,12 @@ setEom(model, "r",     model.t, lambda state : asNumericalProblem.SingleEquation
 setEom(model, "u",     model.t, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 1))
 setEom(model, "v",     model.t, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 2))
 setEom(model, "theta", model.t, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 3))
-display(asNumericalProblem._terminalCost([1,2,3,4,5,6,7]))
-#%%
-def createTerminalCost(mdl, name, theProblem) :
+
+def createTerminalCost(mdl, theProblem) :
     cb = theProblem._terminalCost    
     innerLmd = lambda mod1 : mapping(mod1, 1.0, cb)
-    setattr(mdl, "objective" + str(i), poenv.Objective(expr = innerLmd, sense=poenv.maximize))
-createTerminalCost(model, "radius", asNumericalProblem)
+    setattr(mdl, "objective", poenv.Objective(expr = innerLmd, sense=poenv.maximize))
+createTerminalCost(model, asNumericalProblem)
 #model.radiusObjective = poenv.Objective(expr = lambda mod : mod.r[1.0], sense=poenv.maximize) # max radius 
 
 

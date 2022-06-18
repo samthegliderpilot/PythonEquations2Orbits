@@ -1,14 +1,14 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from subprocess import call
-from typing import List, Dict
+from typing import List, Dict, Callable
 from matplotlib.figure import Figure
 
 class NumericalOptimizerProblemBase(ABC) :
     """ A base type for the kinds of numerical optimization problems I hope to solve. 
 
     Args:
-        ABC (abc.ABC): This class a abstract base class.  Several functions are intended to be implimented by derived types.
+        ABC (abc.ABC): This class a abstract base class.  Several functions are intended to be implemented by derived types.
     """
     def __init__(self, t : object) :
         """Initializes a new instance
@@ -50,6 +50,21 @@ class NumericalOptimizerProblemBase(ABC) :
             int: The number of variables that are fed to the optimizer (the count of state + control variables).
         """        
         return self.NumberOfControlVariables+self.NumberOfStateVariables
+
+    @abstractmethod
+    def DictionaryToArrayState(self, dictOfValues: Dict[object, float]) -> List[float] :
+        pass
+
+    @property
+    def DictToArrayStateCallback(self) -> Callable[[Dict[object, float]], List[float]] :
+        return self._stateMakerCallback
+
+
+    @DictToArrayStateCallback.setter
+    def set_DictToArrayStateCallback(self, callback : Callable[[Dict[object, float]], List[float]]) :
+        self._stateMakerCallback =callback
+        
+
 
     def CreateTimeRange(self, n) ->List[float]:
         """Creates a default evenly spaced array of time values between self.T0 and self.Tf.
