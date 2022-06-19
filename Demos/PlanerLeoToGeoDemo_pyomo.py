@@ -1,6 +1,5 @@
 #%%
 # DECLARE all the things!
-from textwrap import wrap
 import __init__
 import sys
 sys.path.append("..") # treating this as a jupyter-like cell requires adding one directory up
@@ -120,7 +119,7 @@ class NumericalProblemFromSymbolicProblem(NumericalOptimizerProblemBase) :
 
         for bc in wrappedProblem.BoundaryConditions :
             bcCallback = lambdify([finalState], bc.subs(wrappedProblem.SubstitutionDictionary).simplify(), functionMap)
-            self.FinalBoundaryConditions.append(bcCallback)            
+            self.BoundaryConditionCallbacks.append(bcCallback)            
 
     def StandardState(self) :
         return 
@@ -165,11 +164,11 @@ class NumericalProblemFromSymbolicProblem(NumericalOptimizerProblemBase) :
     def SingleEquationOfMotionWithTInState(self, state, indexOfEom) :
         return self._equationOfMotionList[indexOfEom](state[0], *state[1:])
 
-    def UnIntegratedPathCostCallback(self) :
-        return self._unintegratedPathCost
+    def UnIntegratedPathCost(self, t, stateAndControl) :
+        return self._unintegratedPathCost(t, stateAndControl)
     
-    def TerminalCost(self) :
-        return self._terminalCost
+    def TerminalCost(self, tf, finalStateAndControl) :
+        return self._terminalCost(tf, finalStateAndControl)
 
     def CostFunction(self, t : List[float], stateAndControl : Dict[object, List[float]]) -> float:
         """The cost of the problem.  
@@ -244,7 +243,7 @@ createTerminalCost(model, asNumericalProblem)
 
 
 i = 1
-for bc in asNumericalProblem.FinalBoundaryConditions :
+for bc in asNumericalProblem.BoundaryConditionCallbacks :
     def makeInnerLmd(bc) :
         return lambda mod1 : 0 == mapping(mod1, 1.0, bc)
     innerLmd = makeInnerLmd(bc)
@@ -253,7 +252,7 @@ for bc in asNumericalProblem.FinalBoundaryConditions :
 
 model.var_input = poenv.Suffix(direction=poenv.Suffix.LOCAL)
 sim = podae.Simulator(model, package='scipy') 
-
+#model.var_input[model.control] = {0: 0.05}
 model.var_input[model.control] = {0: 0.00}
 model.var_input[model.Tf] = {0: tfOrg}
 tsim, profiles = sim.simulate(numpoints=n, varying_inputs=model.var_input, integrator='dop853', initcon=np.array([r0,u0, v0, lon0], dtype=float))

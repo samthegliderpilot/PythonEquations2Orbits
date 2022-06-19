@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from subprocess import call
 from typing import List, Dict, Callable
 from matplotlib.figure import Figure
-
+import PythonOptimizationWithNlp.Utilities.SolutionDictionaryFunctions as DictionaryHelper
 class NumericalOptimizerProblemBase(ABC) :
     """ A base type for the kinds of numerical optimization problems I hope to solve. 
 
@@ -18,8 +18,7 @@ class NumericalOptimizerProblemBase(ABC) :
             n (int): The count of segments that the trajectory will be broken up by.
         """
         self.State = []
-        self.InitialBoundaryConditions = []
-        self.FinalBoundaryConditions = []
+        self.BoundaryConditionCallbacks = []
         self.Time = t
         self.T0 = 0
         self.Control = []        
@@ -50,21 +49,6 @@ class NumericalOptimizerProblemBase(ABC) :
             int: The number of variables that are fed to the optimizer (the count of state + control variables).
         """        
         return self.NumberOfControlVariables+self.NumberOfStateVariables
-
-    # @abstractmethod
-    # def DictionaryToArrayState(self, dictOfValues: Dict[object, float]) -> List[float] :
-    #     pass
-
-    # @property
-    # def DictToArrayStateCallback(self) -> Callable[[Dict[object, float]], List[float]] :
-    #     return self._stateMakerCallback
-
-
-    # @DictToArrayStateCallback.setter
-    # def set_DictToArrayStateCallback(self, callback : Callable[[Dict[object, float]], List[float]]) :
-    #     self._stateMakerCallback =callback
-        
-
 
     def CreateTimeRange(self, n) ->List[float]:
         """Creates a default evenly spaced array of time values between self.T0 and self.Tf.
@@ -106,6 +90,16 @@ class NumericalOptimizerProblemBase(ABC) :
         pass
 
     def SingleEquationOfMotion(self, t : float, stateAndControlAtT : List[float], indexOfEom : int) -> float :
+        """Some solvers may require that 
+
+        Args:
+            t (float): _description_
+            stateAndControlAtT (List[float]): _description_
+            indexOfEom (int): _description_
+
+        Returns:
+            float: _description_
+        """
         return self.EquationOfMotion(t, stateAndControlAtT)[indexOfEom]
 
     def ListOfEquationsOfMotionCallbacks(self) -> List :
@@ -116,7 +110,6 @@ class NumericalOptimizerProblemBase(ABC) :
             callbacks.append(callback)
         return callbacks
 
-    @abstractmethod 
     def CostFunction(self, t : List[float], stateAndControl : Dict[object, List[float]]) -> float:
         """The cost of the problem.  
 
@@ -128,15 +121,81 @@ class NumericalOptimizerProblemBase(ABC) :
         Returns:
             float: The cost.
         """
-        pass
+        finalState = DictionaryHelper.GetFinalStateDictionary(stateAndControl)
+        return self.TerminalCost(t[-1], finalState) + self.IntegratePathCost(t, stateAndControl)
 
     @abstractmethod 
-    def UnIntegratedPathCostCallback(self) -> Callable :
+    def UnIntegratedPathCost(self, t : float, stateAndControl : List[float]) -> float :
+        """Evaluates the path cost at t.
+
+        Args:
+            t (float): The current time.
+            stateAndControl (List[float]): The state and control at the time as an array.
+
+        Returns:
+            float: The un-integrated path cost at the time.
+        """
         pass
     
+    def IntegratePathCost(self, tArray, stateAndControlDict) -> float :
+        """It is highly encouraged to override this function.
+        
+        Integrates the UnIntegratedPathCost.  Note that if you are using a single shooting method, 
+        it is recommended to instead set up another "equation of motion" of the UnIntegratedPathCost 
+        with an initial value of and make the cost function pull out the final value of this.
+
+        By default this does a default scipy.integrate.simp on an array of values created by 
+        evaluating the UnIntegratedPathCost over the time array and states and controls.
+
+        Args:
+            tArray (_type_): The time array that have been evaluated already.
+            stateAndControlDict (_type_): The time history of the state and control.
+
+        Returns:
+            float: The integrated value of the path cost.
+        """
+        from scipy.integrate import simps
+        unintegratedValues = []
+        for i in range(0, len(tArray)) :
+            stateNow = DictionaryHelper.GetValueFromStateDictionaryAtIndex(stateAndControlDict, i)
+            z = tuple(self.ConvertStateAndControlDictionaryToArray(stateNow))
+            unintegratedValues.append(self.UnIntegratedPathCost(tArray[i], z))
+        value = simps(unintegratedValues, x=tArray)
+        
+        return value
+
+    def ConvertStateAndControlDictionaryToArray(self, stateAndControlDict : Dict[object, object]) -> List[object] :
+        """Provides a way to convert a dictionary to an array that other types may
+        prefer (such as integrators where the order of values getting integrated need to align with 
+        the order of the equations of motion).  This is a function that should often be overridden 
+        if there are additional items getting integrated (such as a path cost or an auxiliary variable).
+
+        Args:
+            stateAndControlDict (Dict[object, object]): The dictionary mapping state and controls (and 
+            potentially other things) that are related to function evaluations.
+
+        Returns:
+            List[object]: The values from the dictionary in a standard order.
+        """
+        z = []
+        for sv in self.State :            
+            z.append(stateAndControlDict[sv])
+        for sv in self.Control :
+            z.append(stateAndControlDict[sv])            
+        return z
+
     @abstractmethod 
-    def TerminalCostCallback(self) -> Callable:
-        pass
+    def TerminalCost(self, tf : float, finalStateAndControl : Dict[object, float]) -> float:
+        """Evaluates the terminal cost from the final values of the function.
+
+        Args:
+            tf (float): The final time
+            finalStateAndControl (Dict[object, float]): The final state.
+
+        Returns:
+            float: The terminal cost.
+        """
+        pass # technically, we don't need to pass the final control into the terminal cost function, but it is more trouble to not include it and on the off chance it helps in some specific problem
 
     @abstractmethod    
     def AddResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[object, List[float]], label : str) -> None:

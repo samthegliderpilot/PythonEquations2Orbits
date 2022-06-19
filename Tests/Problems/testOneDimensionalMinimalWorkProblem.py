@@ -7,10 +7,10 @@ class testOneDimensionalMinimalWorkProblem(unittest.TestCase) :
         oneDWorkProblem = OneDWorkProblem()
         self.assertEqual(2, oneDWorkProblem.NumberOfStateVariables, msg="state variable count")
         self.assertEqual(1, oneDWorkProblem.NumberOfControlVariables, msg="control variable count")
-        self.assertEqual(0.0, oneDWorkProblem.InitialBoundaryConditions[oneDWorkProblem.State[0]], msg="x_0 bc")
-        self.assertEqual(0.0, oneDWorkProblem.InitialBoundaryConditions[oneDWorkProblem.State[1]], msg="vx_0 bc")
-        self.assertEqual(1.0, oneDWorkProblem.FinalBoundaryConditions[oneDWorkProblem.State[0]], msg="x_f bc")
-        self.assertEqual(0.0, oneDWorkProblem.FinalBoundaryConditions[oneDWorkProblem.State[1]], msg="vx_f bc")
+        self.assertEqual(0.0, oneDWorkProblem.BoundaryConditionCallbacks[0](0.0, [0.0, 0.0], 1, [1.0, 0.0]), msg="x_f bc")
+        self.assertEqual(0.0, oneDWorkProblem.BoundaryConditionCallbacks[1](0.0, [0.0, 0.0], 1, [1.0, 0.0]), msg="vx_f bc")
+        self.assertEqual(0.0, oneDWorkProblem.BoundaryConditionCallbacks[2](0.0, [0.0, 0.0], 1, [1.0, 0.0]), msg="x_f bc")
+        self.assertEqual(0.0, oneDWorkProblem.BoundaryConditionCallbacks[3](0.0, [0.0, 0.0], 1, [1.0, 0.0]), msg="vx_f bc")
         self.assertEqual(0.0, oneDWorkProblem.T0, msg="t0 value")
         self.assertEqual(1.0, oneDWorkProblem.Tf, msg="tf value")
         self.assertIsNotNone(oneDWorkProblem.Time, "time object is set")
@@ -38,7 +38,7 @@ class testOneDimensionalMinimalWorkProblem(unittest.TestCase) :
 
     def testInitialGuessCallbackFinal(self) :
         oneDWorkProblem = OneDWorkProblem()
-        expectedIc = [1.0, 0.0, 0.0]
+        expectedIc = [1.0, 1.0, 0.0]
         ic = oneDWorkProblem.InitialGuessCallback(1.0)
         for i in range(0, len(expectedIc)) :
             self.assertEqual(expectedIc[i], ic[i], msg="IC at index " + str(i))
@@ -58,7 +58,7 @@ class testOneDimensionalMinimalWorkProblem(unittest.TestCase) :
         history[oneDWorkProblem.Control[0]]=[0.25, 0.25, 1.0, 1.0]
 
         cost = oneDWorkProblem.CostFunction(oneDWorkProblem.CreateTimeRange(3), history)
-        self.assertEqual(0.53125, cost, msg="cost")
+        self.assertAlmostEqual(0.53125,  cost, delta=0.00001, msg="cost")
 
 class testOneDimensionalMinimalWorkProblemAnalyticalAnswerToProblem(unittest.TestCase) :
 

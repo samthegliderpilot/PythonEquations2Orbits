@@ -41,7 +41,7 @@ class ScipyMinimizeWrapper:
 
         # create the constraints
         cons = self.CreateIndividualCollocationConstraints(tArray)
-        cons.extend(self.CreateIndividualBoundaryValueConstraintCallbacks(n))
+        cons.extend(self.CreateIndividualBoundaryValueConstraintCallbacks())
 
         costFunctionFlippedArgsForScipy = lambda z, t : self.CostFunctionInTermsOfZ(t, z)
 
@@ -108,8 +108,16 @@ class ScipyMinimizeWrapper:
             endMultiplier=endMultiplier+1
         return finalDict
 
+    # @staticmethod
+    # def ExtractFinalValuesFromDisctictrizedState(problem : NumericalOptimizerProblemBase, z : List[float]) -> List[float]:
+    #     finalValues = []
+    #     everyN = len(z) / problem.NumberOfOptimizerStateVariables
+    #     for i in range(0, problem.NumberOfOptimizerStateVariables) :
+    #         finalValues.append(z[int(everyN*(i+1))-1])
+    #     return finalValues
 
-    def CreateIndividualBoundaryValueConstraintCallbacks(self, n) -> List[Callable[[List[float]], float]]:
+
+    def CreateIndividualBoundaryValueConstraintCallbacks(self) -> List[Callable[[List[float]], float]]:
         """Creates callbacks for the difference between the boundary conditions of each state variable in the optimizer state and 
         the desired value of each of boundary conditions as defined by the problem.
 
@@ -118,13 +126,11 @@ class ScipyMinimizeWrapper:
         """
         cons = []
         nMultiplier = 0
-        for s in self.Problem.State :
-            thisBc = self.Problem.InitialBoundaryConditions.get(s)
-            if thisBc != None :
-                cons.append({'type': 'eq', 'fun': lambda z, thisBc=thisBc, nMultiplier=nMultiplier : (z[0+nMultiplier*(n+1)]-thisBc)})
-            thisOtherBc = self.Problem.FinalBoundaryConditions.get(s)
-            if thisOtherBc != None :
-                cons.append({'type': 'eq', 'fun': lambda z, thisOtherBc=thisOtherBc, nMultiplier=nMultiplier : (z[(n+1)*(nMultiplier+1)-1]-thisOtherBc)})
+        for thisOtherBc in self.Problem.BoundaryConditionCallbacks :
+            def moreVerboseCallback(z, thisOtherBc=thisOtherBc,) : 
+                return thisOtherBc(0.0, self.GetOptimizerStateAtIndex(z, 0), 1.0, self.GetOptimizerStateAtIndex(z, -1))
+            #callbackWithProperlyClosedOverValues = lambda z, thisOtherBc=thisOtherBc, : thisOtherBc(0.0, self.GetOptimizerStateAtIndex(z, 0), 1.0, self.GetOptimizerStateAtIndex(z, -1))# , (z[(n+1)*(nMultiplier+1)-1]))
+            cons.append({'type': 'eq', 'fun': moreVerboseCallback})
             nMultiplier=nMultiplier+1
         return cons
     
@@ -190,6 +196,8 @@ class ScipyMinimizeWrapper:
             List[float]: The state at index i.
         """
         n = int(len(z)/self.NumberOfVariables)
+        if i == -1 :
+            i = n+i
         stateAtI = []
         for j in range(0,self.NumberOfVariables) :
             stateAtI.append(z[i+(j*n)])

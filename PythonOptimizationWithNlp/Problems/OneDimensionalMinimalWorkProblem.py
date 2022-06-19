@@ -96,11 +96,11 @@ class OneDWorkProblem(NumericalOptimizerProblemBase) :
         self.State.append(vSy)
         self.Control.append(uSy)
 
-        self.InitialBoundaryConditions[xSy] = x0Bc
-        self.InitialBoundaryConditions[vSy] = vx0Bc
+        self.BoundaryConditionCallbacks.append(lambda t0, z0, tf, zf : x0Bc - z0[0])
+        self.BoundaryConditionCallbacks.append(lambda t0, z0, tf, zf : vx0Bc - z0[1])
 
-        self.FinalBoundaryConditions[xSy] = xfBc
-        self.FinalBoundaryConditions[vSy] = vxfBc
+        self.BoundaryConditionCallbacks.append(lambda t0, z0, tf, zf : xfBc - zf[0])
+        self.BoundaryConditionCallbacks.append(lambda t0, z0, tf, zf : vxfBc - zf[1])
    
     def InitialGuessCallback(self, t : float) -> List[float] :
         """A function to produce an initial state at t, 
@@ -112,9 +112,9 @@ class OneDWorkProblem(NumericalOptimizerProblemBase) :
             List[float]: A list the values in the state followed by the values of the controls at t.
         """
         if t == self.T0 :
-            return [self.InitialBoundaryConditions[self.State[0]], self.InitialBoundaryConditions[self.State[1]], 0.0]
+            return [t, 0.0, 0.0]
         if t == self.Tf :
-            return [self.FinalBoundaryConditions[self.State[0]], self.FinalBoundaryConditions[self.State[1]], 0.0]
+            return [t, -1.0, -0.1]
         else :
             v = -1.0
             if(t <= (self.Tf-self.T0)/2.0) :
@@ -131,30 +131,14 @@ class OneDWorkProblem(NumericalOptimizerProblemBase) :
         Returns:
             List[float]: The derivative of the state variables 
         """        
-        return [stateAndControlAtT[1], stateAndControlAtT[2]]
-
-    def CostFunction(self, t : List[float], stateAndControl : Dict[object, List[float]]) -> float:
-        """The cost of the 1D block-moving problem.  The quadratic sum of the control values.
-
-        Args:
-            t (List[float]): The time array being evaluated.
-            stateAndControl (Dict[object, List[float]]): The state and control.
-
-        Returns:
-            float: The cost.
-        """
-        uCostArray = []
-        control = stateAndControl[self.Control[0]]
-        for i in range(0, len(control)-1) :
-            step = t[i+1]-t[i]
-            uCostArray.append(0.5*(step)*(control[i+1]**2+control[i]**2))
-        return sum(uCostArray)
+        return [stateAndControlAtT[1], stateAndControlAtT[2]] #xDot = v, vDot = u
     
-    def UnIntegratedPathCostCallback(self) :
-        return 0.0
-    
-    def TerminalCostCallback(self) :
-        return self.CostFunction # cheating a bit here...
+    def UnIntegratedPathCost(self, t : float, stateAndControl : List[float]) :
+        return stateAndControl[2]**2  #u**2
+
+    def TerminalCost(self, tf : float, finalStateAndControl : Dict[object, float]) ->float :
+        # I am only including this to make the problem exercise more of the system
+        return 0.0#abs(1.0-finalStateAndControl[self.State[0]]) # and min final x
 
     def AddResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[object, List[float]], label : str) -> None :
         """Adds the contents of dictionaryOfValueArraysKeyedOffState to the plot.

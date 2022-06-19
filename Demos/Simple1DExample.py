@@ -4,7 +4,6 @@ sys.path.append("..") # treating this as a jupyter-like cell requires adding one
 sys.path.append("../PythonOptimizationWithNlp") # and this line is needed for running like a normal python script
 # these two appends do not conflict with eachother
 import matplotlib.pyplot as plt
-import numpy as np
 import PythonOptimizationWithNlp.Problems.OneDimensionalMinimalWorkProblem as OneDWorkProblemModule
 from PythonOptimizationWithNlp.Solvers.ScipyWrapper import ScipyMinimizeWrapper
 
@@ -27,12 +26,13 @@ oneDWorkProblem.AddResultsToFigure(fig, t, plotableNumericalAnswer, "Numerical A
 plt.show()
 
 #%%
+
+# STill a work in progress....
 import sys
 sys.path.append("..") # treating this as a jupyter-like cell requires adding one directory up
 sys.path.append("../PythonOptimizationWithNlp") # and this line is needed for running like a normal python script
 # these two appends do not conflict with eachother
 import sympy as sy
-from PythonOptimizationWithNlp.Symbolics.ScalingHelper import ScalingHelper
 t = sy.Symbol('t')
 tau = sy.Symbol('tau')
 tf = sy.Symbol('t_f')
@@ -41,7 +41,3 @@ z = sy.Function('z')(t)
 a = sy.Symbol('a')
 y = 0.5*x*x
 dydt = sy.diff(y, t).doit()
-scaled = ScalingHelper.simpleScale(dydt, x, a, z).doit()
-import JupyterHelper as jh
-jh.showEquation("a", dydt)
-jh.showEquation("b", scaled)
