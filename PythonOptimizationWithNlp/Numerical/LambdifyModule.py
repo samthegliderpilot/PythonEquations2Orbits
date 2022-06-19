@@ -1,6 +1,6 @@
 import sympy as sy
 from typing import List, Dict, Callable
-
+from PythonOptimizationWithNlp.SymbolicOptimizerProblem import SymbolicProblem
 # NOTE, that if EVER the source for the overall project is not available, the source 
 # for this MUST be published.
 
@@ -163,3 +163,38 @@ class LambdifyHelper :
         def switchTimeOrderCallback(y, t, *args) :
             return originalCallback(t, y, *args)
         return switchTimeOrderCallback
+
+    @staticmethod
+    def testCreateLambdifiedExpressions(self) :
+        t = sy.Symbol('t')
+        x = sy.Function('x')(t)
+        u = sy.Function('u')(t)
+        a = sy.Symbol('a')
+        b = sy.Symbol('b')
+        xDot = 2*u*a
+        uDot = 5*2*b
+        callback = LambdifyHelper.CreateLambdifiedExpressions([x,u], [xDot, uDot], {a:3, b:13})
+        answer = callback(7,8) 
+        self.assertEqual(48, answer[0], msg="x dot val")
+        self.assertEqual(130, answer[1], msg="u dot val")           
+
+    @staticmethod
+    def CreateLambdifiedExpressions(stateExpressionList : List[sy.Expr], expressionsToLambdify : List[sy.Expr], constantsSubstitutionDictionary : Dict[sy.Expr, float]) ->sy.Expr :
+        """ A helper function to create a lambdified callback of some expressions while also substituting in constant values into the expressions. One common problem that 
+        might come up is if the constantsSubstitutionDictionary contains an independent variable of one of the symbols in the state (for example, if one of your state 
+        variables is x(t) and you put a constant value of t into the constantsSubstitutionDictionary, this turns x(t) into x(2) and things get confusing quickly). Generally
+        you shouldn't really want to do this and should re-structure your code to avoid this.
+
+        Args:
+            boundaryConditionState (List[sy.Expr]): The state (independent variables) for the returned lambdified expressions.
+            expressionsToLambdify (List[sy.Expr]): The expressions to labmdify
+            constantsSubstitutionDictionary (Dict[sy.Expr, float]): Constant values to bake into the expressionsToLambdify ahead of time
+
+        Returns:
+            _type_: A callback that numerically evaluates the expressionsToLambdify.
+        """
+        bcs = []
+        for exp in expressionsToLambdify :
+            bc = SymbolicProblem.SafeSubs(exp, constantsSubstitutionDictionary)
+            bcs.append(bc)
+        return sy.lambdify(stateExpressionList, bcs)    

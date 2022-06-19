@@ -51,18 +51,18 @@ class NumericalOptimizerProblemBase(ABC) :
         """        
         return self.NumberOfControlVariables+self.NumberOfStateVariables
 
-    @abstractmethod
-    def DictionaryToArrayState(self, dictOfValues: Dict[object, float]) -> List[float] :
-        pass
+    # @abstractmethod
+    # def DictionaryToArrayState(self, dictOfValues: Dict[object, float]) -> List[float] :
+    #     pass
 
-    @property
-    def DictToArrayStateCallback(self) -> Callable[[Dict[object, float]], List[float]] :
-        return self._stateMakerCallback
+    # @property
+    # def DictToArrayStateCallback(self) -> Callable[[Dict[object, float]], List[float]] :
+    #     return self._stateMakerCallback
 
 
-    @DictToArrayStateCallback.setter
-    def set_DictToArrayStateCallback(self, callback : Callable[[Dict[object, float]], List[float]]) :
-        self._stateMakerCallback =callback
+    # @DictToArrayStateCallback.setter
+    # def set_DictToArrayStateCallback(self, callback : Callable[[Dict[object, float]], List[float]]) :
+    #     self._stateMakerCallback =callback
         
 
 
@@ -111,7 +111,7 @@ class NumericalOptimizerProblemBase(ABC) :
     def ListOfEquationsOfMotionCallbacks(self) -> List :
         callbacks = []
         for i in len(self.State) :
-            b =i*2
+            b =i*2 # pretty sure this trick to get the loop variable captured properly isn't going to work
             callback = lambda t, stateAndControlAtT : self.SingleEquationOfMotion(t, stateAndControlAtT, int(b/2))
             callbacks.append(callback)
         return callbacks
@@ -131,11 +131,11 @@ class NumericalOptimizerProblemBase(ABC) :
         pass
 
     @abstractmethod 
-    def UnIntegratedPathCostCallback(self) :
+    def UnIntegratedPathCostCallback(self) -> Callable :
         pass
     
     @abstractmethod 
-    def TerminalCost(self) :
+    def TerminalCostCallback(self) -> Callable:
         pass
 
     @abstractmethod    

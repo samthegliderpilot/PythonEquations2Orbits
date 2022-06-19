@@ -1,4 +1,5 @@
 import unittest
+from PythonOptimizationWithNlp.Numerical.LambdifyModule import LambdifyHelper
 from PythonOptimizationWithNlp.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
 from PythonOptimizationWithNlp.SymbolicOptimizerProblem import SymbolicProblem
 from scipy.integrate import solve_ivp
@@ -122,9 +123,9 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
             otherArgs.append(baseProblem.TimeFinalSymbol)
         if len(nus) > 0 :
             otherArgs.extend(nus)
-            
-        odeIntEomCallback = ScipyCallbackCreators.CreateSimpleCallbackForSolveIvp(problem.TimeSymbol, problem.IntegrationSymbols, problem.EquationsOfMotion, constantsSubsDict, otherArgs)
 
+        lambdifyHelper = LambdifyHelper(problem.TimeSymbol, problem.IntegrationSymbols, problem.EquationsOfMotion.values(), otherArgs, problem.SubstitutionDictionary)
+        odeIntEomCallback = lambdifyHelper.CreateSimpleCallbackForSolveIvp()
         # run a test solution to get a better guess for the final nu values, this is a good technique, but 
         # it is still a custom-to-this-problem piece of code because it is still initial-guess work
         argsForOde = []
@@ -175,7 +176,7 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
         answer = fSolveCb(knownAnswer)
         i=0
         for val in answer :
-            self.assertTrue(abs(val) < 0.2, msg=str(i)+"'th value in fsolve answer")
+            self.assertTrue(abs(val) < 0.2, msg=str(i)+"'th value in fsolve answer" + str(val) + " too big")
             i=i+1
         odeAns = solve_ivp(odeSolveIvpCb, [tArray[0], tArray[-1]], [*z0, *knownAnswer], args=tuple([]), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)  
         finalState = ScipyCallbackCreators.GetFinalStateFromIntegratorResults(odeAns)
@@ -189,10 +190,10 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
         answer = fSolveCb(knownAnswer)
         i=0
         for val in answer :
-            self.assertTrue(abs(val) < 0.2, msg=str(i)+"'th value in fsolve answer")
+            self.assertTrue(abs(val) < 0.2, msg=str(i)+"'th value in fsolve answer " + str(val) + " too big")
             i=i+1
         odeAns = solve_ivp(odeSolveIvpCb, [tArray[0], tArray[-1]], [*z0, *knownAnswer[0:3]], args=tuple(knownAnswer[3:]), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)  
         finalState = ScipyCallbackCreators.GetFinalStateFromIntegratorResults(odeAns)
-        self.assertAlmostEqual(finalState[0], 42162136.415, 1, msg="radius check")
-        self.assertAlmostEqual(finalState[1], 0.000, 2, msg="u check")
-        self.assertAlmostEqual(finalState[2], 3074.735, 1, msg="v check")              
+        self.assertAlmostEqual(finalState[0], 42162136.415, delta=1, msg="radius check")
+        self.assertAlmostEqual(finalState[1], 0.000, delta=0.01, msg="u check")
+        self.assertAlmostEqual(finalState[2], 3074.735, delta=1, msg="v check")              

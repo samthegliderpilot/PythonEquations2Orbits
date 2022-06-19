@@ -28,6 +28,32 @@ class OneDWorkSymbolicProblem(SymbolicProblem) :
     def ConstantSymbols(self) -> List[sy.Symbol] :
         return self._constantSymbols
 
+    def AddStandardResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[object, List[float]], label : str) -> None :
+        """Adds the contents of dictionaryOfValueArraysKeyedOffState to the plot.
+
+        Args:
+            figure (matplotlib.figure.Figure): The figure the data is getting added to.
+            t (List[float]): The time corresponding to the data in dictionaryOfValueArraysKeyedOffState.
+            dictionaryOfValueArraysKeyedOffState (Dict[object, List[float]]): The x, v, and u to be plotted.
+            label (str): A label for the data to use in the plot legend.
+        """
+        xAct = dictionaryOfValueArraysKeyedOffState[self.State[0]] #TODO: I don't like how this line knows that the 0th element is X (and the next two too)
+        vAct = dictionaryOfValueArraysKeyedOffState[self.State[1]]
+        uAct = dictionaryOfValueArraysKeyedOffState[self.Control[0]]
+        plt.subplot(311)
+        plt.title("1D Work Problem")
+        plt.plot(t, xAct, label=label)
+        plt.ylabel('x')
+
+        plt.subplot(312)
+        plt.plot(t, vAct, label=label)
+        plt.ylabel('v_x')
+
+        plt.subplot(313)
+        plt.plot(t, uAct, label=label)
+        plt.ylabel('u')
+        plt.legend()
+
 class OneDWorkProblem(NumericalOptimizerProblemBase) :
     """A very simple and straight forward optimal control problem.  Although there is an analytical solution 
     to be had, this is great for testing plumbing and connections between types.  As such, this type is 
@@ -124,6 +150,12 @@ class OneDWorkProblem(NumericalOptimizerProblemBase) :
             uCostArray.append(0.5*(step)*(control[i+1]**2+control[i]**2))
         return sum(uCostArray)
     
+    def UnIntegratedPathCostCallback(self) :
+        return 0.0
+    
+    def TerminalCostCallback(self) :
+        return self.CostFunction # cheating a bit here...
+
     def AddResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[object, List[float]], label : str) -> None :
         """Adds the contents of dictionaryOfValueArraysKeyedOffState to the plot.
 

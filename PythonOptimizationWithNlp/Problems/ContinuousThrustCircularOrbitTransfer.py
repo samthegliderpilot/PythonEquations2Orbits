@@ -2,6 +2,7 @@ from matplotlib.figure import Figure
 import sympy as sy
 from typing import List, Dict
 from PythonOptimizationWithNlp.Numerical import ScipyCallbackCreators
+from PythonOptimizationWithNlp.Numerical.LambdifyModule import LambdifyHelper
 from PythonOptimizationWithNlp.SymbolicOptimizerProblem import SymbolicProblem
 import math
 import matplotlib.pyplot as plt
@@ -105,7 +106,7 @@ class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
         stateForBoundaryConditions.extend(SymbolicProblem.SafeSubs(integrationStateVariableArray, {problem.TimeSymbol: problem.TimeFinalSymbol}))
         #stateForBoundaryConditions.extend(fSolveParametersToAppendToEom)
         stateForBoundaryConditions.extend(fSolveOnlyParameters)
-        boundaryConditionEvaluationCallbacks = ScipyCallbackCreators.CreateLambdifiedExpressions(stateForBoundaryConditions, boundaryConditionExpressions, problem.SubstitutionDictionary)
+        boundaryConditionEvaluationCallbacks = LambdifyHelper.CreateLambdifiedExpressions(stateForBoundaryConditions, boundaryConditionExpressions, problem.SubstitutionDictionary)
         numberOfLambdasToPassToOdeInt = len(fSolveParametersToAppendToEom)
         def callbackForFsolve(costateAndCostateVariableGuesses) :
             z0 = []

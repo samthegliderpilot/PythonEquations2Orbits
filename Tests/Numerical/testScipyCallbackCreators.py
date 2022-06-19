@@ -2,47 +2,8 @@ import unittest
 import sympy as sy
 from scipy.integrate import odeint, solve_ivp
 import PythonOptimizationWithNlp.Numerical.ScipyCallbackCreators as scipyCreator
-
+from PythonOptimizationWithNlp.Numerical.LambdifyModule import LambdifyHelper
 class testScipyCallbackCreators(unittest.TestCase) :
-
-    def testOdeintCallbackCreator(self) :
-        t = sy.Symbol('t')
-        x = sy.Function('x')(t)
-        u = sy.Function('u')(t)
-        a = sy.Symbol('a')
-        b = sy.Symbol('b')
-        xDot = 2*u*a
-        uDot = 5*t*b
-        callback = scipyCreator.CreateSimpleCallbackForOdeint(t, [x,u], {x:xDot, u:uDot}, {a:3}, [b])
-        answer = callback([7,8], 2, 13)
-        self.assertEqual(48, answer[0], msg="x dot val")
-        self.assertEqual(130, answer[1], msg="u dot val")
-
-    def testSolveIvpCallbackCreator(self) :
-        t = sy.Symbol('t')
-        x = sy.Function('x')(t)
-        u = sy.Function('u')(t)
-        a = sy.Symbol('a')
-        b = sy.Symbol('b')
-        xDot = 2*u*a
-        uDot = 5*t*b
-        callback = scipyCreator.CreateSimpleCallbackForSolveIvp(t, [x,u], {x:xDot, u:uDot}, {a:3}, [b])
-        answer = callback(2, [7,8], 13)
-        self.assertEqual(48, answer[0], msg="x dot val")
-        self.assertEqual(130, answer[1], msg="u dot val")   
-
-    def testCreateLambdifiedExpressions(self) :
-        t = sy.Symbol('t')
-        x = sy.Function('x')(t)
-        u = sy.Function('u')(t)
-        a = sy.Symbol('a')
-        b = sy.Symbol('b')
-        xDot = 2*u*a
-        uDot = 5*2*b
-        callback = scipyCreator.CreateLambdifiedExpressions([x,u], [xDot, uDot], {a:3, b:13})
-        answer = callback(7,8) 
-        self.assertEqual(48, answer[0], msg="x dot val")
-        self.assertEqual(130, answer[1], msg="u dot val")   
 
     def testOdeIntHelperFunctions(self) :
         t = sy.Symbol('t')
@@ -52,7 +13,8 @@ class testScipyCallbackCreators(unittest.TestCase) :
         b = sy.Symbol('b')
         xDot = 2*u*a
         uDot = 5*t*b
-        callback = scipyCreator.CreateSimpleCallbackForOdeint(t, [x,u], {x:xDot, u:uDot}, {a:3}, [b])
+        lambdifyHelper = LambdifyHelper(t, [x,u], [xDot, uDot], [b], {a:3})
+        callback = lambdifyHelper.CreateSimpleCallbackForOdeint()
         tSpan = [0,1]
         answer = odeint(callback,[7,8], tSpan, args=(13,))
         toDict = scipyCreator.ConvertOdeIntResultsToDictionary([x,u], answer)
@@ -83,7 +45,8 @@ class testScipyCallbackCreators(unittest.TestCase) :
         b = sy.Symbol('b')
         xDot = 2*u*a
         uDot = 5*t*b
-        callback = scipyCreator.CreateSimpleCallbackForOdeint(t, [x,u], {x:xDot, u:uDot}, {a:3}, [b])
+        lambdifyHelper = LambdifyHelper(t, [x,u], [xDot, uDot], [b], {a:3})
+        callback = lambdifyHelper.CreateSimpleCallbackForOdeint()
         tSpan = [0,1]
         answer = odeint(callback,[7,8], tSpan, args=(13,), full_output=True)
         toDict = scipyCreator.ConvertOdeIntResultsToDictionary([x,u], answer)
@@ -114,7 +77,8 @@ class testScipyCallbackCreators(unittest.TestCase) :
         b = sy.Symbol('b')
         xDot = 2*u*a
         uDot = 5*t*b
-        callback = scipyCreator.CreateSimpleCallbackForSolveIvp(t, [x,u], {x:xDot, u:uDot}, {a:3}, [b])
+        lambdifyHelper = LambdifyHelper(t, [x,u], [xDot, uDot], [b], {a:3})
+        callback = lambdifyHelper.CreateSimpleCallbackForSolveIvp()
         answer = solve_ivp(callback, [0.0, 1.0], [7,8], args=(13,))
         toDict = scipyCreator.ConvertSolveIvptResultsToDictionary([x,u], answer)
         self.assertEqual(7, toDict[x][0], msg="x=0 value")
@@ -144,7 +108,8 @@ class testScipyCallbackCreators(unittest.TestCase) :
         b = sy.Symbol('b')
         xDot = 2*u*a
         uDot = 5*t*b
-        callback = scipyCreator.CreateSimpleCallbackForSolveIvp(t, [x,u], {x:xDot, u:uDot}, {a:3}, [b])
+        lambdifyHelper = LambdifyHelper(t, [x,u], [xDot, uDot], [b], {a:3})
+        callback = lambdifyHelper.CreateSimpleCallbackForSolveIvp()
         answer = solve_ivp(callback, [0.0, 1.0], [7,8], args=(13,), dense_output=True)
         toDict = scipyCreator.ConvertSolveIvptResultsToDictionary([x,u], answer)
         self.assertEqual(7, toDict[x][0], msg="x=0 value")
