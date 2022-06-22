@@ -1,9 +1,7 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from ast import Call
-from subprocess import call
-from typing import List, Dict, Callable
-from xml.sax.handler import property_declaration_handler
+from typing import List, Dict
+import numpy as np
 from matplotlib.figure import Figure
 import PythonOptimizationWithNlp.Utilities.SolutionDictionaryFunctions as DictionaryHelper
 class NumericalOptimizerProblemBase(ABC) :
@@ -68,12 +66,36 @@ class NumericalOptimizerProblemBase(ABC) :
         t.append(self.Tf)
         return t
     
-    @abstractmethod
+    def InitialTrajectoryGuess(self,n :int, t0:float, stateAndControlAtT0 : List[float], tf : float, stateAndControlAtTf : List[float]) -> Dict[object, List[float]] :
+        """Provides an initial guess for the overall trajectory.  By default this does a linear interpolation from the initial 
+        to final conditions, but you are encouraged to override this method with something more refined (maybe integrate the 
+        equations of motion making some reasonable guess to the control variables). 
+
+        Args:
+            n (int): Number of steps to take
+            t0 (float): Initial time
+            stateAndControlAtT0 (List[float]): Initial state and control
+            tf (float): Final time
+            stateAndControlAtTf (List[float]: Final state and control
+
+        Returns:
+            Dict[object, List[float]]: A guess for the initial trajectory that better be good enough for a solver of some sort. This will 
+            include the time and control histories as well.
+        """
+        solution = {}
+        
+        for i in range(0, self.NumberOfStateVariables) :
+            solution[self.State[i]]= [stateAndControlAtT0[i] + x*(stateAndControlAtTf[i]-stateAndControlAtT0[i])/n for x in range(n+1)]
+        for i in range(self.NumberOfStateVariables, self.NumberOfOptimizerStateVariables) :            
+            solution[self.Control[i-self.NumberOfStateVariables]] = [stateAndControlAtT0[i] + x*(stateAndControlAtTf[i]-stateAndControlAtT0[i])/n for x in range(n+1)]
+        solution[self.Time] = list(np.linspace(t0, tf, n))
+        return solution
+
     def InitialGuessCallback(self, t : float) -> List[float] :
         """A function to produce an initial state at t, 
 
         Args:
-            t (float): _description_
+            t (float): the time to get the state and control at.
 
         Returns:
             List[float]: A list the values in the state followed by the values of the controls at t.

@@ -101,6 +101,16 @@ class testOneDimensionalMinimalWorkProblemAnalyticalAnswerToProblem(unittest.Tes
             self.assertAlmostEqual(analyticalAnswer[oneDWorkProblem.State[1]][i], expectedV[i], places=6, msg="V at index " + str(i))
             self.assertAlmostEqual(analyticalAnswer[oneDWorkProblem.Control[0]][i], expectedU[i], places=6, msg="U at index " + str(i))
 
+    def testIntialTrajectoryGuessCallback(self) :
+        oneDWorkProblem = OneDWorkProblem()
+        n = 5
+        initialState = [0.0, 1.0, 2.0]
+        finalState = [10.0, 11.0, 12.0]
+        trajectoryGuess = oneDWorkProblem.InitialTrajectoryGuess(n, 0.0, initialState, 10.0, finalState)
+        self.assertEqual(4, len(trajectoryGuess), msg="should be 4 elements")
+        self.assertEqual([0.0, 2.0, 4.0, 6.0, 8.0, 10.0], trajectoryGuess[oneDWorkProblem.State[0]], msg="x guess")
+
+
 class testOneDWorkSymbolicProblem(unittest.TestCase) :
     def testBoilerplate(self) :
         problem = OneDWorkSymbolicProblem()
