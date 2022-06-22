@@ -87,6 +87,12 @@ class OneDWorkProblem(NumericalOptimizerProblemBase) :
         xfBc = 1.0
         vxfBc = 0.0
 
+        self._knownInitialConditions[xSy] = x0Bc
+        self._knownInitialConditions[vSy] = vx0Bc
+        self._knownFinalConditions[xSy] = xfBc
+        self._knownFinalConditions[vSy] = vxfBc
+
+
         self.T0 = t0
         self.Tf = tf
         # note that this class is responsible for the order of the states, 
@@ -96,11 +102,11 @@ class OneDWorkProblem(NumericalOptimizerProblemBase) :
         self.State.append(vSy)
         self.Control.append(uSy)
 
-        self.BoundaryConditionCallbacks.append(lambda t0, z0, tf, zf : x0Bc - z0[0])
-        self.BoundaryConditionCallbacks.append(lambda t0, z0, tf, zf : vx0Bc - z0[1])
+        # self.BoundaryConditionCallbacks.append(lambda t0, z0, tf, zf : x0Bc - z0[0])
+        # self.BoundaryConditionCallbacks.append(lambda t0, z0, tf, zf : vx0Bc - z0[1])
 
-        self.BoundaryConditionCallbacks.append(lambda t0, z0, tf, zf : xfBc - zf[0])
-        self.BoundaryConditionCallbacks.append(lambda t0, z0, tf, zf : vxfBc - zf[1])
+        # self.BoundaryConditionCallbacks.append(lambda t0, z0, tf, zf : xfBc - zf[0])
+        # self.BoundaryConditionCallbacks.append(lambda t0, z0, tf, zf : vxfBc - zf[1])
    
     def InitialGuessCallback(self, t : float) -> List[float] :
         """A function to produce an initial state at t, 
@@ -114,7 +120,7 @@ class OneDWorkProblem(NumericalOptimizerProblemBase) :
         if t == self.T0 :
             return [t, 0.0, 0.0]
         if t == self.Tf :
-            return [t, -1.0, -0.1]
+            return [t, -1.0, 0.0]
         else :
             v = -1.0
             if(t <= (self.Tf-self.T0)/2.0) :

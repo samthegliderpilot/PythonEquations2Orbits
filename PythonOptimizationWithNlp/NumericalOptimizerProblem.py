@@ -1,7 +1,9 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
+from ast import Call
 from subprocess import call
 from typing import List, Dict, Callable
+from xml.sax.handler import property_declaration_handler
 from matplotlib.figure import Figure
 import PythonOptimizationWithNlp.Utilities.SolutionDictionaryFunctions as DictionaryHelper
 class NumericalOptimizerProblemBase(ABC) :
@@ -18,10 +20,12 @@ class NumericalOptimizerProblemBase(ABC) :
             n (int): The count of segments that the trajectory will be broken up by.
         """
         self.State = []
-        self.BoundaryConditionCallbacks = []
+        self._boundaryConditionCallbacks = []
         self.Time = t
         self.T0 = 0
         self.Control = []        
+        self._knownFinalConditions = {}
+        self._knownInitialConditions = {}
     
     @property
     def NumberOfStateVariables(self) ->int :
@@ -209,3 +213,36 @@ class NumericalOptimizerProblemBase(ABC) :
         """
         pass
 
+    @property
+    def KnownInitialConditions(self) ->Dict[object, float] :
+        """A dictionary of the known initial conditions. Solvers need to take these into account (either 
+        by making boundary conditions) or some other way when solving problems.  This may not be a complete 
+        set of conditions, however it is assumed it is enough for the problem to be solvable.
+
+        Returns:
+            Dict[object, float]: Known initial conditions, the keys of which are the objects in the State.
+        """
+        return self._knownInitialConditions
+
+    @property
+    def KnownFinalConditions(self) ->Dict[object, float] :
+        """A dictionary of the known final conditions. Solvers need to take these into account (either 
+        by making boundary conditions) or some other way when solving problems.  This may not be a complete 
+        set of conditions, however it is assumed it is enough for the problem to be solvable.
+
+        Returns:
+            Dict[object, float]: Known final conditions, the keys of which are the objects in the State.
+        """        
+        return self._knownFinalConditions
+
+    @property
+    def BoundaryConditionCallbacks(self) -> List[Callable[[float, List[float], float, List[float], float]]] :
+        """A list of callbacks for additional boundary conditions.  These callbacks take the initial time, 
+        initial state, final time and final state in that order.  You can set up initial and final state values 
+        here if desired, but if they are simple constants, it is recommended to use the KnownInitialConditions
+        and KnownFinalConditions.
+
+        Returns:
+            List[Callable[[float, List[float], float, List[float], float]]]: Additional boundary constraints.
+        """
+        return self._boundaryConditionCallbacks

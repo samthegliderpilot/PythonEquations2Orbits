@@ -1,7 +1,7 @@
 import unittest
 
 from pytest import approx
-from PythonOptimizationWithNlp.Solvers.ScipyWrapper import ScipyMinimizeWrapper
+from PythonOptimizationWithNlp.Solvers.ScipyDistrictrizedMinimizationModule import ScipyDistrictrizedMinimizeWrapper
 from PythonOptimizationWithNlp.Problems.OneDimensionalMinimalWorkProblem import OneDWorkProblem, AnalyticalAnswerToProblem
 from scipy.interpolate import interp1d
 import numpy as np
@@ -17,7 +17,7 @@ class testScipyWrapper(unittest.TestCase) :
         evaledAns = truth.EvaluateAnswer(oneDWorkProblem, t)        
         interpTruth = interp1d(t, evaledAns[oneDWorkProblem.State[0]], kind='cubic')
 
-        scipySolver = ScipyMinimizeWrapper(oneDWorkProblem)
+        scipySolver = ScipyDistrictrizedMinimizeWrapper(oneDWorkProblem)
         ans = scipySolver.ScipyOptimize(n)
         
         self.assertIsNotNone(ans, msg="answer is not None")
@@ -30,15 +30,15 @@ class testScipyWrapper(unittest.TestCase) :
 
     def testCreateDiscretizedInitialGuess(self) :
         oneDWorkProblem = OneDWorkProblem()
-        scipySolver = ScipyMinimizeWrapper(oneDWorkProblem)
+        scipySolver = ScipyDistrictrizedMinimizeWrapper(oneDWorkProblem)
         initialGuess = scipySolver.CreateDiscretizedInitialGuess(oneDWorkProblem.CreateTimeRange(4))
-        expected = [0.0, 0.25, 0.5, 0.75, 1.0,   0.0, 1.0, 1.0, -1.0, -1.0,   0.0, 0.1, 0.1, -0.1, -0.1]
+        expected = [0.0, 0.25, 0.5, 0.75, 1.0,   0.0, 1.0, 1.0, -1.0, -1.0,   0.0, 0.1, 0.1, -0.1, 0.0]
         for i in range(0, len(expected))  :
             self.assertEqual(expected[i], initialGuess[i], msg="value at " + str(i))
 
     def testConvertScipyOptimizerOutputToDictionary(self) :
         oneDWorkProblem = OneDWorkProblem()
-        scipySolver = ScipyMinimizeWrapper(oneDWorkProblem)
+        scipySolver = ScipyDistrictrizedMinimizeWrapper(oneDWorkProblem)
         ans = scipySolver.ScipyOptimize(4)
         dictAnswer =scipySolver.ConvertScipyOptimizerOutputToDictionary(ans)
         self.assertEqual(3, len(dictAnswer), msg="make sure we get 3 items back")
@@ -53,7 +53,7 @@ class testScipyWrapper(unittest.TestCase) :
     def ConvertDiscretizedStateToDict(self) :
         #TODO: I don't like the copy/paste of the above test here, consider ways to really test this
         oneDWorkProblem = OneDWorkProblem(4)
-        scipySolver = ScipyMinimizeWrapper(oneDWorkProblem)
+        scipySolver = ScipyDistrictrizedMinimizeWrapper(oneDWorkProblem)
         ans = scipySolver.ScipyOptimize()
         dictAnswer =scipySolver.ConvertDiscretizedStateToDict(ans.x)
         self.assertEqual(3, len(dictAnswer), msg="make sure we get 3 items back")
@@ -68,27 +68,31 @@ class testScipyWrapper(unittest.TestCase) :
 
     def testEquationOfMotionFromOptimizationState(self) :
         problem = OneDWorkProblem()
-        scipySolver = ScipyMinimizeWrapper(problem)
+        scipySolver = ScipyDistrictrizedMinimizeWrapper(problem)
         equationOfMotionValue = scipySolver.EquationOfMotionInTermsOfOptimizerState(2, [2,12, 22])
         assert 12==equationOfMotionValue[0]
         assert 22==equationOfMotionValue[1]
 
-    def testCreateIndividualBoundaryValueConstraintCallbacks(self) :
+    def testInitialAndFinalStateConstraints(self) :
         # TODO: This is a fairly weak test due to the nature of OneDWorkProblem, update when a better 
         # problem is available
         problem = OneDWorkProblem()
-        scipySolver = ScipyMinimizeWrapper(problem)
+        scipySolver = ScipyDistrictrizedMinimizeWrapper(problem)
         constraints = scipySolver.CreateIndividualBoundaryValueConstraintCallbacks()
-        self.assertEqual(4, len(constraints), "4 constraints back")
+        self.assertEqual(0, len(constraints), msg="number of additional constriants for this problem")
         state = [1.0, 2.0, 3.0, 4.0,   5.0, 6.0, 7.0, 8.0,   9.0, 10.0, 11.0, 12.0]
+        constraints = scipySolver.CreateInitialStateConstraintCallbacks()
+        self.assertEqual(2, len(constraints), msg="2 initial state constraints returned")
         self.assertEqual(0.0-state[0], constraints[0]['fun'](state), "x_0")
         self.assertEqual(0.0-state[4], constraints[1]['fun'](state), "v_0")
-        self.assertEqual(1.0-state[3], constraints[2]['fun'](state), "x_f")        
-        self.assertEqual(0.0-state[7], constraints[3]['fun'](state), "v_f")
+        constraints = scipySolver.CreateFinalStateConstraintCallbacks()
+        self.assertEqual(2, len(constraints), msg="2 final state constraints returned")
+        self.assertEqual(1.0-state[3], constraints[0]['fun'](state), "x_f")        
+        self.assertEqual(0.0-state[7], constraints[1]['fun'](state), "v_f")
 
     def testCostFunctionInTermsOfZ(self) :
         oneDWorkProblem = OneDWorkProblem()
-        scipySolver = ScipyMinimizeWrapper(oneDWorkProblem)
+        scipySolver = ScipyDistrictrizedMinimizeWrapper(oneDWorkProblem)
 
         cost = scipySolver.CostFunctionInTermsOfZ(oneDWorkProblem.CreateTimeRange(3), [1.0, 1.0, 1.0, 1.0,   0.1, 0.1, 0.1, 0.1,   0.25, 0.25, 1.0, 1.0 ])
         self.assertAlmostEqual(0.53125, cost, delta=0.000001, msg="cost")
@@ -96,7 +100,7 @@ class testScipyWrapper(unittest.TestCase) :
     def testCreateIndividualColocationConstraints(self) :
         #TODO: Incomplete
         problem = OneDWorkProblem()
-        scipySolver = ScipyMinimizeWrapper(problem)
+        scipySolver = ScipyDistrictrizedMinimizeWrapper(problem)
         t = problem.CreateTimeRange(4)
 
         constraints = scipySolver.CreateIndividualCollocationConstraints(t)
@@ -109,7 +113,7 @@ class testScipyWrapper(unittest.TestCase) :
 
     def testGetOptimizerStateAtIndex(self) :
         problem = OneDWorkProblem()
-        scipySolver = ScipyMinimizeWrapper(problem)
+        scipySolver = ScipyDistrictrizedMinimizeWrapper(problem)
         sampleOptimizerState = [0,1,2,3,4,10,11,12,13,14,20,21,22,23,24]
         returnedState = scipySolver.GetOptimizerStateAtIndex(sampleOptimizerState, 2)
         assert returnedState[0] == 2
@@ -126,7 +130,7 @@ class testScipyWrapper(unittest.TestCase) :
 
     def testColocationConstraintIntegrationRule(self) :
         problem = OneDWorkProblem()
-        scipySolver = ScipyMinimizeWrapper(problem)
+        scipySolver = ScipyDistrictrizedMinimizeWrapper(problem)
         n=4
         t = problem.CreateTimeRange(n)
         z = self.OptimizerStateForExpectedAnswerFor4LengthConstraint()

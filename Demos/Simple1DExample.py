@@ -5,11 +5,11 @@ sys.path.append("../PythonOptimizationWithNlp") # and this line is needed for ru
 # these two appends do not conflict with eachother
 import matplotlib.pyplot as plt
 import PythonOptimizationWithNlp.Problems.OneDimensionalMinimalWorkProblem as OneDWorkProblemModule
-from PythonOptimizationWithNlp.Solvers.ScipyWrapper import ScipyMinimizeWrapper
+from PythonOptimizationWithNlp.Solvers.ScipyDistrictrizedMinimizationModule import ScipyDistrictrizedMinimizeWrapper
 
 n = 9 # coarse enough to see a small difference from the analytical solution
 oneDWorkProblem = OneDWorkProblemModule.OneDWorkProblem()
-scipySolver = ScipyMinimizeWrapper(oneDWorkProblem)
+scipySolver = ScipyDistrictrizedMinimizeWrapper(oneDWorkProblem)
 ans = scipySolver.ScipyOptimize(n)
 plotableNumericalAnswer = scipySolver.ConvertScipyOptimizerOutputToDictionary(ans)
 

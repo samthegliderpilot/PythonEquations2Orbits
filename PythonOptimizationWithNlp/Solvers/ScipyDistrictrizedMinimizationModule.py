@@ -5,7 +5,7 @@ from PythonOptimizationWithNlp.NumericalOptimizerProblem import NumericalOptimiz
 
 #TODO: Consider making a base solver type that takes some of the load off of this type
 
-class ScipyMinimizeWrapper:
+class ScipyDistrictrizedMinimizeWrapper:
     """Provides wrapper functions to work with scipy.optimize functions.  This base type solves 
     for a optimal value by creating a discretized optimizer state (z) from the state and control 
     of a problem using a trapizod rule.
@@ -20,7 +20,7 @@ class ScipyMinimizeWrapper:
         self.NumberOfVariables = problem.NumberOfOptimizerStateVariables
 
     def ScipyOptimize(self, n : int, tArray: List[float] = None, zGuess : List[float] = None, optMethod : str ="SLSQP") -> OptimizeResult: 
-        """A default implimentation of calling scipy.optimize.minimize
+        """A default implementation of calling scipy.optimize.minimize
 
         Args:
             n (int): The number of segments to districtrize the solution into
@@ -42,7 +42,8 @@ class ScipyMinimizeWrapper:
         # create the constraints
         cons = self.CreateIndividualCollocationConstraints(tArray)
         cons.extend(self.CreateIndividualBoundaryValueConstraintCallbacks())
-
+        cons.extend(self.CreateFinalStateConstraintCallbacks())
+        cons.extend(self.CreateInitialStateConstraintCallbacks())
         costFunctionFlippedArgsForScipy = lambda z, t : self.CostFunctionInTermsOfZ(t, z)
 
         # call scipy
@@ -116,7 +117,6 @@ class ScipyMinimizeWrapper:
     #         finalValues.append(z[int(everyN*(i+1))-1])
     #     return finalValues
 
-
     def CreateIndividualBoundaryValueConstraintCallbacks(self) -> List[Callable[[List[float]], float]]:
         """Creates callbacks for the difference between the boundary conditions of each state variable in the optimizer state and 
         the desired value of each of boundary conditions as defined by the problem.
@@ -129,11 +129,30 @@ class ScipyMinimizeWrapper:
         for thisOtherBc in self.Problem.BoundaryConditionCallbacks :
             def moreVerboseCallback(z, thisOtherBc=thisOtherBc,) : 
                 return thisOtherBc(0.0, self.GetOptimizerStateAtIndex(z, 0), 1.0, self.GetOptimizerStateAtIndex(z, -1))
-            #callbackWithProperlyClosedOverValues = lambda z, thisOtherBc=thisOtherBc, : thisOtherBc(0.0, self.GetOptimizerStateAtIndex(z, 0), 1.0, self.GetOptimizerStateAtIndex(z, -1))# , (z[(n+1)*(nMultiplier+1)-1]))
             cons.append({'type': 'eq', 'fun': moreVerboseCallback})
             nMultiplier=nMultiplier+1
         return cons
     
+    def CreateInitialStateConstraintCallbacks(self) -> List[Callable[[List[float]], float]]:
+        cons = []
+        nMultiplier = 0
+        for sv, ic in self.Problem.KnownInitialConditions.items() :
+            def moreVerboseCallback(z, ic=ic, sv=sv) : 
+                return ic - self.GetOptimizerStateAtIndex(z, 0)[self.Problem.State.index(sv)]
+            cons.append({'type': 'eq', 'fun': moreVerboseCallback})
+            nMultiplier=nMultiplier+1
+        return cons        
+
+    def CreateFinalStateConstraintCallbacks(self) -> List[Callable[[List[float]], float]]:
+        cons = []
+        nMultiplier = 0
+        for sv, fc in self.Problem.KnownFinalConditions.items() :
+            def moreVerboseCallback(z, fc=fc, sv=sv) : 
+                return fc - self.GetOptimizerStateAtIndex(z, -1)[self.Problem.State.index(sv)]
+            cons.append({'type': 'eq', 'fun': moreVerboseCallback})
+            nMultiplier=nMultiplier+1
+        return cons   
+
     def CollocationConstraintIntegrationRule(self, t : List[float], z : List[float], timeIndex :int, stateIndex : int) -> float:
         """This is the trapizod rule implimented as a colocation constraint.  Derived types should 
         override this function to implement other rules. scipy's minimize function is a little

@@ -7,10 +7,11 @@ class testOneDimensionalMinimalWorkProblem(unittest.TestCase) :
         oneDWorkProblem = OneDWorkProblem()
         self.assertEqual(2, oneDWorkProblem.NumberOfStateVariables, msg="state variable count")
         self.assertEqual(1, oneDWorkProblem.NumberOfControlVariables, msg="control variable count")
-        self.assertEqual(0.0, oneDWorkProblem.BoundaryConditionCallbacks[0](0.0, [0.0, 0.0], 1, [1.0, 0.0]), msg="x_f bc")
-        self.assertEqual(0.0, oneDWorkProblem.BoundaryConditionCallbacks[1](0.0, [0.0, 0.0], 1, [1.0, 0.0]), msg="vx_f bc")
-        self.assertEqual(0.0, oneDWorkProblem.BoundaryConditionCallbacks[2](0.0, [0.0, 0.0], 1, [1.0, 0.0]), msg="x_f bc")
-        self.assertEqual(0.0, oneDWorkProblem.BoundaryConditionCallbacks[3](0.0, [0.0, 0.0], 1, [1.0, 0.0]), msg="vx_f bc")
+        self.assertEqual(0, len(oneDWorkProblem.BoundaryConditionCallbacks), msg="number of bc callbacks")
+        self.assertEqual(0.0, oneDWorkProblem.KnownInitialConditions[oneDWorkProblem.State[0]], msg="x_0 bc")
+        self.assertEqual(0.0, oneDWorkProblem.KnownInitialConditions[oneDWorkProblem.State[1]], msg="vx_0 bc")
+        self.assertEqual(1.0, oneDWorkProblem.KnownFinalConditions[oneDWorkProblem.State[0]], msg="x_f bc")
+        self.assertEqual(0.0, oneDWorkProblem.KnownFinalConditions[oneDWorkProblem.State[1]], msg="vx_f bc")
         self.assertEqual(0.0, oneDWorkProblem.T0, msg="t0 value")
         self.assertEqual(1.0, oneDWorkProblem.Tf, msg="tf value")
         self.assertIsNotNone(oneDWorkProblem.Time, "time object is set")
@@ -38,7 +39,7 @@ class testOneDimensionalMinimalWorkProblem(unittest.TestCase) :
 
     def testInitialGuessCallbackFinal(self) :
         oneDWorkProblem = OneDWorkProblem()
-        expectedIc = [1.0, 1.0, 0.0]
+        expectedIc = [1.0, -1.0, 0.0]
         ic = oneDWorkProblem.InitialGuessCallback(1.0)
         for i in range(0, len(expectedIc)) :
             self.assertEqual(expectedIc[i], ic[i], msg="IC at index " + str(i))
