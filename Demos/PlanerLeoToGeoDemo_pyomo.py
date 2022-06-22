@@ -104,14 +104,20 @@ class NumericalProblemFromSymbolicProblem(NumericalOptimizerProblemBase) :
     def __init__(self, wrappedProblem : SymbolicProblem, functionMap : Dict) :
         super().__init__(wrappedProblem.TimeSymbol)
         self._wrappedProblem = wrappedProblem
+        self.State.extend(wrappedProblem.StateVariables)
+        self.Control.extend(wrappedProblem.ControlVariables)
+
         entireState = [wrappedProblem.TimeSymbol, *wrappedProblem.StateVariables, *wrappedProblem.ControlVariables]
+        
+
         if isinstance(wrappedProblem, ScaledSymbolicProblem) and wrappedProblem.ScaleTime :
             entireState.append(wrappedProblem.TimeFinalSymbolOriginal)
+        
         finalState = SymbolicProblem.SafeSubs(entireState, {wrappedProblem.TimeSymbol: wrappedProblem.TimeFinalSymbol})
         self._terminalCost = lambdify([finalState], wrappedProblem.TerminalCost.subs(wrappedProblem.SubstitutionDictionary).simplify(), functionMap)
-        self._unintegratedPathCost = 0.0
+        self._unIntegratedPathCost = 0.0
         if wrappedProblem.UnIntegratedPathCost != None and wrappedProblem.UnIntegratedPathCost != 0.0 :
-            self._unintegratedPathCost = lambdify(entireState, wrappedProblem.UnIntegratedPathCost.subs(wrappedProblem.SubstitutionDictionary).simplify(), functionMap)
+            self._unIntegratedPathCost = lambdify(entireState, wrappedProblem.UnIntegratedPathCost.subs(wrappedProblem.SubstitutionDictionary).simplify(), functionMap)
         self._equationOfMotionList = []
         for (sv, eom) in wrappedProblem.EquationsOfMotion.items() :
             eomCb = lambdify(entireState, eom.subs(wrappedProblem.SubstitutionDictionary).simplify(), functionMap)
@@ -121,8 +127,9 @@ class NumericalProblemFromSymbolicProblem(NumericalOptimizerProblemBase) :
             bcCallback = lambdify([finalState], bc.subs(wrappedProblem.SubstitutionDictionary).simplify(), functionMap)
             self.BoundaryConditionCallbacks.append(bcCallback)            
 
-    def StandardState(self) :
-        return 
+    #initial guess callback
+    #initial conditions
+    #final conditions
 
     @property
     def ContolValueAtTCallbackForInitialGuess(self):
@@ -165,23 +172,10 @@ class NumericalProblemFromSymbolicProblem(NumericalOptimizerProblemBase) :
         return self._equationOfMotionList[indexOfEom](state[0], *state[1:])
 
     def UnIntegratedPathCost(self, t, stateAndControl) :
-        return self._unintegratedPathCost(t, stateAndControl)
+        return self._unIntegratedPathCost(t, stateAndControl)
     
     def TerminalCost(self, tf, finalStateAndControl) :
         return self._terminalCost(tf, finalStateAndControl)
-
-    def CostFunction(self, t : List[float], stateAndControl : Dict[object, List[float]]) -> float:
-        """The cost of the problem.  
-
-        Args:
-            t (: List[float]): The time array being evaluated.
-            state (: List[float]): The state as seen by the optimizer (the discretized x's and v's)
-            control (: List[float]): The control as controlled by the optimizer (the discretized u).
-
-        Returns:
-            float: The cost.
-        """
-        pass
 
     def AddResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[object, List[float]], label : str) -> None:
         """Adds the contents of dictionaryOfValueArraysKeyedOffState to the plot.

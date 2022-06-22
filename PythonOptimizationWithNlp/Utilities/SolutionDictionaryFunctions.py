@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, OrderedDict
 
 def GetValueFromStateDictionaryAtIndex(fullSolutionDictionary : Dict[object, List[object]], index : int) ->Dict[object, object] :
     """From a dictionary containing lists of something (often the evaluated floats), get a 
@@ -10,7 +10,7 @@ def GetValueFromStateDictionaryAtIndex(fullSolutionDictionary : Dict[object, Lis
     Returns:
         Dict[object, object]: The final values from the solution.
     """    
-    finalValues = {}
+    finalValues = OrderedDict()
     for (key, value) in fullSolutionDictionary.items() :
         finalValues[key] = value[index]
     return finalValues 

@@ -6,7 +6,6 @@ sys.path.append("../PythonOptimizationWithNlp") # and this line is needed for ru
 # these two appends do not conflict with eachother
 
 from IPython.display import display
-from scipy.integrate import odeint
 from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
 import numpy as np
@@ -18,6 +17,7 @@ from PythonOptimizationWithNlp.ScaledSymbolicProblem import ScaledSymbolicProble
 from PythonOptimizationWithNlp.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
 from PythonOptimizationWithNlp.Numerical import ScipyCallbackCreators
 from PythonOptimizationWithNlp.Numerical.LambdifyModule import LambdifyHelper
+from PythonOptimizationWithNlp.Utilities.SolutionDictionaryFunctions import GetValueFromStateDictionaryAtIndex
 import JupyterHelper as jh
 
 # constants
@@ -54,7 +54,7 @@ if scale :
                                                           problem.StateVariables[1]: initialStateValues[2], 
                                                           problem.StateVariables[2]: initialStateValues[2], 
                                                           problem.StateVariables[3]: 1.0} , scaleTime)
-
+stateAtTf = SymbolicProblem.SafeSubs(problem.StateVariables, {problem.TimeSymbol: problem.TimeFinalSymbol})
 # make the time array
 tArray = np.linspace(0.0, tfOrg, 1200)
 if scaleTime:
@@ -186,11 +186,12 @@ unscaledResults = problem.DescaleResults(solutionDictionary)
 if scaleTime:
     unscaledTArray=tfOrg*tArray
 
-if scale:
-    jh.showEquation(problem.StateVariables[0].subs(problem.TimeSymbol, problem.TimeFinalSymbol), solutionDictionary[problem.StateVariables[0]][-1])
-    jh.showEquation(problem.StateVariables[1].subs(problem.TimeSymbol, problem.TimeFinalSymbol), solutionDictionary[problem.StateVariables[1]][-1])
-    jh.showEquation(problem.StateVariables[2].subs(problem.TimeSymbol, problem.TimeFinalSymbol), solutionDictionary[problem.StateVariables[2]][-1])
-    jh.showEquation(problem.StateVariables[3].subs(problem.TimeSymbol, problem.TimeFinalSymbol), (solutionDictionary[problem.StateVariables[3]][-1]%(2*math.pi))*180.0/(2*math.pi))
+if scale:    
+    finalState = GetValueFromStateDictionaryAtIndex(solutionDictionary, -1)
+    jh.showEquation(stateAtTf[0], finalState[problem.StateVariables[0]])
+    jh.showEquation(stateAtTf[1], finalState[problem.StateVariables[1]])
+    jh.showEquation(stateAtTf[2], finalState[problem.StateVariables[2]])
+    jh.showEquation(stateAtTf[3], (finalState[problem.StateVariables[3]]%(2*math.pi))*180.0/(2*math.pi))
 
 baseProblem.PlotSolution(tArray*tfOrg, unscaledResults, "Test")
 jh.showEquation(baseProblem.StateVariables[0].subs(problem.TimeSymbol, problem.TimeFinalSymbol), unscaledResults[baseProblem.StateVariables[0]][-1])
