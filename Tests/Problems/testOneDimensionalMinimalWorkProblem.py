@@ -109,6 +109,8 @@ class testOneDimensionalMinimalWorkProblemAnalyticalAnswerToProblem(unittest.Tes
         trajectoryGuess = oneDWorkProblem.InitialTrajectoryGuess(n, 0.0, initialState, 10.0, finalState)
         self.assertEqual(4, len(trajectoryGuess), msg="should be 4 elements")
         self.assertEqual([0.0, 2.0, 4.0, 6.0, 8.0, 10.0], trajectoryGuess[oneDWorkProblem.State[0]], msg="x guess")
+        self.assertEqual([1.0, 3.0, 5.0, 7.0, 9.0, 11.0], trajectoryGuess[oneDWorkProblem.State[1]], msg="vx guess")
+        self.assertEqual([2.0, 4.0, 6.0, 8.0, 10.0, 12.0], trajectoryGuess[oneDWorkProblem.Control[0]], msg="u guess")
 
 
 class testOneDWorkSymbolicProblem(unittest.TestCase) :
