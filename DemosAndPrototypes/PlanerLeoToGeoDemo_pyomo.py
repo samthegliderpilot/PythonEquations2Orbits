@@ -3,7 +3,7 @@
 import __init__
 import sys
 sys.path.append("..") # treating this as a jupyter-like cell requires adding one directory up
-sys.path.append("../PythonOptimizationWithNlp") # and this line is needed for running like a normal python script
+sys.path.append("../pyeq2orb") # and this line is needed for running like a normal python script
 # these two appends do not conflict with eachother
 import math
 import sympy as sy
@@ -16,10 +16,10 @@ from collections import OrderedDict
 # to get pyomo to work on windows, must also install this library:
 # conda install -c conda-forge pynumero_libraries
 
-from PythonOptimizationWithNlp.SymbolicOptimizerProblem import SymbolicProblem
-from PythonOptimizationWithNlp.ScaledSymbolicProblem import ScaledSymbolicProblem
-from PythonOptimizationWithNlp.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
-from PythonOptimizationWithNlp.Numerical import ScipyCallbackCreators
+from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
+from pyeq2orb.ScaledSymbolicProblem import ScaledSymbolicProblem
+from pyeq2orb.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
+from pyeq2orb.Numerical import ScipyCallbackCreators
 import JupyterHelper as jh
 
 # constants
@@ -95,7 +95,7 @@ import pyomo.environ as poenv
 
 import pyomo.dae as podae
 from typing import List, Dict
-from PythonOptimizationWithNlp.NumericalOptimizerProblem import NumericalOptimizerProblemBase
+from pyeq2orb.NumericalOptimizerProblem import NumericalOptimizerProblemBase
 from matplotlib.figure import Figure
 
 lambdiafyFunctionMap = {'sqrt': poenv.sqrt, 'sin': poenv.sin, 'cos':poenv.cos} #TODO: MORE!!!!

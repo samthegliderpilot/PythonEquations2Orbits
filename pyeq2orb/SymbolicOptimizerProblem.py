@@ -1,7 +1,7 @@
 import sympy as sy
 from typing import List, Dict
 from collections import OrderedDict
-from PythonOptimizationWithNlp.Symbolics.Vectors import Vector
+from pyeq2orb.Symbolics.Vectors import Vector
 from abc import ABC, abstractmethod
 import numpy as np
 from matplotlib.figure import Figure

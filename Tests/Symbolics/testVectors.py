@@ -1,5 +1,5 @@
 import sympy as sy
-from PythonOptimizationWithNlp.Symbolics.Vectors import Vector
+from pyeq2orb.Symbolics.Vectors import Vector
 import unittest
 
 class testVectors(unittest.TestCase) :

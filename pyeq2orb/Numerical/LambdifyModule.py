@@ -1,6 +1,6 @@
 import sympy as sy
 from typing import List, Dict, Callable
-from PythonOptimizationWithNlp.SymbolicOptimizerProblem import SymbolicProblem
+from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 # NOTE, that if EVER the source for the overall project is not available, the source 
 # for this MUST be published.
 

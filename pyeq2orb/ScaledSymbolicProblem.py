@@ -1,7 +1,7 @@
 from matplotlib.figure import Figure
 import sympy as sy
 from typing import List, Dict
-from PythonOptimizationWithNlp.SymbolicOptimizerProblem import SymbolicProblem
+from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 import numpy as np
 
 """A Symbolic problem that has scaling factors over another problem.  Those 

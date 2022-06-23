@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict
 import numpy as np
 from matplotlib.figure import Figure
-import PythonOptimizationWithNlp.Utilities.SolutionDictionaryFunctions as DictionaryHelper
+import pyeq2orb.Utilities.SolutionDictionaryFunctions as DictionaryHelper
 class NumericalOptimizerProblemBase(ABC) :
     """ A base type for the kinds of numerical optimization problems I hope to solve. 
 

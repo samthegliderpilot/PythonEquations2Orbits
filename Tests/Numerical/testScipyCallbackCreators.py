@@ -1,8 +1,8 @@
 import unittest
 import sympy as sy
 from scipy.integrate import odeint, solve_ivp
-import PythonOptimizationWithNlp.Numerical.ScipyCallbackCreators as scipyCreator
-from PythonOptimizationWithNlp.Numerical.LambdifyModule import LambdifyHelper
+import pyeq2orb.Numerical.ScipyCallbackCreators as scipyCreator
+from pyeq2orb.Numerical.LambdifyModule import LambdifyHelper
 class testScipyCallbackCreators(unittest.TestCase) :
 
     def testOdeIntHelperFunctions(self) :

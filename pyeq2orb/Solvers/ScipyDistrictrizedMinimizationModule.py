@@ -1,7 +1,7 @@
 from scipy.optimize import minimize, OptimizeResult
 from typing import List,Dict,Callable
 
-from PythonOptimizationWithNlp.NumericalOptimizerProblem import NumericalOptimizerProblemBase
+from pyeq2orb.NumericalOptimizerProblem import NumericalOptimizerProblemBase
 
 #TODO: Consider making a base solver type that takes some of the load off of this type
 

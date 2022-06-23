@@ -1,14 +1,14 @@
 from matplotlib.figure import Figure
 import sympy as sy
 from typing import List, Dict
-from PythonOptimizationWithNlp.Numerical import ScipyCallbackCreators
-from PythonOptimizationWithNlp.Numerical.LambdifyModule import LambdifyHelper
-from PythonOptimizationWithNlp.SymbolicOptimizerProblem import SymbolicProblem
+from pyeq2orb.Numerical import ScipyCallbackCreators
+from pyeq2orb.Numerical.LambdifyModule import LambdifyHelper
+from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 import math
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.integrate import solve_ivp
-from PythonOptimizationWithNlp.Utilities.inherit import inherit_docstrings
+from pyeq2orb.Utilities.inherit import inherit_docstrings
 
 @inherit_docstrings
 class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :

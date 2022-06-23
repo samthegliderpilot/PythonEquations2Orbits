@@ -1,4 +1,4 @@
-import PythonOptimizationWithNlp.Utilities.SolutionDictionaryFunctions as DictionaryHelpers
+import pyeq2orb.Utilities.SolutionDictionaryFunctions as DictionaryHelpers
 import unittest
 
 class testSolutionDictionaryFunctions(unittest.TestCase) :

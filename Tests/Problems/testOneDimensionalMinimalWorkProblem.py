@@ -1,5 +1,5 @@
 import unittest
-from PythonOptimizationWithNlp.Problems.OneDimensionalMinimalWorkProblem import OneDWorkSymbolicProblem, OneDWorkProblem, AnalyticalAnswerToProblem
+from pyeq2orb.Problems.OneDimensionalMinimalWorkProblem import OneDWorkSymbolicProblem, OneDWorkProblem, AnalyticalAnswerToProblem
 
 class testOneDimensionalMinimalWorkProblem(unittest.TestCase) :
 

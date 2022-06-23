@@ -1,11 +1,11 @@
 import unittest
 import sympy as sy
-from PythonOptimizationWithNlp.ScaledSymbolicProblem import ScaledSymbolicProblem
-from PythonOptimizationWithNlp.ScaledSymbolicProblem import SymbolicProblem
-from PythonOptimizationWithNlp.Problems.OneDimensionalMinimalWorkProblem import OneDWorkSymbolicProblem
-from PythonOptimizationWithNlp.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
+from pyeq2orb.ScaledSymbolicProblem import ScaledSymbolicProblem
+from pyeq2orb.ScaledSymbolicProblem import SymbolicProblem
+from pyeq2orb.Problems.OneDimensionalMinimalWorkProblem import OneDWorkSymbolicProblem
+from pyeq2orb.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
 from scipy.integrate import solve_ivp
-from PythonOptimizationWithNlp.Numerical import ScipyCallbackCreators
+from pyeq2orb.Numerical import ScipyCallbackCreators
 
 class testScaledSymbolicProblem(unittest.TestCase) :
 

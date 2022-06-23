@@ -4,9 +4,9 @@ import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 import numpy as np
 from collections import OrderedDict
-from PythonOptimizationWithNlp.NumericalOptimizerProblem import NumericalOptimizerProblemBase
-from PythonOptimizationWithNlp.SymbolicOptimizerProblem import SymbolicProblem
-from PythonOptimizationWithNlp.Utilities.inherit import inherit_docstrings
+from pyeq2orb.NumericalOptimizerProblem import NumericalOptimizerProblemBase
+from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
+from pyeq2orb.Utilities.inherit import inherit_docstrings
 
 @inherit_docstrings
 class OneDWorkSymbolicProblem(SymbolicProblem) :

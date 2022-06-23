@@ -2,7 +2,7 @@
 import sys
 
 sys.path.append("..") # treating this as a jupyter-like cell requires adding one directory up
-sys.path.append("../PythonOptimizationWithNlp") # and this line is needed for running like a normal python script
+sys.path.append("../pyeq2orb") # and this line is needed for running like a normal python script
 # these two appends do not conflict with eachother
 
 from IPython.display import display
@@ -12,12 +12,12 @@ import numpy as np
 import sympy as sy
 import math
 from scipy.optimize import fsolve
-from PythonOptimizationWithNlp.SymbolicOptimizerProblem import SymbolicProblem
-from PythonOptimizationWithNlp.ScaledSymbolicProblem import ScaledSymbolicProblem
-from PythonOptimizationWithNlp.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
-from PythonOptimizationWithNlp.Numerical import ScipyCallbackCreators
-from PythonOptimizationWithNlp.Numerical.LambdifyModule import LambdifyHelper
-from PythonOptimizationWithNlp.Utilities.SolutionDictionaryFunctions import GetValueFromStateDictionaryAtIndex
+from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
+from pyeq2orb.ScaledSymbolicProblem import ScaledSymbolicProblem
+from pyeq2orb.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
+from pyeq2orb.Numerical import ScipyCallbackCreators
+from pyeq2orb.Numerical.LambdifyModule import LambdifyHelper
+from pyeq2orb.Utilities.SolutionDictionaryFunctions import GetValueFromStateDictionaryAtIndex
 import JupyterHelper as jh
 
 # constants

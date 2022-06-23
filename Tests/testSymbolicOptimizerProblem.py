@@ -1,10 +1,10 @@
 from inspect import istraceback
 import unittest
 import sympy as sy
-from PythonOptimizationWithNlp.SymbolicOptimizerProblem import SymbolicProblem
-from PythonOptimizationWithNlp.Problems.OneDimensionalMinimalWorkProblem import OneDWorkSymbolicProblem
-from PythonOptimizationWithNlp.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
-from PythonOptimizationWithNlp.Symbolics.Vectors import Vector
+from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
+from pyeq2orb.Problems.OneDimensionalMinimalWorkProblem import OneDWorkSymbolicProblem
+from pyeq2orb.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
+from pyeq2orb.Symbolics.Vectors import Vector
 import math
 class testSymbolicOptimizerProblem(unittest.TestCase) :
 

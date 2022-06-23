@@ -1,11 +1,11 @@
 #%%
 import sys
 sys.path.append("..") # treating this as a jupyter-like cell requires adding one directory up
-sys.path.append("../PythonOptimizationWithNlp") # and this line is needed for running like a normal python script
+sys.path.append("../pyeq2orb") # and this line is needed for running like a normal python script
 # these two appends do not conflict with eachother
 import matplotlib.pyplot as plt
-import PythonOptimizationWithNlp.Problems.OneDimensionalMinimalWorkProblem as OneDWorkProblemModule
-from PythonOptimizationWithNlp.Solvers.ScipyDistrictrizedMinimizationModule import ScipyDistrictrizedMinimizeWrapper
+import pyeq2orb.Problems.OneDimensionalMinimalWorkProblem as OneDWorkProblemModule
+from pyeq2orb.Solvers.ScipyDistrictrizedMinimizationModule import ScipyDistrictrizedMinimizeWrapper
 
 n = 9 # coarse enough to see a small difference from the analytical solution
 oneDWorkProblem = OneDWorkProblemModule.OneDWorkProblem()
@@ -30,7 +30,7 @@ plt.show()
 # STill a work in progress....
 import sys
 sys.path.append("..") # treating this as a jupyter-like cell requires adding one directory up
-sys.path.append("../PythonOptimizationWithNlp") # and this line is needed for running like a normal python script
+sys.path.append("../pyeq2orb") # and this line is needed for running like a normal python script
 # these two appends do not conflict with eachother
 import sympy as sy
 t = sy.Symbol('t')

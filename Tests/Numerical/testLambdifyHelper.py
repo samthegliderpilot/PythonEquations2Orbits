@@ -1,6 +1,6 @@
 import unittest
 import sympy as sy
-from PythonOptimizationWithNlp.Numerical.LambdifyModule import LambdifyHelper
+from pyeq2orb.Numerical.LambdifyModule import LambdifyHelper
 
 class testLambdifyHelper(unittest.TestCase) :
     def testEmptyCreation(self) :

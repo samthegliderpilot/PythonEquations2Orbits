@@ -1,8 +1,8 @@
 import unittest
 
 from pytest import approx
-from PythonOptimizationWithNlp.Solvers.ScipyDistrictrizedMinimizationModule import ScipyDistrictrizedMinimizeWrapper
-from PythonOptimizationWithNlp.Problems.OneDimensionalMinimalWorkProblem import OneDWorkProblem, AnalyticalAnswerToProblem
+from pyeq2orb.Solvers.ScipyDistrictrizedMinimizationModule import ScipyDistrictrizedMinimizeWrapper
+from pyeq2orb.Problems.OneDimensionalMinimalWorkProblem import OneDWorkProblem, AnalyticalAnswerToProblem
 from scipy.interpolate import interp1d
 import numpy as np
 

@@ -2,7 +2,7 @@ from collections import OrderedDict
 from typing import List, Dict
 import sympy as sy
 
-from PythonOptimizationWithNlp.SymbolicOptimizerProblem import SymbolicProblem
+from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 
 
 

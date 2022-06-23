@@ -1,6 +1,6 @@
 import unittest
-from PythonOptimizationWithNlp.NumericalOptimizerProblem import NumericalOptimizerProblemBase
-from PythonOptimizationWithNlp.Problems.OneDimensionalMinimalWorkProblem import OneDWorkProblem
+from pyeq2orb.NumericalOptimizerProblem import NumericalOptimizerProblemBase
+from pyeq2orb.Problems.OneDimensionalMinimalWorkProblem import OneDWorkProblem
 
 class testNumericalOptimizerProblemBase(unittest.TestCase) :
 

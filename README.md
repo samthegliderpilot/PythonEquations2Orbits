@@ -1,4 +1,4 @@
-# Python Optimization with Non-Linear Programming
+# Python Equations To Orbits
 
 A library to explore non-linear programming for small-to-medium scale optimization problems.  After a lot of studying and false starts, I finally decided that it shouldn't be THAT hard to do create a simple transcription and optimization routine for an optimal control problem.  Additional, after finding Matthew Kelly's very helpful paper [An Introduction to Trajectory Optimization: How to Do Your Own Direct Collocation](https://epubs.siam.org/doi/pdf/10.1137/16M1062569) I sat down and started to create this project.
 
