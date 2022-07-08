@@ -132,14 +132,14 @@ class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
         for key, val in orderedDictOfUnScaledValues.items() :
             solsLists.append(val)
         plt.title("Longitude (rad)")
-        plt.plot(tUnscaled/86400, solsLists[3]%(2*math.pi))
+        plt.plot(tUnscaled/86400, solsLists[3]%(2*math.pi), label="longitude (deg)")
 
         plt.tight_layout()
         plt.grid(alpha=0.5)
         plt.legend(framealpha=1, shadow=True)
         plt.show()        
         plt.title("Radius")
-        plt.plot(tUnscaled/86400, solsLists[0])
+        plt.plot(tUnscaled/86400, solsLists[0], label="radius (km)")
 
         plt.tight_layout()
         plt.grid(alpha=0.5)
@@ -166,7 +166,7 @@ class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
             thetas.append(ang)
             rads.append(rad)
         plt.title("Position Polar")    
-        ax.plot(thetas, rads)
+        ax.plot(thetas, rads, label="Position (km)")
 
         plt.tight_layout()
         plt.grid(alpha=0.5)
@@ -178,7 +178,7 @@ class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
         plt.legend(framealpha=1, shadow=True)
         plt.title("Thrust angle (degrees vs days)")
 
-        plt.plot(tUnscaled/86400, np.arctan2(solsLists[5], solsLists[6])*180.0/math.pi)
+        plt.plot(tUnscaled/86400, np.arctan2(solsLists[5], solsLists[6])*180.0/math.pi, label="Thrust angle (deg)")
         plt.show()
 
     @staticmethod

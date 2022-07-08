@@ -21,6 +21,11 @@ from pyeq2orb.ScaledSymbolicProblem import ScaledSymbolicProblem
 from pyeq2orb.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
 from pyeq2orb.Numerical import ScipyCallbackCreators
 import JupyterHelper as jh
+import pyomo.environ as poenv
+import pyomo.dae as podae
+from pyeq2orb.NumericalOptimizerProblem import NumericalOptimizerProblemBase
+from matplotlib.figure import Figure
+from pyeq2orb.NumericalProblemFromSymbolic import NumericalProblemFromSymbolicProblem
 
 # constants
 g = 9.80665
@@ -90,103 +95,7 @@ if scale :
     initialScaledStateValues = problem.CreateVariablesAtTime0(problem.StateVariables)
     constantsSubsDict.update(zip(initialScaledStateValues, [r0, u0, v0, lon0])) 
     
-
-import pyomo.environ as poenv
-
-import pyomo.dae as podae
-from typing import List, Dict
-from pyeq2orb.NumericalOptimizerProblem import NumericalOptimizerProblemBase
-from matplotlib.figure import Figure
-
 lambdiafyFunctionMap = {'sqrt': poenv.sqrt, 'sin': poenv.sin, 'cos':poenv.cos} #TODO: MORE!!!!
-
-class NumericalProblemFromSymbolicProblem(NumericalOptimizerProblemBase) :
-    def __init__(self, wrappedProblem : SymbolicProblem, functionMap : Dict) :
-        super().__init__(wrappedProblem.TimeSymbol)
-        self._wrappedProblem = wrappedProblem
-        self.State.extend(wrappedProblem.StateVariables)
-        self.Control.extend(wrappedProblem.ControlVariables)
-
-        entireState = [wrappedProblem.TimeSymbol, *wrappedProblem.StateVariables, *wrappedProblem.ControlVariables]
-        
-
-        if isinstance(wrappedProblem, ScaledSymbolicProblem) and wrappedProblem.ScaleTime :
-            entireState.append(wrappedProblem.TimeFinalSymbolOriginal)
-        
-        finalState = SymbolicProblem.SafeSubs(entireState, {wrappedProblem.TimeSymbol: wrappedProblem.TimeFinalSymbol})
-        self._terminalCost = lambdify([finalState], wrappedProblem.TerminalCost.subs(wrappedProblem.SubstitutionDictionary).simplify(), functionMap)
-        self._unIntegratedPathCost = 0.0
-        if wrappedProblem.UnIntegratedPathCost != None and wrappedProblem.UnIntegratedPathCost != 0.0 :
-            self._unIntegratedPathCost = lambdify(entireState, wrappedProblem.UnIntegratedPathCost.subs(wrappedProblem.SubstitutionDictionary).simplify(), functionMap)
-        self._equationOfMotionList = []
-        for (sv, eom) in wrappedProblem.EquationsOfMotion.items() :
-            eomCb = lambdify(entireState, eom.subs(wrappedProblem.SubstitutionDictionary).simplify(), functionMap)
-            self._equationOfMotionList.append(eomCb) 
-
-        for bc in wrappedProblem.BoundaryConditions :
-            bcCallback = lambdify([finalState], bc.subs(wrappedProblem.SubstitutionDictionary).simplify(), functionMap)
-            self.BoundaryConditionCallbacks.append(bcCallback)            
-
-    #initial guess callback
-    #initial conditions
-    #final conditions
-
-    @property
-    def ContolValueAtTCallbackForInitialGuess(self):
-        return self._controlCallback
-
-    @ContolValueAtTCallbackForInitialGuess.setter
-    def setContolValueAtTCallbackForInitialGuess(self, callback) :
-        self._controlCallback = callback
-
-    def InitialGuessCallback(self, t : float) -> List[float] :
-        """A function to produce an initial state at t, 
-
-        Args:
-            t (float): _description_
-
-        Returns:
-            List[float]: A list the values in the state followed by the values of the controls at t.
-        """
-        pass
-
-    def EquationOfMotion(self, t : float, stateAndControlAtT : List[float]) -> List[float] :
-        """The equations of motion.  
-
-        Args:
-            t (float): The time.  
-            stateAndControlAtT (List[float]): The current state and control at t to evaluate the equations of motion.
-
-        Returns:
-            List[float]: The derivative of the state variables 
-        """  
-        ans = []
-        for i in range(0, len(stateAndControlAtT)) :
-            ans.append(self.SingleEquationOfMotion(t, *stateAndControlAtT, i))
-        return ans
-
-    def SingleEquationOfMotion(self, t : float, stateAndControlAtT : List[float], indexOfEom : int) -> float :
-        return self._equationOfMotionList[indexOfEom](t, stateAndControlAtT)
-
-    def SingleEquationOfMotionWithTInState(self, state, indexOfEom) :
-        return self._equationOfMotionList[indexOfEom](state[0], *state[1:])
-
-    def UnIntegratedPathCost(self, t, stateAndControl) :
-        return self._unIntegratedPathCost(t, stateAndControl)
-    
-    def TerminalCost(self, tf, finalStateAndControl) :
-        return self._terminalCost(tf, finalStateAndControl)
-
-    def AddResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[object, List[float]], label : str) -> None:
-        """Adds the contents of dictionaryOfValueArraysKeyedOffState to the plot.
-
-        Args:
-            figure (matplotlib.figure.Figure): The figure the data is getting added to.
-            t (List[float]): The time corresponding to the data in dictionaryOfValueArraysKeyedOffState.
-            dictionaryOfValueArraysKeyedOffState (Dict[object, List[float]]): The data to get added.  The keys must match the values in self.State and self.Control.
-            label (str): A label for the data to use in the plot legend.
-        """
-        self._wrappedProblem.AddStandardResultsToFigure(figure, t, dictionaryOfValueArraysKeyedOffState, label)
 
 
 asNumericalProblem = NumericalProblemFromSymbolicProblem(problem, lambdiafyFunctionMap)
@@ -213,11 +122,11 @@ def setEom(mdl, name, t, eom) :
 
 velBound = 1.5*abs(v0)
 
-setEverythingOnPyomoModel(model, "r",     model.t, [0.9, 8.0],              r0)
-setEverythingOnPyomoModel(model, "u",     model.t, [-1*velBound, velBound],  u0)
-setEverythingOnPyomoModel(model, "v",     model.t, [-1*velBound, velBound],  v0)
-setEverythingOnPyomoModel(model, "theta", model.t, [lon0, 29.0*2.0*math.pi], lon0)
-setEverythingOnPyomoModel(model, "control", model.t, [-1*math.pi/2.0, math.pi/2.0], None)
+setEverythingOnPyomoModel(model, "r",     model.t, [0.9, 8.0],              float(r0))
+setEverythingOnPyomoModel(model, "u",     model.t, [-1.0*velBound, velBound],  float(u0))
+setEverythingOnPyomoModel(model, "v",     model.t, [-1.0*velBound, velBound],  float(v0))
+setEverythingOnPyomoModel(model, "theta", model.t, [lon0, 29.0*2.0*math.pi], float(lon0))
+setEverythingOnPyomoModel(model, "control", model.t, [-1.0*math.pi/2.0, math.pi/2.0], None)
 setEverythingOnPyomoModel(model, "Tf", None, [tfOrg-2, tfOrg+2], tfOrg)
 
 def mapping(m, t, expre) :

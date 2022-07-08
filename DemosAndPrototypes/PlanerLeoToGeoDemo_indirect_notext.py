@@ -38,8 +38,8 @@ tfVal  = 3600*3.97152*24
 tfOrg = tfVal
 
 # these are options to switch to try different things
-scale = True
-scaleTime = scale and True
+scaleElements = True
+scaleTime = scaleElements and True
 # your choice of the nu vector here controls which transversality condition we use
 nus = [sy.Symbol('B_{u_f}'), sy.Symbol('B_{v_f}')]
 #nus = []
@@ -48,19 +48,19 @@ baseProblem = ContinuousThrustCircularOrbitTransferProblem()
 initialStateValues = baseProblem.CreateVariablesAtTime0(baseProblem.StateVariables)
 problem = baseProblem
 
-if scale :
+if scaleElements :
     newSvs = ScaledSymbolicProblem.CreateBarVariables(problem.StateVariables, problem.TimeSymbol) 
     problem = ScaledSymbolicProblem(baseProblem, newSvs, {problem.StateVariables[0]: initialStateValues[0], 
                                                           problem.StateVariables[1]: initialStateValues[2], 
                                                           problem.StateVariables[2]: initialStateValues[2], 
-                                                          problem.StateVariables[3]: 1.0} , scaleTime)
+                                                          problem.StateVariables[3]: 1} , scaleTime) # note the int here for the scaling, not a float
 stateAtTf = SymbolicProblem.SafeSubs(problem.StateVariables, {problem.TimeSymbol: problem.TimeFinalSymbol})
 # make the time array
 tArray = np.linspace(0.0, tfOrg, 1200)
 if scaleTime:
     tfVal = 1.0
     tArray = np.linspace(0.0, 1.0, 1200)
-jh.t = problem._timeSymbol
+jh.t = problem._timeSymbol # needed for cleaner printed equations
 
 # register constants
 constantsSubsDict = problem.SubstitutionDictionary
@@ -72,7 +72,7 @@ constantsSubsDict[baseProblem.Thrust] = thrust
 
 # register initial state values
 constantsSubsDict.update(zip(initialStateValues, [r0, u0, v0, lon0]))
-if scale :
+if scaleElements :
     # and reset the real initial values using tau_0 instead of time
     initialValuesAtTau0 = SymbolicProblem.SafeSubs(initialStateValues, {baseProblem.TimeInitialSymbol: problem.TimeInitialSymbol})
     constantsSubsDict.update(zip(initialValuesAtTau0, [r0, u0, v0, lon0]))
@@ -140,12 +140,10 @@ odeState = [problem.TimeSymbol, stateAndLambdas, otherArgs]
 
 lambdifyHelper = LambdifyHelper(problem.TimeSymbol, stateAndLambdas, problem.EquationsOfMotion.values(), otherArgs, problem.SubstitutionDictionary)
 
-#odeIntEomCallback = LambdifyHelper.CreateSimpleCallbackForSolveIvp(problem.TimeSymbol, problem.IntegrationSymbols, problem.EquationsOfMotion, constantsSubsDict, otherArgs)
 odeIntEomCallback = lambdifyHelper.CreateSimpleCallbackForSolveIvp()
-# run a test solution to get a better guess for the final nu values, this is a good technique, but 
-# it is still a custom-to-this-problem piece of code because it is still initial-guess work
-
 if len(nus) > 0 :
+    # run a test solution to get a better guess for the final nu values, this is a good technique, but 
+    # it is still a custom-to-this-problem piece of code because it is still initial-guess work
     initialFSolveStateGuess.append(initialFSolveStateGuess[1])
     initialFSolveStateGuess.append(initialFSolveStateGuess[2])  
     argsForOde = []
@@ -186,7 +184,7 @@ unscaledResults = problem.DescaleResults(solutionDictionary)
 if scaleTime:
     unscaledTArray=tfOrg*tArray
 
-if scale:    
+if scaleElements:    
     finalState = GetValueFromStateDictionaryAtIndex(solutionDictionary, -1)
     jh.showEquation(stateAtTf[0], finalState[problem.StateVariables[0]])
     jh.showEquation(stateAtTf[1], finalState[problem.StateVariables[1]])
@@ -202,8 +200,8 @@ jh.showEquation(baseProblem.StateVariables[3].subs(problem.TimeSymbol, problem.T
 [hamltVals, dhduValus, d2hdu2Valus] = problem.EvaluateHamiltonianAndItsFirstTwoDerivatives(solutionDictionary, tArray, hamiltonian, {problem.ControlVariables[0]: controlSolved}, {baseProblem.TimeFinalSymbol: tfOrg})
 plt.title("Hamlitonion and its derivatives")
 plt.plot(tArray/86400, hamltVals, label="Hamiltonian")
-plt.plot(tArray/86400, dhduValus, label=r'\frac{dH}{du}')
-plt.plot(tArray/86400, d2hdu2Valus, label=r'\frac{d^2H}{du^2}')
+plt.plot(tArray/86400, dhduValus, label=r'$\frac{dH}{du}$')
+plt.plot(tArray/86400, d2hdu2Valus, label=r'$\frac{d^2H}{du^2}$')
 
 plt.tight_layout()
 plt.grid(alpha=0.5)

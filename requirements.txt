@@ -1,9 +1,7 @@
-scipy
-matplotlib
-sympy
-ABC
-numpy
-typing
-unittest
-IPython
-sys
+ipython==8.4.0
+matplotlib==3.5.1
+numpy==1.22.3
+Pyomo==6.4.1
+pytest==7.1.1
+scipy==1.7.3
+sympy==1.10.1
