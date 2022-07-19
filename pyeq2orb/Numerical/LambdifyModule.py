@@ -162,21 +162,7 @@ class LambdifyHelper :
         #else...        
         def switchTimeOrderCallback(y, t, *args) :
             return originalCallback(t, y, *args)
-        return switchTimeOrderCallback
-
-    @staticmethod
-    def testCreateLambdifiedExpressions(self) :
-        t = sy.Symbol('t')
-        x = sy.Function('x')(t)
-        u = sy.Function('u')(t)
-        a = sy.Symbol('a')
-        b = sy.Symbol('b')
-        xDot = 2*u*a
-        uDot = 5*2*b
-        callback = LambdifyHelper.CreateLambdifiedExpressions([x,u], [xDot, uDot], {a:3, b:13})
-        answer = callback(7,8) 
-        self.assertEqual(48, answer[0], msg="x dot val")
-        self.assertEqual(130, answer[1], msg="u dot val")           
+        return switchTimeOrderCallback   
 
     @staticmethod
     def CreateLambdifiedExpressions(stateExpressionList : List[sy.Expr], expressionsToLambdify : List[sy.Expr], constantsSubstitutionDictionary : Dict[sy.Expr, float]) ->sy.Expr :

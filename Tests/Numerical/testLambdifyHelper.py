@@ -136,3 +136,16 @@ class testLambdifyHelper(unittest.TestCase) :
         actualVals = ivpCallback([5, 1], 1)
         self.assertEqual(float(dxAtT1), actualVals[0], msg="dx")        
         self.assertEqual(float(dyAtT1), actualVals[1], msg="dy")        
+
+    def testCreateLambdifiedExpressions(self) :
+        t = sy.Symbol('t')
+        x = sy.Function('x')(t)
+        u = sy.Function('u')(t)
+        a = sy.Symbol('a')
+        b = sy.Symbol('b')
+        xDot = 2*u*a
+        uDot = 5*2*b
+        callback = LambdifyHelper.CreateLambdifiedExpressions([x,u], [xDot, uDot], {a:3, b:13})
+        answer = callback(7,8) 
+        self.assertEqual(48, answer[0], msg="x dot val")
+        self.assertEqual(130, answer[1], msg="u dot val")              
