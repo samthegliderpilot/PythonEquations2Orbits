@@ -1,12 +1,26 @@
-from CartesianModule import Cartesian
+from __future__ import annotations
+from .CartesianModule import Cartesian, MotionCartesian
 import sympy as sy
 import math as math
-from abc import ABC
 from fractions import Fraction
 from .RotationMatrix import RotAboutY, RotAboutX, RotAboutZ
 
 class KeplerianElements() :
+    """Represents a set of Keplerian Elements with true anomaly as the fast variable. Note that 
+    Keplerian Elements do not represent parabolic or circular orbits well.
+    """
     def __init__(self, sma, ecc, inc, aop, raan, ta, mu) :
+        """Initializes a new instance.  The values passed in are often numbers or symbols.
+
+        Args:
+            sma : The semi-major axis
+            ecc : The eccentricity
+            inc : The inclination
+            aop : The argument of periapsis
+            raan : The right ascension of the ascending node
+            ta : The true anomaly
+            mu : The gravitational parameter
+        """
         self.SemimajorAxis=sma
         self.Eccentricity=ecc
         self.Inclination=inc
@@ -16,7 +30,25 @@ class KeplerianElements() :
         self.GravatationalParameter=mu
 
     @staticmethod
-    def FromCartesian(x, y, z, vx, vy, vz, mu) :
+    def FromCartesian(x, y, z, vx, vy, vz, mu) -> KeplerianElements:
+        """Creates a set of Keplerian Elements from the provided position and velocity elements. 
+        The passed in values are often numbers or symbols.
+
+        Args:
+            x : The x component of position
+            y : The y component of position
+            z : The z component of position
+            vx : The x component of velocity
+            vy : The y component of velocity
+            vz : The z component of velocity
+            mu : The gravitational parameter
+
+        Raises:
+            Exception: If the orbit is parabolic this will throw.
+
+        Returns:
+            KeplerianElements: The Keplerian Elements that represent the passed in values.
+        """
         r = Cartesian(x, y, z)
         rMag = r.Magnitude()
         v = Cartesian(vx, vy, vz)
@@ -35,19 +67,36 @@ class KeplerianElements() :
         else :
             raise Exception("Eccentricity is parabolic, Keplerianl elements do not work")
         i = sy.acos(h.Z/hMag)
-        raan = sy.acos(n.X/n.Magnitude)
-        if(n.Y < 0) :
+        raan = sy.acos(n.X/n.Magnitude())
+        if(isinstance(raan, sy.Float) and n.Y < 0) :
             raan = 2*math.pi - raan
         
-        aop = sy.acos(n.dot(e)/(n.Magnitude*e.Magnitude()))
-        if(e.Y < 0) :
+        aop = sy.acos(n.Dot(eVec)/(n.Magnitude()*e))
+        if(isinstance(aop, sy.Float) and eVec.Z < 0) :
             aop = 2*math.pi - aop
         
-        ta = sy.acos(e.Dot(r)/(e.Magnitude()*rMag))
-        if(r.Dot(v) < 0) :
+        ta = sy.acos(eVec.Dot(r)/(e*rMag))
+        if(isinstance(ta, sy.Float) and r.Dot(v) < 0) :
             ta = 2*math.pi - ta
 
         return KeplerianElements(a, e, i, aop, raan, ta, mu)
+    
+    @staticmethod
+    def FromMotionCartesian(motion : MotionCartesian, mu) -> KeplerianElements:
+        """Creates a set of Keplerian Elements from the provided motion.
+        The values in the motion and mu are often numbers or symbols.
+
+        Args:
+            motion (MotionCartesian): The motion to convert.
+            mu : The gravitational parameter.
+
+        Raises:
+            Exception: If the orbit is parabolic this will throw.
+
+        Returns:
+            KeplerianElements: The Keplerian Elements that represent the passed in values.
+        """
+        return KeplerianElements.FromCartesian(motion.Position.X, motion.Position.Y, motion.Position.Z, motion.Velocity.X, motion.Velocity.Y, motion.Velocity.Z, mu)
 
     def ToArrayOfElements(self) :
         return [self.SemimajorAxis, self.Eccentricity, self.Inclination, self.ArgumentOfPeripsis, self.RightAscensionOfAscendingNode, self.TrueAnomaly]
@@ -90,10 +139,10 @@ class KeplerianElements() :
         rDenom = 1+self.Eccentricity*sy.cos(ta)
         
         mu = self.GravatationalParameter
-        r = Vector([p*(sy.cos(ta)/rDenom), p*(sy.sin(ta)/rDenom), 0])
+        r = Cartesian([p*(sy.cos(ta)/rDenom), p*(sy.sin(ta)/rDenom), 0])
         e = self.Eccentricity
         firstPart = sy.sqrt(mu/p)
-        v = Vector([-1*firstPart *sy.sin(e), firstPart*(e+sy.cos(ta)),0.0])
+        v = Cartesian([-1*firstPart *sy.sin(e), firstPart*(e+sy.cos(ta)),0.0])
         return [r,v]
 
     def ToInertialMotionCartesian(self):
@@ -148,20 +197,28 @@ class GaussianEquationsOfMotion :
         return sy.Eq(lhs, rhs)
 
 
-def CreateSymbolicElements(elementsFunctionOf = None) -> KeplerianElements :
+def CreateSymbolicElements(elementsFunctionOf : sy.Symbol = None) -> KeplerianElements :
+    """Creates a KeplerianElements structure made of symbols.
+
+    Args:
+        elementsFunctionOf (sy.Symbol, optional): If these elements should be a function of something (like time) pass it here. Defaults to None.
+
+    Returns:
+        KeplerianElements: Symbolic KeplerianElements.
+    """
     if(elementsFunctionOf == None) :
         a = sy.Symbol("a", real=True)
         ecc = sy.Symbol('e', nonnegative=True)
         inc = sy.Symbol('i', real=True)
-        raan = sy.Symbol(r'\Omega', real=True)
-        aop = sy.Symbol(r'\omega', real=True)
+        raan = sy.Symbol('\Omega', real=True)
+        aop = sy.Symbol('\omega', real=True)
         ta = sy.Symbol(r'\nu', real=True)
     else:
         a = sy.Function("a", real=True)(elementsFunctionOf)
         ecc = sy.Function('e', nonnegative=True)(elementsFunctionOf)
         inc = sy.Function('i', real=True)(elementsFunctionOf)
-        raan = sy.Function(r'\Omega', real=True)(elementsFunctionOf)
-        aop = sy.Function(r'\omega', real=True)(elementsFunctionOf)
+        raan = sy.Function('\Omega', real=True)(elementsFunctionOf)
+        aop = sy.Function('\omega', real=True)(elementsFunctionOf)
         ta = sy.Function(r'\nu', real=True)(elementsFunctionOf)
-    mu = sy.Symbol(r'\mu', positive=True)
+    mu = sy.Symbol('\mu', positive=True, real=True)
     return KeplerianElements(a, ecc, inc, aop, raan, ta, mu)
