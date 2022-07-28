@@ -1,4 +1,14 @@
-class Cartesian :
+from __future__ import annotations
+import sympy as sy
+
+class Cartesian(sy.Matrix) :
+
+    @staticmethod
+    def _addXYZ(matrix) :
+        matrix._x=matrix[0]
+        matrix._y=matrix[1]
+        matrix._z=matrix[2]
+
     """Represents a cartesian (x,y,z) position in space in some reference frame or vector in 
     some axes that are tracked separately.
     
@@ -6,7 +16,8 @@ class Cartesian :
 
     Often X, Y and Z are floats, or symbols, but this is python so...
     """
-    def __init__(self, x, y, z) :
+    def __new__(cls, x, y, z) :
+        self = super().__new__(cls, [[x],[y],[z]])
         """Initialize a new instance.  
 
         Args:
@@ -14,9 +25,41 @@ class Cartesian :
             y : The y component.
             z : The z component.
         """
-        self._x=x
-        self._y=y
-        self._z=z
+        return self
+
+    def __init__(self, x, y, z) :
+        super().__init__()
+        """Initialize a new instance.  
+
+        Args:
+            x : The x component. 
+            y : The y component.
+            z : The z component.
+        """
+        Cartesian._addXYZ(self)
+
+    def transpose(self) -> Cartesian:
+        """Returns the transpose of this Cartesian with the x, y and z properties set
+
+        Returns:
+            Cartesian: The transposed Cartesian
+        """
+        newOne = super().transpose()
+        Cartesian._addXYZ(newOne)
+        return newOne
+
+    def cross(self, other) -> Cartesian :
+        """Crosses this Cartesian with another.
+
+        Args:
+            other (Cartesian): The other vector to cross.
+
+        Returns:
+            Cartesian: The cross product of this vector and the other one.
+        """
+        newOne = super().cross(other)
+        Cartesian._addXYZ(newOne)
+        return newOne
 
     @property
     def X(self) :
@@ -45,48 +88,6 @@ class Cartesian :
         """        
         return self._z
 
-    def __eq__(self, other) ->bool:
-        """Returns true if the components of the other Cartesian equals the components of this Cartesian.
-
-        Args:
-            other (Cartesian): The other Cartesian to compare to.
-
-        Returns:
-            bool: True if the components are equal, false otherwise.
-        """
-        if not isinstance(other, Cartesian) :
-            return False
-        return self.X == other.X and self.Y==other.Y and self.Z==other.Z
-
-    def Magnitude(self) :
-        """Evaluates the magnitude of this cartesian.
-
-        Returns:
-            The magnitude of this cartesian.
-        """
-        return (self.X**2+ self.Y**2+ self.Z**2)**(1.0/2.0)
-
-    def Cross(self, other):
-        """Creates a new Cartesian that is this Cartesian crossed the the other one.
-
-        Args:
-            other (Cartesian): The other cartesian to cross with this one.
-
-        Returns:
-            Cartesian: A new Cartesian that is this Cartesian crossed the the other one.
-        """
-        return Cartesian(self.Y*other.Z - self.Z*other.Y, self.Z*other.X - self.X*other.Z, self.X*other.Y-self.Y*other.X)
-
-    def Dot(self, other) :
-        """Creates a new Cartesian that is this Cartesian dotted the the other one.
-
-        Args:
-            other (Cartesian): The other cartesian to dot with this one.
-
-        Returns:
-            scalar: A new Cartesian that is this Cartesian dotted the the other one.
-        """        
-        return self.X*other.X + self.Y * other.Y + self.Z*other.Z
 
     def __add__(self, other) :
         """Returns a new cartesian which is the other one added to this one.
@@ -97,7 +98,9 @@ class Cartesian :
         Returns:
             Cartesian: A new cartesian added to the original cartesian.
         """
-        return Cartesian(self.X+other.X, self.Y+other.Y, self.Z+other.Z)
+        newOne = super().__add__(other)
+        Cartesian._addXYZ(newOne)
+        return newOne
 
     def __sub__(self, other) :
         """Returns a new cartesian which is this one minus the.
@@ -108,7 +111,9 @@ class Cartesian :
         Returns:
             Cartesian: A new cartesian which is this one minus the.
         """
-        return Cartesian(self.X-other.X, self.Y-other.Y, self.Z-other.Z)
+        newOne = super().__sub__(other)
+        Cartesian._addXYZ(newOne)
+        return newOne
 
     def __mul__(self, value) :
         """Returns a new cartesian multiplied by the supplied value.
@@ -119,18 +124,31 @@ class Cartesian :
         Returns:
             _type_: A new cartesian multiplied by the supplied value.
         """
-        return Cartesian(self.X*value, self.Y*value, self.Z*value)
+        newOne = super().__mul__(value)
+        if len(newOne) == 3 :
+            Cartesian._addXYZ(newOne)
+        return newOne
+
+    def __rmul__(self, other) :
+        newOne = super().__rmul__(other)
+        Cartesian._addXYZ(newOne)
+        return newOne
 
     def __truediv__(self, value) :
-        """Divides this cartesian by some value.
+        newOne = super().__truediv__(value)
+        Cartesian._addXYZ(newOne)
+        return newOne
 
-        Args:
-            value : The divisor
+    def EqualsWithinTolerance(self, other : Cartesian, tolerance: float) :
+        return other.shape == self.shape and abs(self[0]-other[0]) <= tolerance and abs(self[1]-other[1]) <= tolerance and abs(self[2]-other[2]) <= tolerance
+
+    def Magnitude(self) :
+        """Evaluates the magnitude of this cartesian.
 
         Returns:
-            Cartesian: The divided cartesian.
+            The magnitude of this cartesian.
         """
-        return Cartesian(self.X/value, self.Y/value, self.Z/value)        
+        return self.norm()
 
     def Normalize(self) :
         """Returns a new Cartesian normalized to 1 (or as close as numerical precision will allow).
@@ -139,24 +157,6 @@ class Cartesian :
             Cartesian: The normalized Cartesian.
         """
         return self / self.Magnitude()
-
-    def __getitem__(self, pos) :
-        i = 0
-        j = 0
-        if isinstance(pos, int) :
-            i = pos
-        else :
-            j,i = pos # tuple
-        if not j==0 :
-            raise Exception("Cartesian are treated as a column matrix, and does not support a column other than 0, but was passed " + str(j))
-
-        if i == 0 :
-            return self.X
-        if i == 1:
-            return self.Y
-        if i == 2:
-            return self.Z
-        raise Exception("Cartesian does not support indexes outside the range of 0 to 2 inclusive, but was passed " +str(i))
 
 class MotionCartesian :
     """Holds a position and velocity Cartesian.  Intended to be immutable.
@@ -231,6 +231,12 @@ class MotionCartesian :
         if i == 1 :
             return self.Velocity # return the None, it is ok.
         raise Exception("Motions does not support indexes outside the range of 0 to 1 inclusive, but was passed " +str(i))
+
+    def EqualsWithinTolerance(self, other, posTolerance, velTolerance) :
+        if not other is MotionCartesian:
+            return False
+        return self.Position.EqualsWithinTolerance(other.Position, posTolerance) and self.Velocity.EqualsWithinTolerance(other.Velocity, velTolerance)
+
 
 # def Plot3DOrbit(x, y, z) :
 #     from mpl_toolkits import mplot3d
