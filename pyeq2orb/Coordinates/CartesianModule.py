@@ -233,7 +233,7 @@ class MotionCartesian :
         raise Exception("Motions does not support indexes outside the range of 0 to 1 inclusive, but was passed " +str(i))
 
     def EqualsWithinTolerance(self, other, posTolerance, velTolerance) :
-        if not other is MotionCartesian:
+        if type(other) != type(self):
             return False
         return self.Position.EqualsWithinTolerance(other.Position, posTolerance) and self.Velocity.EqualsWithinTolerance(other.Velocity, velTolerance)
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 from .CartesianModule import Cartesian, MotionCartesian
 import sympy as sy
 import math as math
-from .RotationMatrix import RotAboutY, RotAboutX, RotAboutZ
+from .RotationMatrix import RotAboutXValladoConvention, RotAboutY, RotAboutX, RotAboutZ, RotAboutZValladoConvention
 
 class KeplerianElements() :
     """Represents a set of Keplerian Elements with true anomaly as the fast variable. Note that 
@@ -105,32 +105,76 @@ class KeplerianElements() :
 
     @property
     def SemiMinorAxis(self) :        
+        """Gets the semi-minor axis
+
+        Returns:
+            float or sy.Ex: The semi-minor axis.
+        """
         return self.SemiMajorAxis * sy.sqrt(1.0-self.Eccentricity**2)
     
     @property
     def MeanMotion(self) :
+        """Gets the mean motion.
+
+        Returns:
+            float or sy.Ex: The mean motion
+        """
         return sy.sqrt(self.GravitationalParameter/(self.SemiMajorAxis**3))
     
     @property
     def Parameter(self) :
-        return self.SemiMajorAxis*(1-self.Eccentricity**2)
+        """Gets the parameter (semilatus rectum)
+
+        Returns:
+            float or sy.Ex: The parameter
+        """
+        return self.SemiMajorAxis*(1.0-self.Eccentricity**2)
 
     @property
     def ArgumentOfLatitude(self) :
+        """Gets the argument of latitude.
+
+        Returns:
+            float or sy.Ex: The argument of latitude
+        """
         return self.ArgumentOfPeriapsis+self.RightAscensionOfAscendingNode
 
     @property
     def BattinH(self):
+        """Gets an expression of the magnitude of the angular momentum in terms of the mean motion, semimajor axis 
+        and semiminor axis.  This is from Battin's textbook (in the 400's).
+
+        Returns:
+            float or sy.Ex: The magnitude of the angular momentum.
+        """
         return self.MeanMotion*self.SemiMinorAxis*self.SemiMajorAxis
 
     @property
     def Radius(self) :
+        """Gets an expression for the radius of the orbit.
+
+        Returns:
+            float or sy.Ex: The radius of the orbit.
+        """
         return self.Parameter/(1+self.Eccentricity*sy.cos(self.TrueAnomaly))
 
     def PerifocalToInertialRotationMatrix(self) :
-        return RotAboutZ(-1*self.RightAscensionOfAscendingNode) * RotAboutX(-1*self.Inclination) * RotAboutZ(-1*self.ArgumentOfPeriapsis)
+        """Gets the rotation matrix from perifocal to inertial coordinates.
 
-    def ToPerifocalCartesian(self, theParameter = None) :
+        Returns:
+            sy.Matrix: The rotation matrix from perifocal to inertial coordinates.
+        """
+        return RotAboutZValladoConvention(-1*self.RightAscensionOfAscendingNode) * RotAboutXValladoConvention(-1*self.Inclination) * RotAboutZValladoConvention(-1*self.ArgumentOfPeriapsis)
+
+    def ToPerifocalCartesian(self, theParameter = None) ->MotionCartesian :
+        """Converts these elements to cartesian elements in perifocal Cartesian values.
+
+        Args:
+            theParameter (obj, optional): The semi-latus rectum.  If None then it will be evaluated. Defaults to None.
+
+        Returns:
+            MotionCartesian: The perifocal coordinates.
+        """
         p=theParameter
         if(p == None) :
             p = self.Parameter
@@ -138,13 +182,18 @@ class KeplerianElements() :
         rDenom = 1+self.Eccentricity*sy.cos(ta)
         
         mu = self.GravitationalParameter
-        r = Cartesian(p*(sy.cos(ta)/rDenom), p*(sy.sin(ta)/rDenom), 0)
+        r = Cartesian(p*sy.cos(ta)/rDenom, p*sy.sin(ta)/rDenom, 0)
         e = self.Eccentricity
         firstPart = sy.sqrt(mu/p)
         v = Cartesian(-1*firstPart *sy.sin(ta), firstPart*(e+sy.cos(ta)),0)
         return [r,v]
 
     def ToInertialMotionCartesian(self) -> MotionCartesian:
+        """Converts these elements to inertial Cartesian values.
+
+        Returns:
+            MotionCartesian: The inertial Cartesian elements.
+        """
         [r,v] = self.ToPerifocalCartesian()
         rotMatrix = self.PerifocalToInertialRotationMatrix()
         return MotionCartesian(rotMatrix*r, rotMatrix*v)
