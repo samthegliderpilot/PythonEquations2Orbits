@@ -25,4 +25,4 @@ sphere3.transform = STTransform(translate=[2.5, 0, 0])
 view.camera.set_range(x=[-3, 3])
 
 if __name__ == '__main__' and sys.flags.interactive == 0:
-    canvas.app.run()
+    canvas.app.run(True)
