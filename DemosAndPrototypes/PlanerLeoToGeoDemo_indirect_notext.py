@@ -1,13 +1,12 @@
 #%%
 import sys
-
-#sys.path.append("..") # treating this as a jupyter-like cell requires adding one directory up
-sys.path.append(r'C:\src\PythonEquations2Orbits') # and this line is needed for running like a normal python script
-# these two appends do not conflict with eachother
+import os
+thisFile = os.path.abspath(__file__)
+sys.path.append(os.path.abspath(thisFile + '..\\..\\..\\'))
 
 from IPython.display import display
 from scipy.integrate import solve_ivp
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import numpy as np
 import sympy as sy
 import math
@@ -170,7 +169,7 @@ boundaryConditionHelper = LambdifyHelper(None, stateForBoundaryConditions, probl
 
 
 fSolveCallback = ContinuousThrustCircularOrbitTransferProblem.createSolveIvpSingleShootingCallbackForFSolve(problem, problem.IntegrationSymbols, [r0, u0, v0, lon0], tArray, odeIntEomCallback, problem.BoundaryConditions, SymbolicProblem.SafeSubs(lambdas, {problem.TimeSymbol: problem.TimeInitialSymbol}), otherArgs)
-fSolveSol = fsolve(fSolveCallback, initialFSolveStateGuess, epsfcn=0.00001, full_output=True) # just to speed things up and see how the initial one works
+fSolveSol = fsolve(fSolveCallback, initialFSolveStateGuess, epsfcn=0.000001, full_output=True) # just to speed things up and see how the initial one works
 print(fSolveSol)
 
 # final run with answer
@@ -181,44 +180,32 @@ solutionDictionary = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDicti
 unscaledResults = solutionDictionary
 unscaledTArray = tArray
 unscaledResults = problem.DescaleResults(solutionDictionary)
-# if scaleTime:
-#     unscaledTArray=tfOrg*tArray
+if scaleTime:
+    unscaledTArray=tfOrg*tArray
 
-# if scaleElements:    
-#     finalState = GetValueFromStateDictionaryAtIndex(solutionDictionary, -1)
-#     jh.showEquation(stateAtTf[0], finalState[problem.StateVariables[0]])
-#     jh.showEquation(stateAtTf[1], finalState[problem.StateVariables[1]])
-#     jh.showEquation(stateAtTf[2], finalState[problem.StateVariables[2]])
-#     jh.showEquation(stateAtTf[3], (finalState[problem.StateVariables[3]]%(2*math.pi))*180.0/(2*math.pi))
+if scaleElements:    
+    finalState = GetValueFromStateDictionaryAtIndex(solutionDictionary, -1)
+    jh.showEquation(stateAtTf[0], finalState[problem.StateVariables[0]])
+    jh.showEquation(stateAtTf[1], finalState[problem.StateVariables[1]])
+    jh.showEquation(stateAtTf[2], finalState[problem.StateVariables[2]])
+    jh.showEquation(stateAtTf[3], (finalState[problem.StateVariables[3]]%(2*math.pi))*180.0/(2*math.pi))
 
-# #baseProblem.PlotSolution(tArray*tfOrg, unscaledResults, "Test")
-# jh.showEquation(baseProblem.StateVariables[0].subs(problem.TimeSymbol, problem.TimeFinalSymbol), unscaledResults[baseProblem.StateVariables[0]][-1])
-# jh.showEquation(baseProblem.StateVariables[1].subs(problem.TimeSymbol, problem.TimeFinalSymbol), unscaledResults[baseProblem.StateVariables[1]][-1])
-# jh.showEquation(baseProblem.StateVariables[2].subs(problem.TimeSymbol, problem.TimeFinalSymbol), unscaledResults[baseProblem.StateVariables[2]][-1])
-# jh.showEquation(baseProblem.StateVariables[3].subs(problem.TimeSymbol, problem.TimeFinalSymbol), (unscaledResults[baseProblem.StateVariables[3]][-1]%(2*math.pi))*180.0/(2*math.pi))
+baseProblem.PlotSolution(tArray*tfOrg, unscaledResults, "Test")
+jh.showEquation(baseProblem.StateVariables[0].subs(problem.TimeSymbol, problem.TimeFinalSymbol), unscaledResults[baseProblem.StateVariables[0]][-1])
+jh.showEquation(baseProblem.StateVariables[1].subs(problem.TimeSymbol, problem.TimeFinalSymbol), unscaledResults[baseProblem.StateVariables[1]][-1])
+jh.showEquation(baseProblem.StateVariables[2].subs(problem.TimeSymbol, problem.TimeFinalSymbol), unscaledResults[baseProblem.StateVariables[2]][-1])
+jh.showEquation(baseProblem.StateVariables[3].subs(problem.TimeSymbol, problem.TimeFinalSymbol), (unscaledResults[baseProblem.StateVariables[3]][-1]%(2*math.pi))*180.0/(2*math.pi))
 
-# [hamltVals, dhduValus, d2hdu2Valus] = problem.EvaluateHamiltonianAndItsFirstTwoDerivatives(solutionDictionary, tArray, hamiltonian, {problem.ControlVariables[0]: controlSolved}, {baseProblem.TimeFinalSymbol: tfOrg})
-# plt.title("Hamlitonion and its derivatives")
-# plt.plot(tArray/86400, hamltVals, label="Hamiltonian")
-# plt.plot(tArray/86400, dhduValus, label=r'$\frac{dH}{du}$')
-# plt.plot(tArray/86400, d2hdu2Valus, label=r'$\frac{d^2H}{du^2}$')
+[hamltVals, dhduValus, d2hdu2Valus] = problem.EvaluateHamiltonianAndItsFirstTwoDerivatives(solutionDictionary, tArray, hamiltonian, {problem.ControlVariables[0]: controlSolved}, {baseProblem.TimeFinalSymbol: tfOrg})
+plt.title("Hamlitonion and its derivatives")
+plt.plot(tArray/86400, hamltVals, label="Hamiltonian")
+plt.plot(tArray/86400, dhduValus, label=r'$\frac{dH}{du}$')
+plt.plot(tArray/86400, d2hdu2Valus, label=r'$\frac{d^2H}{du^2}$')
 
-# plt.tight_layout()
-# plt.grid(alpha=0.5)
-# plt.legend(framealpha=1, shadow=True)
-# #plt.show()   
-
-import sys
-from vispy import scene,util
-from vispy.visuals.transforms import STTransform
-canvas = scene.SceneCanvas(size=(800, 600), keys='interactive', bgcolor='white', show=True)
-
-view = canvas.central_widget.add_view()
-view.camera = 'arcball'
-scene.SceneCanvas.dpi = 300
-sphere1 = scene.visuals.Sphere(radius=6378137.0, method='latitude', parent=view.scene,
-                               edge_color='black')
-
+plt.tight_layout()
+plt.grid(alpha=0.5)
+plt.legend(framealpha=1, shadow=True)
+plt.show()   
 
 xyz = np.zeros((len(tArray), 3))
 for i in range(0, len(unscaledResults[baseProblem.StateVariables[0]])) :
@@ -230,30 +217,13 @@ for i in range(0, len(unscaledResults[baseProblem.StateVariables[0]])) :
     xyz[i,1] = y
     xyz[i,2] = 0
 
-plot = scene.Line(xyz, parent=view.scene, color=[1.0, 0.0, 0.0, 1.0], width=3, antialias=True)
-view.camera.set_range(x=[9000000, 3])
-if __name__ == '__main__' and sys.flags.interactive == 0:
-    canvas.app.run()
-# canvas = scene.SceneCanvas(keys='interactive', bgcolor='white',
-#                            size=(800, 600), show=True)
+import plotly.express as px
+from pandas import DataFrame
+df = DataFrame(xyz)
 
-# view = canvas.central_widget.add_view()
-# view.camera = 'arcball'
-
-# sphere1 = scene.visuals.Sphere(radius=1, method='latitude', parent=view.scene,
-#                                edge_color='black')
-
-# sphere2 = scene.visuals.Sphere(radius=1, method='ico', parent=view.scene,
-#                                edge_color='black')
-
-# sphere3 = scene.visuals.Sphere(radius=1, rows=10, cols=10, depth=10,
-#                                method='cube', parent=view.scene,
-#                                edge_color='black')
-
-# sphere1.transform = STTransform(translate=[-2.5, 0, 0])
-# sphere3.transform = STTransform(translate=[2.5, 0, 0])
-
-# view.camera.set_range(x=[-3, 3])
-
-# if __name__ == '__main__' and sys.flags.interactive == 0:
-#     canvas.app.run(True)
+x = np.array(xyz[:,0])
+y = np.array(xyz[:,1])
+z = np.array(xyz[:,2])
+df = DataFrame({"x": x, "y":y, "z":z})
+fig = px.line_3d(df, x="x", y="y", z="z")
+fig.show()

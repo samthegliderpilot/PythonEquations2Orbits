@@ -2,8 +2,9 @@
 # DECLARE all the things!
 import __init__
 import sys
-sys.path.append("..") # treating this as a jupyter-like cell requires adding one directory up
-sys.path.append("../pyeq2orb") # and this line is needed for running like a normal python script
+import os
+thisFile = os.path.abspath(__file__)
+sys.path.append(os.path.abspath(thisFile + '..\\..\\..\\'))
 # these two appends do not conflict with eachother
 import math
 import sympy as sy
@@ -176,3 +177,24 @@ print("Tf = " + str(model.tf.value/86400))
 jh.showEquation("r_f", unscaledResults[baseProblem.StateVariables[0]][-1]) 
 jh.showEquation("u_f", unscaledResults[baseProblem.StateVariables[1]][-1]) 
 jh.showEquation("v_f", unscaledResults[baseProblem.StateVariables[2]][-1])     
+
+xyz = np.zeros((len(tArray), 3))
+for i in range(0, len(unscaledResults[baseProblem.StateVariables[0]])) :
+    r = unscaledResults[baseProblem.StateVariables[0]][i]
+    theta = unscaledResults[baseProblem.StateVariables[3]][i]
+    x = r*math.cos(theta)
+    y = r*math.sin(theta)
+    xyz[i,0] = x
+    xyz[i,1] = y
+    xyz[i,2] = 0
+
+import plotly.express as px
+from pandas import DataFrame
+df = DataFrame(xyz)
+
+x = np.array(xyz[:,0])
+y = np.array(xyz[:,1])
+z = np.array(xyz[:,2])
+df = DataFrame({"x": x, "y":y, "z":z})
+fig = px.line_3d(df, x="x", y="y", z="z")
+fig.show()
