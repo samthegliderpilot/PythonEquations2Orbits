@@ -64,6 +64,9 @@ class SymbolicProblem(ABC) :
         """
 
         # this function is less ugly...
+        if name == None :
+            name = r'\lambda'
+        
         if((y is sy.Symbol or y is sy.Function or (hasattr(y, "is_Function") and y.is_Symbol) or (hasattr(y, "is_Symbol") and y.is_Function)) and (not isinstance(y, sy.Matrix) and not isinstance(y, sy.ImmutableDenseMatrix))):
             if(t is None) :
                 return sy.Symbol(name + '_{'+y.name+'}', real=True)
@@ -493,6 +496,21 @@ class SymbolicProblem(ABC) :
         """
         
         return SymbolicProblem.SafeSubs(thingWithSymbols, {self.TimeSymbol: self.TimeInitialSymbol, self.TimeFinalSymbol:self.TimeInitialSymbol})
+
+    def CreateVariablesAtTimeFinal(self, thingWithSymbols):
+        """Substitutes the problems TimeSymbol and TimeInitialSymbol with the TimeFinalSymbol.
+        This is generally used to change state or control variables from being functions of TimeSymbol 
+        to functions of TimeFinalSymbol.
+
+        Args:
+            thingWithSymbols: Some set of expressions.
+
+        Returns:
+            same type as list of expressions: The expressions where the time variables has been set to the TimeFinalSymbol.
+        """
+        
+        return SymbolicProblem.SafeSubs(thingWithSymbols, {self.TimeSymbol: self.TimeFinalSymbol, self.TimeFinalSymbol:self.TimeFinalSymbol})
+
 
     @staticmethod
     def SafeSubs(thingWithSymbols, substitutionDictionary : Dict) :

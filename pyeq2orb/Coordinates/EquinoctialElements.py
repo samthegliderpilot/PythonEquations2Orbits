@@ -1,8 +1,10 @@
 import sympy as sy
 import math
-from KeplerianModule import KeplerianElements
+from pyeq2orb.Coordinates.KeplerianModule import KeplerianElements
 from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
 import sympy as sy
+from typing import List
+
 class EquinoctialElements:
     def __init__(self, a, h, k, p, q, f, mu) :
         self.SemiMajorAxis = a
@@ -31,6 +33,9 @@ class EquinoctialElements:
 
     def ToMotionCartesian(self) -> MotionCartesian :
         return self.ToKeplerian().ToInertialMotionCartesian() # TODO: something that avoids keplerian elements
+
+    def ToArray(self) -> List :
+        return [self.SemiMajorAxis, self.EccentricitySinTermH, self.EccentricityCosTermK, self.InclinationSinTermP, self.InclinationCosTermQ, self.TrueLongitude]
 
     @staticmethod
     def FromMotionCartesian(motion, gravitationalParameter) :
