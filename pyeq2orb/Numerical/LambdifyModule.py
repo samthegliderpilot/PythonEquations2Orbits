@@ -130,7 +130,9 @@ class LambdifyHelper :
         equationsOfMotion = self.ExpressionsToLambdify
         eomList = []
         for thisEom in equationsOfMotion :
-            thisEom = thisEom.subs(self.SubstitutionDictionary) 
+            # eom's could be constant equations.  Check, add if it doesn't
+            if(hasattr(thisEom, "subs")) :
+                thisEom = thisEom.subs(self.SubstitutionDictionary) 
             eomList.append(thisEom)   
         eomCallback = sy.lambdify(odeState, eomList)
 
