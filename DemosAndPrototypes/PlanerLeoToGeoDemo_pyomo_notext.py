@@ -125,7 +125,11 @@ model.uEom = poenv.Constraint(model.t, rule =lambda m, t2: m.uDot[t2] == mapPyom
 model.vEom = poenv.Constraint(model.t, rule =lambda m, t2: m.vDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 2)))
 model.lonEom = poenv.Constraint(model.t, rule =lambda m, t2: m.lonDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 3)))
 
-model.bc1 = poenv.Constraint(rule = lambda mod1 : 0 == mapPyomoStateToProblemState(mod1, 1.0, asNumericalProblem.BoundaryConditionCallbacks[0]))
+
+def mapPyomoStateToProblemStatebc(m, t, expre) :
+    return expre([t, m.r[t], m.u[t], m.v[t], m.lon[t], m.control[t], m.tf])
+
+model.bc1 = poenv.Constraint(rule = lambda mod1 : 0 == mapPyomoStateToProblemStatebc(mod1, 1.0, asNumericalProblem.BoundaryConditionCallbacks[0]))
 model.bc2 = poenv.Constraint(rule = lambda mod1 : 0 == mapPyomoStateToProblemState(mod1, 1.0, asNumericalProblem.BoundaryConditionCallbacks[1]))
 
 def singlePyomoArrayToTerminalCostCallback(m, t, expr) :

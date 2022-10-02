@@ -1,6 +1,7 @@
 from collections import OrderedDict
 from typing import List, Dict
 import sympy as sy
+from pyeq2orb.Numerical.LambdifyModule import LambdifyHelper
 
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 
@@ -60,8 +61,6 @@ from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 #     def callbackFunc(y, t, *args) :
 #         return eomCallback(t, y, args)
 #     return callbackFunc
-
-
 
 def ConvertOdeIntResultsToDictionary(odeintSymbolicState : List[sy.Expr], odeintResults : List) ->Dict[sy.Expr, List[float]]:
     """Converts the results from an odeint call into a dictionary mapping the symbolic expressions to lists of floats.
@@ -146,3 +145,4 @@ def GetFinalStateFromIntegratorResults(integratorResults) -> List[float] :
         if len(integratorResults[0]) != len(integratorResults[1])  : # this is not a good check for if full_output was true or not, but it is good enough in most cases
             integratorResults = integratorResults[0]        
         return integratorResults[-1]        
+

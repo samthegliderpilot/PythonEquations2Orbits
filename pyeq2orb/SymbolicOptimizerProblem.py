@@ -26,7 +26,6 @@ class SymbolicProblem(ABC) :
         self._timeInitialSymbol = None
         self._timeFinalSymbol= None
         self._substitutionDictionary = {}
-        self._integrationSymbols= []
         self._costateSymbols = []
 
     def RegisterConstantValue(self, symbol :sy.Expr, value : float) :

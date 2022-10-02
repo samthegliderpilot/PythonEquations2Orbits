@@ -67,6 +67,13 @@ class EquinoctialElements:
         # TODO: something that avoids keplerian elements
         return ConvertKeplerianToEquinoctial(KeplerianElements.FromMotionCartesian(motion, gravitationalParameter))
 
+    @staticmethod
+    def CreateEphemeris(equinoctialElementsList) -> List[MotionCartesian] :
+        motions = []
+        for equi in equinoctialElementsList :
+            motions.append(equi.ToMotionCartesian())
+        return motions
+
 def ConvertKeplerianToEquinoctial(keplerianElements : KeplerianElements) ->EquinoctialElements :
     a = keplerianElements.SemiMajorAxis
     e = keplerianElements.Eccentricity

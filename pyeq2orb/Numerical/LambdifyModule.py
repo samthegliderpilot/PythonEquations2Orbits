@@ -38,7 +38,7 @@ class LambdifyHelper :
     @property
     def StateVariableListOrdered(self) -> List[sy.Expr]:
         """The list of state variables that are used to lambdify an expression.  This list is never 
-        None.  It is likely how the lambdified expressions will care about the order of the values in 
+        None.  It is likely the lambdified expressions will care about the order of the values in 
         this list.
 
         Returns:

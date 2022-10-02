@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from typing import Callable, Dict, List
 from matplotlib.figure import Figure
-from sympy import lambdify
+from sympy import lambdify, Expr
 from pyeq2orb.NumericalOptimizerProblem import NumericalOptimizerProblemBase
 from pyeq2orb.ScaledSymbolicProblem import ScaledSymbolicProblem
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
@@ -24,17 +24,27 @@ class NumericalProblemFromSymbolicProblem(NumericalOptimizerProblemBase) :
             entireState.append(wrappedProblem.TimeFinalSymbolOriginal)
         
         finalState = SymbolicProblem.SafeSubs(entireState, {wrappedProblem.TimeSymbol: wrappedProblem.TimeFinalSymbol})
-        self._terminalCost = lambdify([finalState], wrappedProblem.TerminalCost.subs(wrappedProblem.SubstitutionDictionary).simplify(), functionMap)
+        if wrappedProblem.TerminalCost == None or wrappedProblem.TerminalCost == 0 :
+            self._terminalCost = 0.0
+        else:
+            self._terminalCost = lambdify([finalState], SymbolicProblem.SafeSubs(wrappedProblem._terminalCost , wrappedProblem.SubstitutionDictionary).simplify(), functionMap)
         self._unIntegratedPathCost = lambda t, s: 0.0
         if wrappedProblem.UnIntegratedPathCost != None and wrappedProblem.UnIntegratedPathCost != 0.0 :
             self._unIntegratedPathCost = lambdify(entireState, wrappedProblem.UnIntegratedPathCost.subs(wrappedProblem.SubstitutionDictionary).simplify(), functionMap)
         self._equationOfMotionList = []
         for (sv, eom) in wrappedProblem.EquationsOfMotion.items() :
-            eomCb = lambdify(entireState, eom.subs(wrappedProblem.SubstitutionDictionary).simplify(), functionMap)
+            numericaEom = SymbolicProblem.SafeSubs(eom, wrappedProblem.SubstitutionDictionary)
+            if isinstance(numericaEom, Expr)  :
+                numericaEom=numericaEom.simplify()
+            eomCb = lambdify(entireState, numericaEom, functionMap)
             self._equationOfMotionList.append(eomCb) 
 
         for bc in wrappedProblem.BoundaryConditions :
-            bcCallback = lambdify([finalState], bc.subs(wrappedProblem.SubstitutionDictionary).simplify(), functionMap)
+            numericaBc=SymbolicProblem.SafeSubs(bc, wrappedProblem.SubstitutionDictionary)
+            if isinstance(numericaBc, Expr)  :
+                pass
+                #numericaBc=numericaEom.simplify()
+            bcCallback = lambdify([finalState], numericaBc, functionMap)
             self.BoundaryConditionCallbacks.append(bcCallback)        
         self._controlCallback = None
 

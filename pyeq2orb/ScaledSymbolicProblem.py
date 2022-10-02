@@ -15,7 +15,7 @@ class ScaledSymbolicProblem(SymbolicProblem) :
         Args:
             wrappedProblem (SymbolicProblem): The problem to scale.
             newStateVariableSymbols (Dict): The new state variables.  Often these are the same ones with some accent on them.  These should still be in terms 
-            the wrappedProblems time symbol.
+            the wrappedProblems time symbol. All of the state variables must be present (and can be scaled by 1 if they are already well scaled).
             valuesToDivideStateVariablesWith (Dict): The scaling factors on the state variables. These can be floats, or symbols of some sort that 
             end up being constants in the SubstitutionDictionary
             scaleTime (bool): Should the time be scaled to be between 0 and 1.
@@ -32,6 +32,10 @@ class ScaledSymbolicProblem(SymbolicProblem) :
         self._stateVariables = newStateVariableSymbols
         
         self._scalingDict = valuesToDivideStateVariablesWith
+
+        self._scaledStateVariables = []
+        for sv in wrappedProblem.StateVariables :
+            self._scaledStateVariables.append(valuesToDivideStateVariablesWith[sv])
 
         svAtTf=SymbolicProblem.SafeSubs(wrappedProblem.StateVariables, {wrappedProblem.TimeSymbol: wrappedProblem.TimeFinalSymbol})
         newSvAtTf=SymbolicProblem.SafeSubs(newStateVariableSymbols, {wrappedProblem.TimeSymbol: wrappedProblem.TimeFinalSymbol})
@@ -124,6 +128,15 @@ class ScaledSymbolicProblem(SymbolicProblem) :
             self._timeSymbol = tau 
             self._timeInitialSymbol = tau0
             self._timeFinalSymbol = tauF
+
+    @property
+    def ScaledStateVariables(self) -> List :
+        """Gets the scaled state variables that were passed into the constructor.
+
+        Returns:
+            List: The scaled state variables.
+        """
+        return self._scaledStateVariables
 
     @property
     def ScaleTime(self) -> bool :
