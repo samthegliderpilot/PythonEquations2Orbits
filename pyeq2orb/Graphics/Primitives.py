@@ -42,25 +42,28 @@ class EphemerisArrays :
 
     @property
     def Z(self) -> List[float] :
-        return self._z                
+        return self._z     
+
+    def GetMaximumValue(self) :
+        return max([max(self.X, key=abs), max(self.Y, key=abs), max(self.Z, key=abs)])
 
 
 
 class Primitive :
     def __init__(self) :
         pass
-        #self._color = "#000000"
+        self._color = "#000000"
 
-    def MaxumumValue(self) -> float : 
+    def maxumumValue(self) -> float : 
         return 0.0
 
-    # @property
-    # def Color(self) : 
-    #     return self._color
+    @property
+    def color(self) : 
+        return self._color
 
-    # @Color.setter
-    # def set_Color(self, value) :
-    #     self._color = value        
+    @color.setter
+    def color(self, value) :
+        self._color = value        
 
 
 class PathPrimitive(Primitive) :
@@ -71,23 +74,16 @@ class PathPrimitive(Primitive) :
         self._width = 1
 
     @property
-    def Ephemeris(self) -> List[float] :
+    def ephemeris(self) -> List[float] :
         return self._ephemeris     
 
     @property
-    def Width(self) : 
+    def width(self) : 
         return self._width
 
-    @Width.setter
-    def set_Width(self, value) :
-        self._width = value
-    @property
-    def Color(self) : 
-        return self._color
-
-    @Color.setter
-    def set_Color(self, value) :
-        self._color = value     
+    @width.setter
+    def width(self, value) :
+        self._width = value 
 
 class MarkerPrimitive(Primitive) :
     def __init__(self, ephemeris = EphemerisArrays()) :
@@ -97,23 +93,17 @@ class MarkerPrimitive(Primitive) :
         self._size = 1
 
     @property
-    def Ephemeris(self) -> List[float] :
+    def ephemeris(self) -> List[float] :
         return self._ephemeris     
 
     @property
-    def Size(self) : 
+    def size(self) : 
         return self._size
 
-    @Size.setter
-    def set_Size(self, value) :
+    @size.setter
+    def size(self, value) :
         self._size = value
-    @property
-    def Color(self) : 
-        return self._color
-
-    @Color.setter
-    def set_Color(self, value) :
-        self._color = value     
+  
 
 class Sphere(Primitive) :
     def __init__(self, ephemeris = EphemerisArrays()) :
@@ -123,20 +113,14 @@ class Sphere(Primitive) :
         self._radius = 1
 
     @property
-    def Ephemeris(self) -> List[float] :
+    def ephemeris(self) -> List[float] :
         return self._ephemeris     
 
     @property
-    def Radius(self) : 
+    def radius(self) : 
         return self._radius
 
-    @Radius.setter
-    def set_Radius(self, value) :
+    @radius.setter
+    def radius(self, value) :
         self._radius = value
-    @property
-    def Color(self) : 
-        return self._color
-
-    @Color.setter
-    def set_Color(self, value) :
-        self._color = value     
+   

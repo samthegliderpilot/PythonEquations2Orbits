@@ -165,6 +165,7 @@ simpleTwoBodyLambidfyCreator = LambdifyHelper(t, symbolicElements.ToArray(), two
 odeCallback =simpleTwoBodyLambidfyCreator.CreateSimpleCallbackForSolveIvp()
 
 testSolution = solve_ivp(odeCallback, [0.0, tfVal], initialElements.ToArray(), args=tuple(), t_eval=np.linspace(0.0, tfVal,900), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
+marsSolution = solve_ivp(odeCallback, [0.0, tfVal], finalElements.ToArray(), args=tuple(), t_eval=np.linspace(0.0, tfVal,900), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
 
 
 def GetEquiElementsOutOfIvpResults(ivpResults) :
@@ -179,26 +180,30 @@ def GetEquiElementsOutOfIvpResults(ivpResults) :
 
     return (t, equi)
 
-(tArray, equiElements) = GetEquiElementsOutOfIvpResults(testSolution)
-motions = EquinoctialElements.CreateEphemeris(equiElements)
 import pyeq2orb.Graphics.Primitives as prim
 
+(tArray, equiElements) = GetEquiElementsOutOfIvpResults(testSolution)
+motions = EquinoctialElements.CreateEphemeris(equiElements)
 earthEphemeris = prim.EphemerisArrays()
 earthEphemeris.InitFromMotions(tArray, motions)
-
 earthPath = prim.PathPrimitive(earthEphemeris)
-#earthPath.Color='#00ff00'
-#earthPath.Width = 3
+earthPath.color = "#0000ff"
 
+(tArray, equiElements) = GetEquiElementsOutOfIvpResults(marsSolution)
+marsMotions = EquinoctialElements.CreateEphemeris(equiElements)
+marsEphemeris = prim.EphemerisArrays()
+marsEphemeris.InitFromMotions(tArray, marsMotions)
+marsPath = prim.PathPrimitive(marsEphemeris)
+marsPath.color = "#ff0000"
 
 dataArray = []
 
 def CreatePlotlyEphemerisDataFrame(ephemeris : prim.EphemerisArrays) :
     xyz = np.zeros((len(ephemeris.T), 3))
     for i in range(0, len(ephemeris.T)) :
-        xyz[i,0] = ephemeris.X[0]/Au
-        xyz[i,1] = ephemeris.Y[1]/Au
-        xyz[i,2] = ephemeris.Z[2]/Au    
+        xyz[i,0] = ephemeris.X[i]
+        xyz[i,1] = ephemeris.Y[i]
+        xyz[i,2] = ephemeris.Z[i]
     df = DataFrame(xyz)
     x = np.array(xyz[:,0])
     y = np.array(xyz[:,1])
@@ -208,21 +213,31 @@ def CreatePlotlyEphemerisDataFrame(ephemeris : prim.EphemerisArrays) :
     return df
 
 def CreatePlotlyLineDataObject(pathPrimitve : prim.PathPrimitive) :
-    df = CreatePlotlyEphemerisDataFrame(pathPrimitve.Ephemeris)
-    theLine = go.Scatter3d(x=df["x"], y=df["y"], z=df["z"], mode="lines", line=dict(color='#0000ff', width=6))#pathPrimitve.Width))
+    df = CreatePlotlyEphemerisDataFrame(pathPrimitve.ephemeris)
+    theLine = go.Scatter3d(x=df["x"], y=df["y"], z=df["z"], mode="lines", line=dict(color=pathPrimitve.color, width=6))#pathPrimitve.Width))
     return theLine
 
-dataArray.append(CreatePlotlyLineDataObject(earthPath))
+def CreateScalingItems(maxVal) :
+    markers = go.Scatter3d(name="",
+        visible=True,
+        showlegend=False,
+        opacity=0,
+        hoverinfo='none',
+        x=[0,maxVal],
+        y=[0,maxVal],
+        z=[0,maxVal])
+    return markers
 
+dataArray.append(CreatePlotlyLineDataObject(earthPath))
+dataArray.append(CreatePlotlyLineDataObject(marsMotions))
+maxVal = float(max(earthEphemeris.X, key=abs))
+dataArray.append(CreateScalingItems(maxVal))
 overallFig = go.Figure(data=dataArray)
 fig = go.Figure()
-#frames = [go.Frame(data= dataArray, traces= [0], name=f'frame{k}')for k  in  range(len(tArray))]
+
 for item in dataArray :
     fig.add_trace(item)
-#overallFig.update(frames=frames)
 
-overallFig.update_layout(updatemenus=[dict(type="buttons", buttons=[dict(label="Play", method="animate", args=[None, dict(frame=dict(redraw=True,fromcurrent=True, mode='immediate'))      ])])])
-#overallFig.update_scenes(aspectmode = 'cube', aspectratio = dict(x=1, y=1, z=1))#, yaxis_scaleanchor="x", zaxis_scaleanchor="x")
 overallFig.show()
 
 
