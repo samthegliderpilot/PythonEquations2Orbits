@@ -157,7 +157,6 @@ def GetEquiElementsOutOfIvpResults(ivpResults) :
         equi.reverse()
     return (t, equi)
 
-
 # def makesphere(x, y, z, radius, resolution=10):
 #     """Return the coordinates for plotting a sphere centered at (x,y,z)"""
 #     u, v = np.mgrid[0:2*np.pi:resolution*2j, 0:np.pi:resolution*1j]
@@ -179,8 +178,40 @@ def scaleEquinoctialElements(equiElements : EquinoctialElements, distanceDivisor
     newMu = equiElements.GravitationalParameter * timeDivisor*timeDivisor/(distanceDivisor*distanceDivisor*distanceDivisor)
     return EquinoctialElements(newPer, equiElements.EccentricityCosTermF, equiElements.EccentricitySinTermG, equiElements.InclinationCosTermH, equiElements.InclinationSinTermK, equiElements.TrueLongitude, newMu)
 
-initialElements = scaleEquinoctialElements(initialElements, Au, 1.0)
-finalElements = scaleEquinoctialElements(finalElements, Au, 1.0)
+def scaleListOfEquinocitalElements(equiElementsList, distanceDivisor, timeDivisor) :
+    satEquiElements = []
+    for i in range(0, len(equiElementsList)):
+        temp = equiElementsList[i]
+        realEqui = scaleEquinoctialElements(temp, distanceDivisor, timeDivisor)
+        satEquiElements.append(realEqui)     
+    return satEquiElements
+
+def createPlanetPrimitiveFromEquiElements(tArray, equiElements, color, radius, label) -> prim.PlanetPrimitive :
+    motions = EquinoctialElements.CreateEphemeris(equiElements)
+    earthEphemeris = prim.EphemerisArrays()
+    earthEphemeris.InitFromMotions(tArray, motions)
+    return prim.PlanetPrimitive(earthEphemeris, 3, 1, color, radius, label)
+
+def createPlanetPrimitiveFromIpvResults(ipvResults, distanceScaling, timeScaling, color, radius, label) -> prim.PlanetPrimitive:
+    (tArray, equiElements) = GetEquiElementsOutOfIvpResults(ipvResults)
+    satEquiElements = scaleListOfEquinocitalElements(equiElements, distanceScaling, timeScaling)
+    return createPlanetPrimitiveFromEquiElements(tArray, satEquiElements, color, radius, label)
+
+def createPlanetPrimitiveFromPyomoFirstGuessResults(pyomoT, pyomoY, distanceScaling, timeScaling, color, radius, label) -> prim.PlanetPrimitive:
+    class ivpLikeResults :
+        def __init__(self, y, t) :
+            self.y = y
+            self.t = t
+    array = np.array(pyomoY)
+    transposed_array = array.T
+    transposed_list_of_lists = transposed_array.tolist()
+    return createPlanetPrimitiveFromIpvResults(ivpLikeResults(transposed_list_of_lists, pyomoT), distanceScaling, timeScaling, color, radius, label)
+
+distanceScale = Au
+timeScale = 1.0#tfVal
+
+initialElements = scaleEquinoctialElements(initialElements, distanceScale, timeScale)
+finalElements = scaleEquinoctialElements(finalElements, distanceScale, timeScale)
 muVal = initialElements.GravitationalParameter
 per0 = initialElements.PeriapsisRadius
 g0 = initialElements.EccentricitySinTermG
@@ -192,10 +223,10 @@ lon0 = initialElements.TrueLongitude
 m0Val = 2000
 isp = 3000
 nRev = 2
-thrustVal =  0.1996 / Au
-g = 9.8065 / Au
-n=300
-tSpace = np.linspace(0.0, 1.0, n)
+thrustVal =  0.1996 *timeScale*timeScale / distanceScale
+g = 9.8065*timeScale*timeScale / distanceScale
+n = 300
+tSpace = np.linspace(0.0, tfVal/timeScale, n)
 
 baseProblem = HowManyImpulses()
 newSvs = ScaledSymbolicProblem.CreateBarVariables(baseProblem.StateVariables, baseProblem.TimeSymbol)
@@ -217,7 +248,6 @@ integrationSymbols = baseProblem.StateVariables
 #baseProblem.EquationsOfMotion[baseProblem.Throttle]=0.0
 #scaledProblem.EquationsOfMotion[baseProblem.TimeFinalSymbol]=tfVal
 
-
 arguments = [*baseProblem.Alphas, baseProblem.Throttle, baseProblem.TimeFinalSymbol]
 
 for emK, emV in baseProblem.EquationsOfMotion.items() :
@@ -235,60 +265,41 @@ scaledProblem = ScaledSymbolicProblem(baseProblem, baseProblem.StateVariables, t
 print("Creating numerical symbolic problem")
 asNumericalProblem = NumericalProblemFromSymbolicProblem(scaledProblem, lambdiafyFunctionMap)
 
-# asManualNumericalProblem = NumericalProblemFromSymbolicProblem(scaledProblem, {})
-# print("lambdifying")
-# lambdifyHelper2 = LambdifyHelper(baseProblem.TimeSymbol, integrationSymbols, baseProblem.EquationsOfMotion.values(), arguments, baseProblem.SubstitutionDictionary)
-# odeIntEomCallback2 = lambdifyHelper2.CreateSimpleCallbackForSolveIvp()
-# print("integrating")
+asManualNumericalProblem = NumericalProblemFromSymbolicProblem(scaledProblem, {})
+print("lambdifying")
+lambdifyHelper2 = LambdifyHelper(baseProblem.TimeSymbol, integrationSymbols, baseProblem.EquationsOfMotion.values(), arguments, baseProblem.SubstitutionDictionary)
+odeIntEomCallback2 = lambdifyHelper2.CreateSimpleCallbackForSolveIvp()
+print("integrating")
 
-# testSolution = solve_ivp(odeIntEomCallback2, [0.0, tfVal], [*initialElements.ToArray(), 2000.0], args=tuple([0.0, 1.0, 0.0, 1.0, tfVal]), t_eval=np.linspace(0.0, tfVal,900), dense_output=True)#, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
+testSolution = solve_ivp(odeIntEomCallback2, [0.0, tfVal/timeScale], [*initialElements.ToArray(), 2000.0], args=tuple([0.0, 1.0, 0.0, 1.0, tfVal/timeScale]), t_eval=np.linspace(0.0, tfVal/timeScale,900), dense_output=True)#, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
 
+earthPlanet = createPlanetPrimitiveFromIpvResults(earthSolution, 1, 1, '#0000ff', 6378137, "Earth")
+marsPlanet = createPlanetPrimitiveFromIpvResults(marsSolution, 1, 1, '#ff0000', 4000000, "Mars")
+satPlanet = createPlanetPrimitiveFromIpvResults(testSolution, 1.0/distanceScale, 1.0/timeScale, '#ff00ff', 10, "Satellite")
 
-# (tArray, equiElements) = GetEquiElementsOutOfIvpResults(earthSolution)
-# motions = EquinoctialElements.CreateEphemeris(equiElements)
-# earthEphemeris = prim.EphemerisArrays()
-# earthEphemeris.InitFromMotions(tArray, motions)
-# earthPlanet = prim.PlanetPrimitive(earthEphemeris, 3, 1, '#0000ff', 6378137, "Earth")
-
-# (tArray, equiElements) = GetEquiElementsOutOfIvpResults(marsSolution)
-# marsMotions = EquinoctialElements.CreateEphemeris(equiElements)
-# marsEphemeris = prim.EphemerisArrays()
-# marsEphemeris.InitFromMotions(tArray, marsMotions)
-# marsPlanet = prim.PlanetPrimitive(marsEphemeris, 3, 1, '#ff0000', 4000000, "Mars")
-
-# (tArray, satEqui) = GetEquiElementsOutOfIvpResults(testSolution)
-# satEquiElements = []
-# for i in range(0, len(tArray)):
-#     temp = satEqui[i]
-#     realEqui = scaleEquinoctialElements(temp, 1.0/Au, 1.0/tfVal)
-#     satEquiElements.append(realEqui)
-# satMotions = EquinoctialElements.CreateEphemeris(satEquiElements)
-# satEphemeris = prim.EphemerisArrays()
-# satEphemeris.InitFromMotions(tArray, satMotions)
-# satPlanet = prim.PlanetPrimitive(satEphemeris, 3, 1, '#ff00ff', 10, "Satellite")
-
-# plotlyHelper = plotlyUtil.PlotlyDataAndFramesAccumulator()
-# allPrims = [earthPlanet, marsPlanet, satPlanet]
-# plotlyHelper.AddLinePrimitives(allPrims)
-# plotlyHelper.AddMarkerPrimitives(tArray, allPrims)
-# plotlyHelper.AddScalingPoints(allPrims)
+plotlyHelper = plotlyUtil.PlotlyDataAndFramesAccumulator()
+allPrims = [earthPlanet, marsPlanet, satPlanet]
+plotlyHelper.AddLinePrimitives(allPrims)
+plotlyHelper.AddMarkerPrimitives(satPlanet.ephemeris.T , allPrims)
+plotlyHelper.AddScalingPoints(allPrims)
 
 # overallFig = go.Figure(data=plotlyHelper.data, frames=plotlyHelper.frames)
 # for item in plotlyHelper.data:
 #     overallFig.add_trace(item)
 # overallFig.update_layout(updatemenus=[dict(type="buttons", buttons=[dict(label="Play", method="animate", args=[None, dict(frame=dict(redraw=True,fromcurrent=True, mode='immediate'))])])])
 # overallFig.show()
-#%%
+
+
 model = poenv.ConcreteModel()
 model.t = podae.ContinuousSet(initialize=tSpace, domain=poenv.NonNegativeReals)
-smaLow = 146.10e9/Au # little less than earth
-smaHigh = 229.0e9/Au # little more than mars
-model.perRad = poenv.Var(model.t, bounds=(smaLow, smaHigh), initialize=float(per0))
-model.f = poenv.Var(model.t, bounds=(-1.0, 1.0), initialize=float(f0))
-model.g = poenv.Var(model.t, bounds=(-1.0, 1.0), initialize=float(g0))
-model.h  = poenv.Var(model.t, bounds=(-2.0, 2.0), initialize=float(h0))
-model.k = poenv.Var(model.t, bounds=(-2.0, 2.0), initialize=float(k0))
-model.lon = poenv.Var(model.t, bounds=(0, 4*math.pi), initialize=float(lon0))
+smaLow = 146.10e9/distanceScale # little less than earth
+smaHigh = 279.0e9/distanceScale # little more than mars
+model.perRad = poenv.Var(model.t, bounds=(smaLow, smaHigh), initialize=float(initialElements.PeriapsisRadius))
+model.f = poenv.Var(model.t, bounds=(-1.0, 1.0), initialize=float(initialElements.EccentricityCosTermF))
+model.g = poenv.Var(model.t, bounds=(-1.0, 1.0), initialize=float(initialElements.EccentricitySinTermG))
+model.h  = poenv.Var(model.t, bounds=(-2.0, 2.0), initialize=float(initialElements.InclinationCosTermH))
+model.k = poenv.Var(model.t, bounds=(-2.0, 2.0), initialize=float(initialElements.InclinationSinTermK))
+model.lon = poenv.Var(model.t, bounds=(-math.pi, 4*math.pi), initialize=float(initialElements.TrueLongitude))
 model.mass = poenv.Var(model.t, bounds=(0.0, m0Val), initialize=float(m0Val))
 
 model.perRad[0].fix(float(initialElements.PeriapsisRadius))
@@ -302,8 +313,8 @@ model.mass[0].fix(float(m0Val))
 model.controlX = poenv.Var(model.t, bounds=(-1.0, 1.0))
 model.controlY = poenv.Var(model.t, bounds=(-1.0, 1.0))
 model.controlZ = poenv.Var(model.t, bounds=(-1.0, 1.0))
-model.throttle = poenv.Var(model.t, bounds=(0.9, 1.0))
-model.tf = poenv.Var(bounds=(tfVal-10000, tfVal+10000), initialize=float(tfVal))
+model.throttle = poenv.Var(model.t, bounds=(0.0, 1.0))
+model.tf = poenv.Var(bounds=((tfVal)/timeScale, (tfVal)/timeScale), initialize=float(tfVal/timeScale))
 
 model.perDot = podae.DerivativeVar(model.perRad, wrt=model.t)
 model.fDot = podae.DerivativeVar(model.f, wrt=model.t)
@@ -334,25 +345,25 @@ model.kEom = poenv.Constraint(model.t, rule =lambda m, t2: m.kDot[t2] == mapPyom
 model.lonEom = poenv.Constraint(model.t, rule =lambda m, t2: m.lonDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 5)))
 model.massEom = poenv.Constraint(model.t, rule =lambda m, t2: m.mDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 6)))
 
-model.bc1 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[0](mod1, 1.0) - float(finalElements.PeriapsisRadius))
-model.bc2 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[1](mod1, 1.0) - float(finalElements.EccentricityCosTermF))
-model.bc3 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[2](mod1, 1.0) - float(finalElements.EccentricitySinTermG))
-model.bc4 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[3](mod1, 1.0) - float(finalElements.InclinationCosTermH))
-model.bc5 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[4](mod1, 1.0) - float(finalElements.InclinationSinTermK))
-model.bc6 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[5](mod1, 1.0) - float(finalElements.TrueLongitude))
+model.bc1 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[0](mod1, tfVal/timeScale) - float(finalElements.PeriapsisRadius))
+model.bc2 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[1](mod1, tfVal/timeScale) - float(finalElements.EccentricityCosTermF))
+model.bc3 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[2](mod1, tfVal/timeScale) - float(finalElements.EccentricitySinTermG))
+model.bc4 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[3](mod1, tfVal/timeScale) - float(finalElements.InclinationCosTermH))
+model.bc5 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[4](mod1, tfVal/timeScale) - float(finalElements.InclinationSinTermK))
+model.bc6 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[5](mod1, tfVal/timeScale) - float(finalElements.TrueLongitude))
 
-finalMassCallback = lambda m : m.mass[1.0]
+finalMassCallback = lambda m : m.mass[tfVal/timeScale]
 model.massObjective = poenv.Objective(expr = finalMassCallback, sense=poenv.maximize)
 
 model.var_input = poenv.Suffix(direction=poenv.Suffix.LOCAL)
-model.var_input[model.tf] = {0: tfVal}
 model.var_input[model.controlX] = {0: 0.0}
 model.var_input[model.controlY] = {0: 1.0}
 model.var_input[model.controlZ] = {0: 0.0}
 model.var_input[model.throttle] = {0: 1.0}
+model.var_input[model.tf] = {0: tfVal/timeScale}
 
 sim = podae.Simulator(model, package='scipy')
-tsim, profiles = sim.simulate(numpoints=n, varying_inputs=model.var_input, integrator='dop853', initcon=np.array([per0, f0, g0, h0, k0, lon0, m0Val], dtype=float))
+tsim, profiles = sim.simulate(numpoints=n, varying_inputs=model.var_input, integrator='dop853', initcon=np.array([*initialElements.ToArray(), m0Val], dtype=float))
 
 #poenv.TransformationFactory('dae.finite_difference').apply_to(model, wrt=model.t, nfe=n, scheme='BACKWARD')
 poenv.TransformationFactory('dae.collocation').apply_to(model, wrt=model.t, nfe=n,ncp=3, scheme='LAGRANGE-RADAU')
@@ -397,47 +408,25 @@ def extractPyomoSolution(model, stateSymbols):
 stateSymbols = [*baseProblem.StateVariables, *baseProblem.ControlVariables, baseProblem.Throttle]
 [time, dictSolution] = extractPyomoSolution(model, stateSymbols)
 
-satEquiElements = []
-for i in range(0, len(time)):
-    temp = EquinoctialElements(dictSolution[stateSymbols[0]][i], dictSolution[stateSymbols[1]][i], dictSolution[stateSymbols[2]][i], dictSolution[stateSymbols[3]][i], dictSolution[stateSymbols[4]][i], dictSolution[stateSymbols[5]][i], muVal)
-    realEqui = scaleEquinoctialElements(temp, 1.0/Au, 1.0/tfVal)
-    satEquiElements.append(realEqui)
+def createPlanetPrimitiveFromPyomoResults(pyomoSolution, stateSymbols, distanceScaling, timeScaling, color, radius, label) -> prim.PlanetPrimitive:
+    [time, dictSolution] = extractPyomoSolution(pyomoSolution, stateSymbols)
+    satEquiElements = []
+    for i in range(0, len(time)):
+        temp = EquinoctialElements(dictSolution[stateSymbols[0]][i], dictSolution[stateSymbols[1]][i], dictSolution[stateSymbols[2]][i], dictSolution[stateSymbols[3]][i], dictSolution[stateSymbols[4]][i], dictSolution[stateSymbols[5]][i], muVal)
+        realEqui = scaleEquinoctialElements(temp, distanceScaling, timeScaling)
+        satEquiElements.append(realEqui)
+    return createPlanetPrimitiveFromEquiElements(time, satEquiElements, color, radius, label)
 
+earthPlanet = createPlanetPrimitiveFromIpvResults(earthSolution, 1, 1, '#0000ff', 6378137, "Earth")
+marsPlanet = createPlanetPrimitiveFromIpvResults(marsSolution, 1, 1, '#ff0000', 4000000, "Mars")
+#satPlanet = createPlanetPrimitiveFromPyomoResults(model, stateSymbols, 1.0/distanceScale, 1.0/timeScale, '#ff00ff', 10, "Satellite")
 
-(tArray, equiElements) = GetEquiElementsOutOfIvpResults(earthSolution)
-motions = EquinoctialElements.CreateEphemeris(equiElements)
-earthEphemeris = prim.EphemerisArrays()
-earthEphemeris.InitFromMotions(tArray, motions)
-earthPlanet = prim.PlanetPrimitive(earthEphemeris, 3, 1, '#0000ff', 6378137, "Earth")
-
-(tArray, equiElements) = GetEquiElementsOutOfIvpResults(marsSolution)
-marsMotions = EquinoctialElements.CreateEphemeris(equiElements)
-marsEphemeris = prim.EphemerisArrays()
-marsEphemeris.InitFromMotions(tArray, marsMotions)
-marsPlanet = prim.PlanetPrimitive(marsEphemeris, 3, 1, '#ff0000', 4000000, "Mars")
-
-class sim :
-    def __init__(self, y, t) :
-        self.y = y
-        self.t = t
-array = np.array(profiles)
-transposed_array = array.T
-transposed_list_of_lists = transposed_array.tolist()
-(tArray, satElements) =GetEquiElementsOutOfIvpResults(sim(transposed_list_of_lists, tsim))
-satEquiElements = []
-for i in range(0, len(tArray)):
-    temp = satElements[i]
-    realEqui = scaleEquinoctialElements(temp, 1.0/Au, 1.0)
-    satEquiElements.append(realEqui)
-satMotions = EquinoctialElements.CreateEphemeris(satEquiElements)
-satEphemeris = prim.EphemerisArrays()
-satEphemeris.InitFromMotions(tsim, satMotions)
-satPlanet = prim.PlanetPrimitive(satEphemeris, 3, 1, '#ff00ff', 10.0, "Satellite")
+satPlanet = createPlanetPrimitiveFromPyomoFirstGuessResults(tsim, profiles, 1.0/distanceScale, 1.0/timeScale, '#ff00ff', 10, "Satellite")
 
 plotlyHelper = plotlyUtil.PlotlyDataAndFramesAccumulator()
 allPrims = [earthPlanet, marsPlanet, satPlanet]
 plotlyHelper.AddLinePrimitives(allPrims)
-plotlyHelper.AddMarkerPrimitives(tArray, allPrims)
+plotlyHelper.AddMarkerPrimitives(satPlanet.ephemeris.T, allPrims)
 plotlyHelper.AddScalingPoints(allPrims)
 
 overallFig = go.Figure(data=plotlyHelper.data, frames=plotlyHelper.frames)
