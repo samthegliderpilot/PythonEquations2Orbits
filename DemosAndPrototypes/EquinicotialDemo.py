@@ -1,5 +1,4 @@
 #%%
-
 import sympy as sy
 import sys
 sys.path.append(r'C:\src\PythonEquations2Orbits') # and this line is needed for running like a normal python script
@@ -20,34 +19,18 @@ from pyeq2orb.NumericalProblemFromSymbolic import NumericalProblemFromSymbolicPr
 import numpy as np
 import math as math
 import plotly.express as px
-from pandas import DataFrame
 from plotly.offline import download_plotlyjs, plot,iplot
 from plotly.offline import iplot, init_notebook_mode
 from plotly.graph_objs import Mesh3d
 from plotly.graph_objs.layout.shape import Line
 from scipy.integrate import solve_ivp
+from pyeq2orb.Numerical.LambdifyModule import LambdifyHelper
+from scipy.integrate import solve_ivp
+import pyeq2orb.Graphics.Primitives as prim
+import pyeq2orb.Graphics.PlotlyUtilities as plotlyUtil
 
 import plotly.graph_objects as go
-
-def CreateThrustMatrix(eqElements : EquinoctialElements) ->sy.Matrix :
-    mu = eqElements.GravitationalParameter
-    pEq = eqElements.PeriapsisRadius
-    kEq = eqElements.InclinationSinTermK
-    hEq = eqElements.InclinationCosTermH
-    fEq = eqElements.EccentricityCosTermF
-    gEq = eqElements.EccentricitySinTermG
-    lEq = eqElements.TrueLongitude
-    w = 1+fEq*sy.cos(lEq)+gEq*sy.sin(lEq)
-    #s2 = sy.Symbol('s^2')#(heq, keq) # note this is not s but s^2!!! This is a useful cheat
-    s2 = 1+hEq**2+kEq**2
-    sqrtpOverMu=sy.sqrt(pEq/mu)
-    B = sy.Matrix([[0, (2*pEq/w)*sqrtpOverMu, 0],
-                [sqrtpOverMu*sy.sin(lEq), sqrtpOverMu*(1/w)*((w+1)*sy.cos(lEq)+fEq), -1*sqrtpOverMu*(gEq/w)*(hEq*sy.sin(lEq)-kEq*sy.cos(lEq))],
-                [-1*sqrtpOverMu*sy.cos(lEq), sqrtpOverMu*((w+1)*sy.sin(lEq)+gEq), sqrtpOverMu*(fEq/w)*(hEq*sy.sin(lEq)-kEq*sy.cos(lEq))],
-                [0,0,sqrtpOverMu*(s2*sy.cos(lEq)/(2*w))],
-                [0,0,sqrtpOverMu*(s2*sy.sin(lEq)/(2*w))],
-                [0,0,sqrtpOverMu*(hEq*sy.sin(lEq)-kEq*sy.cos(lEq))]])
-    return B
+from collections import OrderedDict
 # order in paper is perRad, f,g,h,k,l
 class HowManyImpulses(SymbolicProblem) :
     def __init__(self):
@@ -60,8 +43,8 @@ class HowManyImpulses(SymbolicProblem) :
         self._mu = elements.GravitationalParameter
         g = sy.Symbol('g', real=True, positive=True) #9.8065
         f = CreateTwoBodyMotionMatrix(elements)
-        B = CreateThrustMatrix(elements)
-        alp = sy.Matrix([[sy.Function(r'alpha_x', real=True)(t)],[sy.Function(r'alpha_y', real=True)(t)],[sy.Function(r'alpha_z', real=True)(t)]])
+        B = elements.CreatePerturbationMatrix()
+        alp = sy.Matrix([[sy.Function(r'\alpha_x', real=True)(t)],[sy.Function(r'\alpha_y', real=True)(t)],[sy.Function(r'\alpha_z', real=True)(t)]])
         thrust = sy.Symbol('T')
         m = sy.Function('m')(t)
         throttle = sy.Function('\delta', real=True)(t)
@@ -151,22 +134,14 @@ rf = Cartesian(36216277800.4, -211692395522.5, -5325189049.9)
 vf = Cartesian(24798.8, 6168.2, -480.0)
 finalElements = EquinoctialElements.FromMotionCartesian(MotionCartesian(rf, vf), muVal)
 
-#muVal = 3.986004418e14
-# kepElements = KeplerianElements(8000000, 0.1, 0.3, 0.4, 0.5, 0.6, muVal)
-# cart = kepElements.ToInertialMotionCartesian()
-# r0 = cart.Position
-# v0 = cart.Velocity
-#tf = 43200
-
 t = sy.Symbol('t', real=True)
 symbolicElements = CreateSymbolicElements(t)
 twoBodyMatrix = CreateTwoBodyList(symbolicElements)
 simpleTwoBodyLambidfyCreator = LambdifyHelper(t, symbolicElements.ToArray(), twoBodyMatrix, [], {symbolicElements.GravitationalParameter: muVal})
 odeCallback =simpleTwoBodyLambidfyCreator.CreateSimpleCallbackForSolveIvp()
 
-testSolution = solve_ivp(odeCallback, [0.0, tfVal], initialElements.ToArray(), args=tuple(), t_eval=np.linspace(0.0, tfVal,900), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
-marsSolution = solve_ivp(odeCallback, [0.0, tfVal], finalElements.ToArray(), args=tuple(), t_eval=np.linspace(0.0, tfVal,900), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
-
+earthSolution = solve_ivp(odeCallback, [0.0, tfVal], initialElements.ToArray(), args=tuple(), t_eval=np.linspace(0.0, tfVal,900), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
+marsSolution = solve_ivp(odeCallback, [tfVal, 0.0], finalElements.ToArray(), args=tuple(), t_eval=np.linspace(tfVal, 0.0, 900), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
 
 def GetEquiElementsOutOfIvpResults(ivpResults) :
     t = []
@@ -174,106 +149,38 @@ def GetEquiElementsOutOfIvpResults(ivpResults) :
     yFromIntegrator = ivpResults.y 
     for i in range(0, len(yFromIntegrator[0])):
         temp = EquinoctialElements(yFromIntegrator[0][i], yFromIntegrator[1][i], yFromIntegrator[2][i], yFromIntegrator[3][i], yFromIntegrator[4][i], yFromIntegrator[5][i], muVal)
-        #realEqui = scaleEquinoctialElements(temp, 1.0/Au, 1.0/tfVal)
         equi.append(temp)
         t.append(ivpResults.t[i])
 
+    if t[0] > t[1] :
+        t.reverse()
+        equi.reverse()
     return (t, equi)
 
-import pyeq2orb.Graphics.Primitives as prim
 
-(tArray, equiElements) = GetEquiElementsOutOfIvpResults(testSolution)
-motions = EquinoctialElements.CreateEphemeris(equiElements)
-earthEphemeris = prim.EphemerisArrays()
-earthEphemeris.InitFromMotions(tArray, motions)
-earthPath = prim.PathPrimitive(earthEphemeris)
-earthPath.color = "#0000ff"
-
-(tArray, equiElements) = GetEquiElementsOutOfIvpResults(marsSolution)
-marsMotions = EquinoctialElements.CreateEphemeris(equiElements)
-marsEphemeris = prim.EphemerisArrays()
-marsEphemeris.InitFromMotions(tArray, marsMotions)
-marsPath = prim.PathPrimitive(marsEphemeris)
-marsPath.color = "#ff0000"
-
-dataArray = []
-
-def CreatePlotlyEphemerisDataFrame(ephemeris : prim.EphemerisArrays) :
-    xyz = np.zeros((len(ephemeris.T), 3))
-    for i in range(0, len(ephemeris.T)) :
-        xyz[i,0] = ephemeris.X[i]
-        xyz[i,1] = ephemeris.Y[i]
-        xyz[i,2] = ephemeris.Z[i]
-    df = DataFrame(xyz)
-    x = np.array(xyz[:,0])
-    y = np.array(xyz[:,1])
-    z = np.array(xyz[:,2])
-    t = np.array(ephemeris.T)
-    df = DataFrame({"x": x, "y":y, "z":z, "t":t})
-    return df
-
-def CreatePlotlyLineDataObject(pathPrimitve : prim.PathPrimitive) :
-    df = CreatePlotlyEphemerisDataFrame(pathPrimitve.ephemeris)
-    theLine = go.Scatter3d(x=df["x"], y=df["y"], z=df["z"], mode="lines", line=dict(color=pathPrimitve.color, width=6))#pathPrimitve.Width))
-    return theLine
-
-def CreateScalingItems(maxVal) :
-    markers = go.Scatter3d(name="",
-        visible=True,
-        showlegend=False,
-        opacity=0,
-        hoverinfo='none',
-        x=[0,maxVal],
-        y=[0,maxVal],
-        z=[0,maxVal])
-    return markers
-
-dataArray.append(CreatePlotlyLineDataObject(earthPath))
-dataArray.append(CreatePlotlyLineDataObject(marsMotions))
-maxVal = float(max(earthEphemeris.X, key=abs))
-dataArray.append(CreateScalingItems(maxVal))
-overallFig = go.Figure(data=dataArray)
-fig = go.Figure()
-
-for item in dataArray :
-    fig.add_trace(item)
-
-overallFig.show()
-
-
-
-
-
-#%%
-
-def makesphere(x, y, z, radius, resolution=10):
-    """Return the coordinates for plotting a sphere centered at (x,y,z)"""
-    u, v = np.mgrid[0:2*np.pi:resolution*2j, 0:np.pi:resolution*1j]
-    X = radius * np.cos(u)*np.sin(v) + x
-    Y = radius * np.sin(u)*np.sin(v) + y
-    Z = radius * np.cos(v) + z
-    #colors = ['#00ff00']*len(X)
-    #size = [2]*len(X)
-    return (X, Y, Z)#, colors, size)
-Xs, Ys, Zs = makesphere(0.0, 0.0, 0.0, 6378137.0)
-sphereThing = Mesh3d({
-                'x': Xs.flatten(),
-                'y': Ys.flatten(),
-                'z': Zs.flatten(),
-                'alphahull': 0}, color='#0000ff')
-
-
-
-
-#%%
+# def makesphere(x, y, z, radius, resolution=10):
+#     """Return the coordinates for plotting a sphere centered at (x,y,z)"""
+#     u, v = np.mgrid[0:2*np.pi:resolution*2j, 0:np.pi:resolution*1j]
+#     X = radius * np.cos(u)*np.sin(v) + x
+#     Y = radius * np.sin(u)*np.sin(v) + y
+#     Z = radius * np.cos(v) + z
+#     #colors = ['#00ff00']*len(X)
+#     #size = [2]*len(X)
+#     return (X, Y, Z)#, colors, size)
+# Xs, Ys, Zs = makesphere(0.0, 0.0, 0.0, 6378137.0)
+# sphereThing = Mesh3d({
+#                 'x': Xs.flatten(),
+#                 'y': Ys.flatten(),
+#                 'z': Zs.flatten(),
+#                 'alphahull': 0}, color='#0000ff')
 
 def scaleEquinoctialElements(equiElements : EquinoctialElements, distanceDivisor, timeDivisor) :
     newPer = equiElements.PeriapsisRadius/distanceDivisor
     newMu = equiElements.GravitationalParameter * timeDivisor*timeDivisor/(distanceDivisor*distanceDivisor*distanceDivisor)
     return EquinoctialElements(newPer, equiElements.EccentricityCosTermF, equiElements.EccentricitySinTermG, equiElements.InclinationCosTermH, equiElements.InclinationSinTermK, equiElements.TrueLongitude, newMu)
 
-initialElements = scaleEquinoctialElements(initialElements, Au, tfVal)
-finalElements = scaleEquinoctialElements(finalElements, Au, tfVal)
+initialElements = scaleEquinoctialElements(initialElements, Au, 1.0)
+finalElements = scaleEquinoctialElements(finalElements, Au, 1.0)
 muVal = initialElements.GravitationalParameter
 per0 = initialElements.PeriapsisRadius
 g0 = initialElements.EccentricitySinTermG
@@ -283,28 +190,24 @@ h0 = initialElements.InclinationCosTermH
 lon0 = initialElements.TrueLongitude
 
 m0Val = 2000
-isp = 3000/tfVal
+isp = 3000
 nRev = 2
-thrustVal =  0.1996*tfVal*tfVal/Au
-g = 9.8065*tfVal*tfVal/Au
+thrustVal =  0.1996 / Au
+g = 9.8065 / Au
 n=300
 tSpace = np.linspace(0.0, 1.0, n)
-from pyeq2orb.Numerical.LambdifyModule import LambdifyHelper
-from scipy.integrate import solve_ivp
-
 
 baseProblem = HowManyImpulses()
 newSvs = ScaledSymbolicProblem.CreateBarVariables(baseProblem.StateVariables, baseProblem.TimeSymbol)
-baseProblem.SubstitutionDictionary[baseProblem.Mu] = muVal
+baseProblem.SubstitutionDictionary[baseProblem.Mu] = initialElements.GravitationalParameter
 baseProblem.SubstitutionDictionary[baseProblem.Isp] = isp
 baseProblem.SubstitutionDictionary[baseProblem.Mass] = m0Val
 baseProblem.SubstitutionDictionary[baseProblem.Thrust] = thrustVal
 baseProblem.SubstitutionDictionary[AuSy] = Au
 baseProblem.SubstitutionDictionary[gSy] = g
 
-integrationSymbols = []
-integrationSymbols.extend(baseProblem.StateVariables)
-integrationSymbols.append(baseProblem.Mass)
+integrationSymbols = baseProblem.StateVariables
+#integrationSymbols.append(baseProblem.Mass)
 #integrationSymbols.extend(baseProblem.Alphas)
 #integrationSymbols.append(baseProblem.Throttle)
 
@@ -315,122 +218,67 @@ integrationSymbols.append(baseProblem.Mass)
 #scaledProblem.EquationsOfMotion[baseProblem.TimeFinalSymbol]=tfVal
 
 
-arguments = [baseProblem.TimeFinalSymbol, *baseProblem.Alphas, baseProblem.Throttle]
+arguments = [*baseProblem.Alphas, baseProblem.Throttle, baseProblem.TimeFinalSymbol]
 
 for emK, emV in baseProblem.EquationsOfMotion.items() :
-    jh.showEquation(emK, emV)
+    jh.showEquation(sy.diff(emK, t), emV)
 
 lambdifyHelper = LambdifyHelper(baseProblem.TimeSymbol, integrationSymbols, baseProblem.EquationsOfMotion.values(), arguments, baseProblem.SubstitutionDictionary)
 odeIntEomCallback = lambdifyHelper.CreateSimpleCallbackForSolveIvp()
-fullInitialState = []
-fullInitialState.extend(initialElements.ToArray())
-fullInitialState.append(m0Val)
-# fullInitialState.append(1.0)
-# fullInitialState.append(0.0)#a_r
-# fullInitialState.append(1.0)#a_i
-# fullInitialState.append(0.0)#a_c
-
-
-#odeIntEomCallback(0.0, [1,2,3,4,5,6,2000], (730, 1,0,1, 0.0))
-
-#testSolution = solve_ivp(odeIntEomCallback, [0.0, 1.0], fullInitialState, args=tuple([tfVal, 0.0, 1.0, 0.0, 1.0]), t_eval=tSpace, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
-
-
-equiElements = []
-# yFromIntegrator = testSolution.y #TODO
-# for i in range(0, len(yFromIntegrator[0])):
-#     temp = EquinoctialElements(yFromIntegrator[0][i], yFromIntegrator[1][i], yFromIntegrator[2][i], yFromIntegrator[3][i], yFromIntegrator[4][i], yFromIntegrator[5][i], muVal)
-#     realEqui = scaleEquinoctialElements(temp, 1.0/Au, 1.0/tfVal)
-#     equiElements.append(realEqui)
-
-def plotEquinoctialElements(equiElements, showEarth = True) :
-    xyz = np.zeros((n, 3))
-    for i in range(0, len(equiElements)) :
-        cart = equiElements[i].ToMotionCartesian()
-        xyz[i,0] = cart.Position[0]
-        xyz[i,1] = cart.Position[1]
-        xyz[i,2] = cart.Position[2]
-
-    import plotly.express as px
-    from pandas import DataFrame
-    from plotly.offline import download_plotlyjs, plot,iplot
-    from plotly.offline import iplot, init_notebook_mode
-    from plotly.graph_objs import Mesh3d
-    from plotly.graph_objs.layout.shape import Line
-
-    import plotly.graph_objects as go
-
-    df = DataFrame(xyz)
-    x = np.array(xyz[:,0])
-    y = np.array(xyz[:,1])
-    z = np.array(xyz[:,2])
-    t = np.array(tSpace)
-    df = DataFrame({"x": x, "y":y, "z":z, "t":t})
-    fig1 = px.line_3d(df, x="x", y="y", z="z")
-    #fig.show()
-
-    def makesphere(x, y, z, radius, resolution=10):
-        """Return the coordinates for plotting a sphere centered at (x,y,z)"""
-        u, v = np.mgrid[0:2*np.pi:resolution*2j, 0:np.pi:resolution*1j]
-        X = radius * np.cos(u)*np.sin(v) + x
-        Y = radius * np.sin(u)*np.sin(v) + y
-        Z = radius * np.cos(v) + z
-        #colors = ['#00ff00']*len(X)
-        #size = [2]*len(X)
-        return (X, Y, Z)#, colors, size)
-    Xs, Ys, Zs = makesphere(0.0, 0.0, 0.0, 6378137.0)
-    sphereThing = Mesh3d({
-                    'x': Xs.flatten(),
-                    'y': Ys.flatten(),
-                    'z': Zs.flatten(),
-                    'alphahull': 0}, color='#0000ff')
-
-    theLine = go.Scatter3d(x=df["x"], y=df["y"], z=df["z"], mode="lines", line=dict(color='#00ff00', width=5))
-    theMarker = go.Scatter3d(x=[], y=[], z=[], mode="markers", marker=dict(color='#00ffff', size=10))
-
-    overallFig = go.Figure(data=[sphereThing, theLine, theMarker])
-    overallFig.update_layout(scene = dict(
-        xaxis=dict(range=[min(x), max(x)], autorange=False),
-        yaxis=dict(range=[min(y), max(y)], autorange=False),
-        zaxis=dict(range=[min(z), max(z)], autorange=False),))
-    frames = [go.Frame(data= [go.Scatter3d(
-                                       x=x[[k]],
-                                       y=y[[k]],
-                                       z=z[[k]])],
-
-                   traces= [0],
-                   name=f'frame{k}')for k  in  range(len(x))]
-    overallFig.update(frames=frames)
-    overallFig.update_layout(updatemenus=[dict(type="buttons",
-                          buttons=[dict(label="Play",
-                                        method="animate",
-                                        args=[None, dict(frame=dict(redraw=True,fromcurrent=True, mode='immediate'))      ])])])
-
-
-    #go.Layout.update(aspectmode = 'manual', aspectratio = dict(x=1, y=1, z=1))
-    overallFig.update_scenes(aspectmode = 'cube', aspectratio = dict(x=1, y=1, z=1))#, yaxis_scaleanchor="x", zaxis_scaleanchor="x")
-
-    #overallFig.update_layout(scene_aspectmode='manual', scene_aspectratio=dict(x=1, y=1, z=1))
-    #layout = go.Layout(scene=dict(aspectmode="manual"), scene_aspectratio=dict(x=1, y=1, z=1))
-    #overallFig.update_layout(layout)
-    overallFig.show()
-
-#plotEquinoctialElements(equiElements)
-
-
-
-#jh.showEquation("H", problem.Hamiltonian)
-
 lambdiafyFunctionMap = {'sqrt': poenv.sqrt, 'sin': poenv.sin, 'cos':poenv.cos} #TODO: MOOOORE!!!!
 
 trivialScalingDic = {}
 for sv in baseProblem.StateVariables :
     trivialScalingDic[sv]=1
+print("Creating scaled symbolic problem")
 scaledProblem = ScaledSymbolicProblem(baseProblem, baseProblem.StateVariables, trivialScalingDic, True)
+print("Creating numerical symbolic problem")
 asNumericalProblem = NumericalProblemFromSymbolicProblem(scaledProblem, lambdiafyFunctionMap)
 
+# asManualNumericalProblem = NumericalProblemFromSymbolicProblem(scaledProblem, {})
+# print("lambdifying")
+# lambdifyHelper2 = LambdifyHelper(baseProblem.TimeSymbol, integrationSymbols, baseProblem.EquationsOfMotion.values(), arguments, baseProblem.SubstitutionDictionary)
+# odeIntEomCallback2 = lambdifyHelper2.CreateSimpleCallbackForSolveIvp()
+# print("integrating")
+
+# testSolution = solve_ivp(odeIntEomCallback2, [0.0, tfVal], [*initialElements.ToArray(), 2000.0], args=tuple([0.0, 1.0, 0.0, 1.0, tfVal]), t_eval=np.linspace(0.0, tfVal,900), dense_output=True)#, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
 
 
+# (tArray, equiElements) = GetEquiElementsOutOfIvpResults(earthSolution)
+# motions = EquinoctialElements.CreateEphemeris(equiElements)
+# earthEphemeris = prim.EphemerisArrays()
+# earthEphemeris.InitFromMotions(tArray, motions)
+# earthPlanet = prim.PlanetPrimitive(earthEphemeris, 3, 1, '#0000ff', 6378137, "Earth")
+
+# (tArray, equiElements) = GetEquiElementsOutOfIvpResults(marsSolution)
+# marsMotions = EquinoctialElements.CreateEphemeris(equiElements)
+# marsEphemeris = prim.EphemerisArrays()
+# marsEphemeris.InitFromMotions(tArray, marsMotions)
+# marsPlanet = prim.PlanetPrimitive(marsEphemeris, 3, 1, '#ff0000', 4000000, "Mars")
+
+# (tArray, satEqui) = GetEquiElementsOutOfIvpResults(testSolution)
+# satEquiElements = []
+# for i in range(0, len(tArray)):
+#     temp = satEqui[i]
+#     realEqui = scaleEquinoctialElements(temp, 1.0/Au, 1.0/tfVal)
+#     satEquiElements.append(realEqui)
+# satMotions = EquinoctialElements.CreateEphemeris(satEquiElements)
+# satEphemeris = prim.EphemerisArrays()
+# satEphemeris.InitFromMotions(tArray, satMotions)
+# satPlanet = prim.PlanetPrimitive(satEphemeris, 3, 1, '#ff00ff', 10, "Satellite")
+
+# plotlyHelper = plotlyUtil.PlotlyDataAndFramesAccumulator()
+# allPrims = [earthPlanet, marsPlanet, satPlanet]
+# plotlyHelper.AddLinePrimitives(allPrims)
+# plotlyHelper.AddMarkerPrimitives(tArray, allPrims)
+# plotlyHelper.AddScalingPoints(allPrims)
+
+# overallFig = go.Figure(data=plotlyHelper.data, frames=plotlyHelper.frames)
+# for item in plotlyHelper.data:
+#     overallFig.add_trace(item)
+# overallFig.update_layout(updatemenus=[dict(type="buttons", buttons=[dict(label="Play", method="animate", args=[None, dict(frame=dict(redraw=True,fromcurrent=True, mode='immediate'))])])])
+# overallFig.show()
+#%%
 model = poenv.ConcreteModel()
 model.t = podae.ContinuousSet(initialize=tSpace, domain=poenv.NonNegativeReals)
 smaLow = 146.10e9/Au # little less than earth
@@ -441,21 +289,21 @@ model.g = poenv.Var(model.t, bounds=(-1.0, 1.0), initialize=float(g0))
 model.h  = poenv.Var(model.t, bounds=(-2.0, 2.0), initialize=float(h0))
 model.k = poenv.Var(model.t, bounds=(-2.0, 2.0), initialize=float(k0))
 model.lon = poenv.Var(model.t, bounds=(0, 4*math.pi), initialize=float(lon0))
-model.mass = poenv.Var(model.t, bounds=(0.0, m0Val), initialize=(m0Val))
+model.mass = poenv.Var(model.t, bounds=(0.0, m0Val), initialize=float(m0Val))
 
-model.perRad[0].fix(float(per0))
-model.f[0].fix(float(f0))
-model.g[0].fix(float(g0))
-model.h[0].fix(float(h0))
-model.k[0].fix(float(k0))
-model.lon[0].fix(float(lon0))
+model.perRad[0].fix(float(initialElements.PeriapsisRadius))
+model.f[0].fix(float(initialElements.EccentricityCosTermF))
+model.g[0].fix(float(initialElements.EccentricitySinTermG))
+model.h[0].fix(float(initialElements.InclinationCosTermH))
+model.k[0].fix(float(initialElements.InclinationSinTermK))
+model.lon[0].fix(float(initialElements.TrueLongitude))
 model.mass[0].fix(float(m0Val))
 
-model.tf = poenv.Var(bounds=(tfVal-10000, tfVal+10000), initialize=float(tfVal))
 model.controlX = poenv.Var(model.t, bounds=(-1.0, 1.0))
 model.controlY = poenv.Var(model.t, bounds=(-1.0, 1.0))
 model.controlZ = poenv.Var(model.t, bounds=(-1.0, 1.0))
-model.throttle = poenv.Var(model.t, bounds=(0.0, 1.0))
+model.throttle = poenv.Var(model.t, bounds=(0.9, 1.0))
+model.tf = poenv.Var(bounds=(tfVal-10000, tfVal+10000), initialize=float(tfVal))
 
 model.perDot = podae.DerivativeVar(model.perRad, wrt=model.t)
 model.fDot = podae.DerivativeVar(model.f, wrt=model.t)
@@ -475,11 +323,8 @@ indexToStateMap = {
 6: lambda m, t : m.mass[t],
 }
 
-def finalConditionsCallback(m, t, i) :
-    return indexToStateMap[i](m, t)
-
 def mapPyomoStateToProblemState(m, t, expre) :
-    return expre([t, m.perRad[t], m.f[t], m.g[t],m.h[t], m.k[t], m.lon[t], m.mass[t], m.tf, m.controlX[t], m.controlY[t], m.controlZ[t], m.throttle[t]])
+    return expre([t, m.perRad[t], m.f[t], m.g[t],m.h[t], m.k[t], m.lon[t], m.mass[t], m.controlX[t], m.controlY[t], m.controlZ[t], m.throttle[t], m.tf])
 
 model.perEom = poenv.Constraint(model.t, rule =lambda m, t2: m.perDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 0)))
 model.fEom = poenv.Constraint(model.t, rule =lambda m, t2: m.fDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 1)))
@@ -489,8 +334,6 @@ model.kEom = poenv.Constraint(model.t, rule =lambda m, t2: m.kDot[t2] == mapPyom
 model.lonEom = poenv.Constraint(model.t, rule =lambda m, t2: m.lonDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 5)))
 model.massEom = poenv.Constraint(model.t, rule =lambda m, t2: m.mDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 6)))
 
-def perCallback(mod1) :
-    return 0 == mod1.perRad[1.0] - finalElements.PeriapsisRadius
 model.bc1 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[0](mod1, 1.0) - float(finalElements.PeriapsisRadius))
 model.bc2 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[1](mod1, 1.0) - float(finalElements.EccentricityCosTermF))
 model.bc3 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[2](mod1, 1.0) - float(finalElements.EccentricitySinTermG))
@@ -504,7 +347,7 @@ model.massObjective = poenv.Objective(expr = finalMassCallback, sense=poenv.maxi
 model.var_input = poenv.Suffix(direction=poenv.Suffix.LOCAL)
 model.var_input[model.tf] = {0: tfVal}
 model.var_input[model.controlX] = {0: 0.0}
-model.var_input[model.controlY] = {0: 0.9}
+model.var_input[model.controlY] = {0: 1.0}
 model.var_input[model.controlZ] = {0: 0.0}
 model.var_input[model.throttle] = {0: 1.0}
 
@@ -516,10 +359,8 @@ poenv.TransformationFactory('dae.collocation').apply_to(model, wrt=model.t, nfe=
 #['LAGRANGE-RADAU', 'LAGRANGE-LEGENDRE']
 sim.initialize_model()
 solver = poenv.SolverFactory('cyipopt')
-solver.solve(model, tee=True)
+#solver.solve(model, tee=True)
 
-#%%
-from collections import OrderedDict
 def extractPyomoSolution(model, stateSymbols):
     tSpace =np.array( [t for t in model.t]) * model.tf.value
     pSym = np.array([model.perRad[t]() for t in model.t])
@@ -556,17 +397,51 @@ def extractPyomoSolution(model, stateSymbols):
 stateSymbols = [*baseProblem.StateVariables, *baseProblem.ControlVariables, baseProblem.Throttle]
 [time, dictSolution] = extractPyomoSolution(model, stateSymbols)
 
-equiElements = []
+satEquiElements = []
 for i in range(0, len(time)):
     temp = EquinoctialElements(dictSolution[stateSymbols[0]][i], dictSolution[stateSymbols[1]][i], dictSolution[stateSymbols[2]][i], dictSolution[stateSymbols[3]][i], dictSolution[stateSymbols[4]][i], dictSolution[stateSymbols[5]][i], muVal)
     realEqui = scaleEquinoctialElements(temp, 1.0/Au, 1.0/tfVal)
-    equiElements.append(realEqui)
+    satEquiElements.append(realEqui)
 
 
+(tArray, equiElements) = GetEquiElementsOutOfIvpResults(earthSolution)
+motions = EquinoctialElements.CreateEphemeris(equiElements)
+earthEphemeris = prim.EphemerisArrays()
+earthEphemeris.InitFromMotions(tArray, motions)
+earthPlanet = prim.PlanetPrimitive(earthEphemeris, 3, 1, '#0000ff', 6378137, "Earth")
 
+(tArray, equiElements) = GetEquiElementsOutOfIvpResults(marsSolution)
+marsMotions = EquinoctialElements.CreateEphemeris(equiElements)
+marsEphemeris = prim.EphemerisArrays()
+marsEphemeris.InitFromMotions(tArray, marsMotions)
+marsPlanet = prim.PlanetPrimitive(marsEphemeris, 3, 1, '#ff0000', 4000000, "Mars")
 
+class sim :
+    def __init__(self, y, t) :
+        self.y = y
+        self.t = t
+array = np.array(profiles)
+transposed_array = array.T
+transposed_list_of_lists = transposed_array.tolist()
+(tArray, satElements) =GetEquiElementsOutOfIvpResults(sim(transposed_list_of_lists, tsim))
+satEquiElements = []
+for i in range(0, len(tArray)):
+    temp = satElements[i]
+    realEqui = scaleEquinoctialElements(temp, 1.0/Au, 1.0)
+    satEquiElements.append(realEqui)
+satMotions = EquinoctialElements.CreateEphemeris(satEquiElements)
+satEphemeris = prim.EphemerisArrays()
+satEphemeris.InitFromMotions(tsim, satMotions)
+satPlanet = prim.PlanetPrimitive(satEphemeris, 3, 1, '#ff00ff', 10.0, "Satellite")
 
-thrustLine = createLineFromEquiElements(time, equiElements, '#0000ff')
-earthLine = createLineFromEquiElements(time, equiElements, '#ff00ff')
-marsLine = createLineFromEquiElements(time, equiElements, '#ff0000')
-addLinesToPlots([thrustLine])
+plotlyHelper = plotlyUtil.PlotlyDataAndFramesAccumulator()
+allPrims = [earthPlanet, marsPlanet, satPlanet]
+plotlyHelper.AddLinePrimitives(allPrims)
+plotlyHelper.AddMarkerPrimitives(tArray, allPrims)
+plotlyHelper.AddScalingPoints(allPrims)
+
+overallFig = go.Figure(data=plotlyHelper.data, frames=plotlyHelper.frames)
+for item in plotlyHelper.data:
+    overallFig.add_trace(item)
+overallFig.update_layout(updatemenus=[dict(type="buttons", buttons=[dict(label="Play", method="animate", args=[None, dict(frame=dict(redraw=True,fromcurrent=True, mode='immediate'))])])])
+overallFig.show()

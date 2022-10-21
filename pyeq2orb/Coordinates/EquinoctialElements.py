@@ -74,6 +74,27 @@ class EquinoctialElements:
             motions.append(equi.ToMotionCartesian())
         return motions
 
+    def CreatePerturbationMatrix(self) ->sy.Matrix :
+        eqElements=self
+        mu = eqElements.GravitationalParameter
+        pEq = eqElements.PeriapsisRadius
+        kEq = eqElements.InclinationSinTermK
+        hEq = eqElements.InclinationCosTermH
+        fEq = eqElements.EccentricityCosTermF
+        gEq = eqElements.EccentricitySinTermG
+        lEq = eqElements.TrueLongitude
+        w = 1+fEq*sy.cos(lEq)+gEq*sy.sin(lEq)
+        #s2 = sy.Symbol('s^2')#(heq, keq) # note this is not s but s^2!!! This is a useful cheat
+        s2 = 1+hEq**2+kEq**2
+        sqrtpOverMu=sy.sqrt(pEq/mu)
+        B = sy.Matrix([[0, (2*pEq/w)*sqrtpOverMu, 0],
+                    [sqrtpOverMu*sy.sin(lEq), sqrtpOverMu*(1/w)*((w+1)*sy.cos(lEq)+fEq), -1*sqrtpOverMu*(gEq/w)*(hEq*sy.sin(lEq)-kEq*sy.cos(lEq))],
+                    [-1*sqrtpOverMu*sy.cos(lEq), sqrtpOverMu*((w+1)*sy.sin(lEq)+gEq), sqrtpOverMu*(fEq/w)*(hEq*sy.sin(lEq)-kEq*sy.cos(lEq))],
+                    [0,0,sqrtpOverMu*(s2*sy.cos(lEq)/(2*w))],
+                    [0,0,sqrtpOverMu*(s2*sy.sin(lEq)/(2*w))],
+                    [0,0,sqrtpOverMu*(hEq*sy.sin(lEq)-kEq*sy.cos(lEq))/w]])
+        return B
+        
 def ConvertKeplerianToEquinoctial(keplerianElements : KeplerianElements) ->EquinoctialElements :
     a = keplerianElements.SemiMajorAxis
     e = keplerianElements.Eccentricity
@@ -88,7 +109,7 @@ def ConvertKeplerianToEquinoctial(keplerianElements : KeplerianElements) ->Equin
     
     h = sy.tan(i/2)*sy.cos(raan)
     k = sy.tan(i/2)*sy.sin(raan)
-    l = w+raan+ta
+    l = (w+raan+ta) % (2*math.pi)
 
     return EquinoctialElements(per, f, g, h, k, l, keplerianElements.GravitationalParameter)
 
