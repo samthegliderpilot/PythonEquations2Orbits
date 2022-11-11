@@ -1,4 +1,5 @@
 #%%
+from email.mime import base
 import sympy as sy
 import sys
 sys.path.append(r'C:\src\PythonEquations2Orbits') # and this line is needed for running like a normal python script
@@ -76,7 +77,7 @@ class HowManyImpulses(SymbolicProblem) :
         self._throttle = throttle
         self._alphas = alp
         self._isp = isp
-        #self._mu = elements.GravitationalParameter
+        self._mu = elements.GravitationalParameter
 
         #NEED TO DO BC's
 
@@ -111,9 +112,9 @@ class HowManyImpulses(SymbolicProblem) :
     def AddStandardResultsToFigure(self, figure: Figure, t: List[float], dictionaryOfValueArraysKeyedOffState: Dict[object, List[float]], label: str) -> None:
         pass
 
-    def AddFinalConditions(self, smaF, fF, gF, hF, kF, lF) :
+    def AddFinalConditions(self, pF, fF, gF, hF, kF, lF) :
         elementsAtF = self.CreateVariablesAtTimeFinal(self.StateVariables)
-        self.BoundaryConditions.append(elementsAtF[0] - smaF)
+        self.BoundaryConditions.append(elementsAtF[0] - pF)
         self.BoundaryConditions.append(elementsAtF[1] - fF)
         self.BoundaryConditions.append(elementsAtF[2] - gF)
         self.BoundaryConditions.append(elementsAtF[3] - hF)
@@ -207,11 +208,11 @@ def createPlanetPrimitiveFromPyomoFirstGuessResults(pyomoT, pyomoY, distanceScal
     transposed_list_of_lists = transposed_array.tolist()
     return createPlanetPrimitiveFromIpvResults(ivpLikeResults(transposed_list_of_lists, pyomoT), distanceScaling, timeScaling, color, radius, label)
 
-distanceScale = Au
-timeScale = 1.0#tfVal
+distanceScale = 1.0
+timeScale = 1.0
 
-initialElements = scaleEquinoctialElements(initialElements, distanceScale, timeScale)
-finalElements = scaleEquinoctialElements(finalElements, distanceScale, timeScale)
+#initialElements = scaleEquinoctialElements(initialElements, distanceScale, timeScale)
+#finalElements = scaleEquinoctialElements(finalElements, distanceScale, timeScale)
 muVal = initialElements.GravitationalParameter
 per0 = initialElements.PeriapsisRadius
 g0 = initialElements.EccentricitySinTermG
@@ -223,10 +224,10 @@ lon0 = initialElements.TrueLongitude
 m0Val = 2000
 isp = 3000
 nRev = 2
-thrustVal =  0.1996 *timeScale*timeScale / distanceScale
-g = 9.8065*timeScale*timeScale / distanceScale
+thrustVal =  0.1996  
+g = 9.8065 
 n = 300
-tSpace = np.linspace(0.0, tfVal/timeScale, n)
+tSpace = np.linspace(0.0, tfVal/tfVal, n)
 
 baseProblem = HowManyImpulses()
 newSvs = ScaledSymbolicProblem.CreateBarVariables(baseProblem.StateVariables, baseProblem.TimeSymbol)
@@ -260,8 +261,10 @@ lambdiafyFunctionMap = {'sqrt': poenv.sqrt, 'sin': poenv.sin, 'cos':poenv.cos} #
 trivialScalingDic = {}
 for sv in baseProblem.StateVariables :
     trivialScalingDic[sv]=1
+trivialScalingDic[baseProblem.StateVariables[0]] = Au
+
 print("Creating scaled symbolic problem")
-scaledProblem = ScaledSymbolicProblem(baseProblem, baseProblem.StateVariables, trivialScalingDic, True)
+scaledProblem = ScaledSymbolicProblem(baseProblem, newSvs, trivialScalingDic, True)
 print("Creating numerical symbolic problem")
 asNumericalProblem = NumericalProblemFromSymbolicProblem(scaledProblem, lambdiafyFunctionMap)
 
@@ -271,11 +274,11 @@ lambdifyHelper2 = LambdifyHelper(baseProblem.TimeSymbol, integrationSymbols, bas
 odeIntEomCallback2 = lambdifyHelper2.CreateSimpleCallbackForSolveIvp()
 print("integrating")
 
-testSolution = solve_ivp(odeIntEomCallback2, [0.0, tfVal/timeScale], [*initialElements.ToArray(), 2000.0], args=tuple([0.0, 1.0, 0.0, 1.0, tfVal/timeScale]), t_eval=np.linspace(0.0, tfVal/timeScale,900), dense_output=True)#, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
+testSolution = solve_ivp(odeIntEomCallback2, [0.0, tfVal/tfVal], [*initialElements.ToArray(), 2000.0], args=tuple([0.0, 1.0, 0.0, 1.0, tfVal/tfVal]), t_eval=np.linspace(0.0, tfVal/tfVal,900), dense_output=True)#, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
 
 earthPlanet = createPlanetPrimitiveFromIpvResults(earthSolution, 1, 1, '#0000ff', 6378137, "Earth")
 marsPlanet = createPlanetPrimitiveFromIpvResults(marsSolution, 1, 1, '#ff0000', 4000000, "Mars")
-satPlanet = createPlanetPrimitiveFromIpvResults(testSolution, 1.0/distanceScale, 1.0/timeScale, '#ff00ff', 10, "Satellite")
+satPlanet = createPlanetPrimitiveFromIpvResults(testSolution, 1.0, 1.0, '#ff00ff', 10, "Satellite")
 
 plotlyHelper = plotlyUtil.PlotlyDataAndFramesAccumulator()
 allPrims = [earthPlanet, marsPlanet, satPlanet]
@@ -292,17 +295,17 @@ plotlyHelper.AddScalingPoints(allPrims)
 
 model = poenv.ConcreteModel()
 model.t = podae.ContinuousSet(initialize=tSpace, domain=poenv.NonNegativeReals)
-smaLow = 146.10e9/distanceScale # little less than earth
-smaHigh = 279.0e9/distanceScale # little more than mars
-model.perRad = poenv.Var(model.t, bounds=(smaLow, smaHigh), initialize=float(initialElements.PeriapsisRadius))
+smaLow = 136.10e9/Au # little less than earth
+smaHigh = 299.0e9/Au # little more than mars
+model.perRad = poenv.Var(model.t, bounds=(smaLow, smaHigh), initialize=float(initialElements.PeriapsisRadius/Au))
 model.f = poenv.Var(model.t, bounds=(-1.0, 1.0), initialize=float(initialElements.EccentricityCosTermF))
 model.g = poenv.Var(model.t, bounds=(-1.0, 1.0), initialize=float(initialElements.EccentricitySinTermG))
-model.h  = poenv.Var(model.t, bounds=(-2.0, 2.0), initialize=float(initialElements.InclinationCosTermH))
-model.k = poenv.Var(model.t, bounds=(-2.0, 2.0), initialize=float(initialElements.InclinationSinTermK))
-model.lon = poenv.Var(model.t, bounds=(-math.pi, 4*math.pi), initialize=float(initialElements.TrueLongitude))
-model.mass = poenv.Var(model.t, bounds=(0.0, m0Val), initialize=float(m0Val))
+model.h  = poenv.Var(model.t, bounds=(-1.0, 1.0), initialize=float(initialElements.InclinationCosTermH))
+model.k = poenv.Var(model.t, bounds=(-1.0, 1.0), initialize=float(initialElements.InclinationSinTermK))
+model.lon = poenv.Var(model.t, bounds=(0.0, 4*math.pi), initialize=float(initialElements.TrueLongitude))
+model.mass = poenv.Var(model.t, bounds=(m0Val/10.0, m0Val), initialize=float(m0Val))
 
-model.perRad[0].fix(float(initialElements.PeriapsisRadius))
+model.perRad[0].fix(float(initialElements.PeriapsisRadius/Au))
 model.f[0].fix(float(initialElements.EccentricityCosTermF))
 model.g[0].fix(float(initialElements.EccentricitySinTermG))
 model.h[0].fix(float(initialElements.InclinationCosTermH))
@@ -313,8 +316,8 @@ model.mass[0].fix(float(m0Val))
 model.controlX = poenv.Var(model.t, bounds=(-1.0, 1.0))
 model.controlY = poenv.Var(model.t, bounds=(-1.0, 1.0))
 model.controlZ = poenv.Var(model.t, bounds=(-1.0, 1.0))
-model.throttle = poenv.Var(model.t, bounds=(0.0, 1.0))
-model.tf = poenv.Var(bounds=((tfVal)/timeScale, (tfVal)/timeScale), initialize=float(tfVal/timeScale))
+model.throttle = poenv.Var(model.t, bounds=(0.01, 1.0))
+model.tf = poenv.Var(bounds=((tfVal-1), (tfVal+1)), initialize=float(tfVal))
 
 model.perDot = podae.DerivativeVar(model.perRad, wrt=model.t)
 model.fDot = podae.DerivativeVar(model.f, wrt=model.t)
@@ -345,14 +348,15 @@ model.kEom = poenv.Constraint(model.t, rule =lambda m, t2: m.kDot[t2] == mapPyom
 model.lonEom = poenv.Constraint(model.t, rule =lambda m, t2: m.lonDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 5)))
 model.massEom = poenv.Constraint(model.t, rule =lambda m, t2: m.mDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 6)))
 
-model.bc1 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[0](mod1, tfVal/timeScale) - float(finalElements.PeriapsisRadius))
-model.bc2 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[1](mod1, tfVal/timeScale) - float(finalElements.EccentricityCosTermF))
-model.bc3 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[2](mod1, tfVal/timeScale) - float(finalElements.EccentricitySinTermG))
-model.bc4 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[3](mod1, tfVal/timeScale) - float(finalElements.InclinationCosTermH))
-model.bc5 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[4](mod1, tfVal/timeScale) - float(finalElements.InclinationSinTermK))
-model.bc6 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[5](mod1, tfVal/timeScale) - float(finalElements.TrueLongitude))
+tfForBcs = 1.0 # tfVal/timeScale
+model.bc1 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[0](mod1, tfForBcs) - float(finalElements.PeriapsisRadius/Au))
+model.bc2 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[1](mod1, tfForBcs) - float(finalElements.EccentricityCosTermF))
+model.bc3 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[2](mod1, tfForBcs) - float(finalElements.EccentricitySinTermG))
+model.bc4 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[3](mod1, tfForBcs) - float(finalElements.InclinationCosTermH))
+model.bc5 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[4](mod1, tfForBcs) - float(finalElements.InclinationSinTermK))
+model.bc6 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[5](mod1, tfForBcs) - float(finalElements.TrueLongitude))
 
-finalMassCallback = lambda m : m.mass[tfVal/timeScale]
+finalMassCallback = lambda m : m.mass[tfForBcs]
 model.massObjective = poenv.Objective(expr = finalMassCallback, sense=poenv.maximize)
 
 model.var_input = poenv.Suffix(direction=poenv.Suffix.LOCAL)
@@ -360,10 +364,12 @@ model.var_input[model.controlX] = {0: 0.0}
 model.var_input[model.controlY] = {0: 1.0}
 model.var_input[model.controlZ] = {0: 0.0}
 model.var_input[model.throttle] = {0: 1.0}
-model.var_input[model.tf] = {0: tfVal/timeScale}
+model.var_input[model.tf] = {0: tfVal}
 
 sim = podae.Simulator(model, package='scipy')
-tsim, profiles = sim.simulate(numpoints=n, varying_inputs=model.var_input, integrator='dop853', initcon=np.array([*initialElements.ToArray(), m0Val], dtype=float))
+initialVals = [*initialElements.ToArray(), m0Val]
+initialVals[0] = initialVals[0]/Au
+tsim, profiles = sim.simulate(numpoints=n*10, varying_inputs=model.var_input, integrator='vode', initcon=np.array(initialVals, dtype=float))
 
 #poenv.TransformationFactory('dae.finite_difference').apply_to(model, wrt=model.t, nfe=n, scheme='BACKWARD')
 poenv.TransformationFactory('dae.collocation').apply_to(model, wrt=model.t, nfe=n,ncp=3, scheme='LAGRANGE-RADAU')
