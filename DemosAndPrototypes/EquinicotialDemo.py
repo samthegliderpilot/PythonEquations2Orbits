@@ -1,5 +1,4 @@
 #%%
-from email.mime import base
 import sympy as sy
 import sys
 sys.path.append(r'C:\src\PythonEquations2Orbits') # and this line is needed for running like a normal python script
@@ -30,7 +29,7 @@ from pyeq2orb.Numerical.LambdifyModule import LambdifyHelper
 from scipy.integrate import solve_ivp
 import pyeq2orb.Graphics.Primitives as prim
 import pyeq2orb.Graphics.PlotlyUtilities as plotlyUtil
-
+from pandas import DataFrame
 import plotly.graph_objects as go
 from collections import OrderedDict
 
@@ -146,6 +145,15 @@ class HowManyImpulses(SymbolicProblem) :
         self.BoundaryConditions.append(elementsAtF[5] - lF)
 
 # Earth to Mars demo
+tfVal = 793*86400
+m0Val = 2000
+isp = 3000
+nRev = 2
+thrustVal =  0.1996  
+g = 9.8065 
+n = 300
+tSpace = np.linspace(0.0, tfVal, n)
+
 Au = 149597870700.0
 AuSy = sy.Symbol('A_u')
 muVal = 1.32712440042e20
@@ -154,7 +162,7 @@ v0 = Cartesian(-27844.5, 11659.9, 0000.3)
 initialElements = EquinoctialElements.FromMotionCartesian(MotionCartesian(r0, v0), muVal)
 
 gSy = sy.Symbol('g', real=True, positive=True)
-tfVal = 793*86400
+
 rf = Cartesian(36216277800.4, -211692395522.5, -5325189049.9)
 vf = Cartesian(24798.8, 6168.2, -480.0)
 finalElements = EquinoctialElements.FromMotionCartesian(MotionCartesian(rf, vf), muVal)
@@ -165,8 +173,8 @@ twoBodyMatrix = CreateTwoBodyList(symbolicElements)
 simpleTwoBodyLambidfyCreator = LambdifyHelper(t, symbolicElements.ToArray(), twoBodyMatrix, [], {symbolicElements.GravitationalParameter: muVal})
 odeCallback =simpleTwoBodyLambidfyCreator.CreateSimpleCallbackForSolveIvp()
 
-earthSolution = solve_ivp(odeCallback, [0.0, tfVal], initialElements.ToArray(), args=tuple(), t_eval=np.linspace(0.0, tfVal,900), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
-marsSolution = solve_ivp(odeCallback, [tfVal, 0.0], finalElements.ToArray(), args=tuple(), t_eval=np.linspace(tfVal, 0.0, 900), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
+earthSolution = solve_ivp(odeCallback, [0.0, tfVal], initialElements.ToArray(), args=tuple(), t_eval=np.linspace(0.0, tfVal,n), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
+marsSolution = solve_ivp(odeCallback, [tfVal, 0.0], finalElements.ToArray(), args=tuple(), t_eval=np.linspace(tfVal, 0.0, n), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
 
 def GetEquiElementsOutOfIvpResults(ivpResults) :
     t = []
@@ -184,7 +192,7 @@ def GetEquiElementsOutOfIvpResults(ivpResults) :
 
 import pyeq2orb.Graphics.Primitives as prim
 
-(tArray, equiElements) = GetEquiElementsOutOfIvpResults(testSolution)
+(tArray, equiElements) = GetEquiElementsOutOfIvpResults(earthSolution)
 motions = EquinoctialElements.CreateEphemeris(equiElements)
 earthEphemeris = prim.EphemerisArrays()
 earthEphemeris.InitFromMotions(tArray, motions)
@@ -264,13 +272,7 @@ k0 = initialElements.InclinationSinTermK
 h0 = initialElements.InclinationCosTermH
 lon0 = initialElements.TrueLongitude
 
-m0Val = 2000
-isp = 3000
-nRev = 2
-thrustVal =  0.1996  
-g = 9.8065 
-n = 300
-tSpace = np.linspace(0.0, tfVal/tfVal, n)
+
 
 baseProblem = HowManyImpulses()
 newSvs = ScaledSymbolicProblem.CreateBarVariables(baseProblem.StateVariables, baseProblem.TimeSymbol)
@@ -333,7 +335,7 @@ def plotlotAnimationSetup(title, aniData : List[go.Scatter3d], scaleData : go.Sc
     fig.show()
 
 if True :
-    testSolution = solve_ivp(odeIntEomCallback, [0.0, 1.0*tfVal], fullInitialState, args=tuple([0.0, 1.0, 0.0, 1.0, tfVal]), t_eval=np.linspace(0.0, tfVal,900), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
+    testSolution = solve_ivp(odeIntEomCallback, [0.0, 1.0*tfVal], fullInitialState, args=tuple([0.0, 1.0, 0.0, 1.0, tfVal]), t_eval=np.linspace(0.0, tfVal,n), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
     equiElements = []
     yFromIntegrator = testSolution.y #TODO
     for i in range(0, len(yFromIntegrator[0])):
