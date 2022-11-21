@@ -1,5 +1,5 @@
 #%%
-
+from email.mime import base
 import sympy as sy
 import sys
 sys.path.append(r'C:\src\PythonEquations2Orbits') # and this line is needed for running like a normal python script
@@ -20,13 +20,19 @@ from pyeq2orb.NumericalProblemFromSymbolic import NumericalProblemFromSymbolicPr
 import numpy as np
 import math as math
 import plotly.express as px
-from pandas import DataFrame
 from plotly.offline import download_plotlyjs, plot,iplot
 from plotly.offline import iplot, init_notebook_mode
 from plotly.graph_objs import Mesh3d
 from plotly.graph_objs.layout.shape import Line
 from scipy.integrate import solve_ivp
 import plotly.graph_objects as go
+from pyeq2orb.Numerical.LambdifyModule import LambdifyHelper
+from scipy.integrate import solve_ivp
+import pyeq2orb.Graphics.Primitives as prim
+import pyeq2orb.Graphics.PlotlyUtilities as plotlyUtil
+
+import plotly.graph_objects as go
+from collections import OrderedDict
 
 init_notebook_mode()
 
@@ -49,6 +55,7 @@ def CreateThrustMatrix(eqElements : EquinoctialElements) ->sy.Matrix :
                 [0,0,sqrtpOverMu*(s2*sy.sin(lEq)/(2*w))],
                 [0,0,sqrtpOverMu*(hEq*sy.sin(lEq)-kEq*sy.cos(lEq))]])
     return B
+
 # order in paper is perRad, f,g,h,k,l
 class HowManyImpulses(SymbolicProblem) :
     def __init__(self):
@@ -61,7 +68,7 @@ class HowManyImpulses(SymbolicProblem) :
         self._mu = elements.GravitationalParameter
         g = sy.Symbol('g', real=True, positive=True) #9.8065
         f = CreateTwoBodyMotionMatrix(elements)
-        B = CreateThrustMatrix(elements)
+        B = elements.CreatePerturbationMatrix()
         alp = sy.Matrix([[sy.Function(r'alpha_x', real=True)(t)],[sy.Function(r'alpha_y', real=True)(t)],[sy.Function(r'alpha_z', real=True)(t)]])
         thrust = sy.Symbol('T')
         m = sy.Function('m')(t)
@@ -129,9 +136,9 @@ class HowManyImpulses(SymbolicProblem) :
     def AddStandardResultsToFigure(self, figure: Figure, t: List[float], dictionaryOfValueArraysKeyedOffState: Dict[object, List[float]], label: str) -> None:
         pass
 
-    def AddFinalConditions(self, smaF, fF, gF, hF, kF, lF) :
+    def AddFinalConditions(self, pF, fF, gF, hF, kF, lF) :
         elementsAtF = self.CreateVariablesAtTimeFinal(self.StateVariables)
-        self.BoundaryConditions.append(elementsAtF[0] - smaF)
+        self.BoundaryConditions.append(elementsAtF[0] - pF)
         self.BoundaryConditions.append(elementsAtF[1] - fF)
         self.BoundaryConditions.append(elementsAtF[2] - gF)
         self.BoundaryConditions.append(elementsAtF[3] - hF)
@@ -158,8 +165,8 @@ twoBodyMatrix = CreateTwoBodyList(symbolicElements)
 simpleTwoBodyLambidfyCreator = LambdifyHelper(t, symbolicElements.ToArray(), twoBodyMatrix, [], {symbolicElements.GravitationalParameter: muVal})
 odeCallback =simpleTwoBodyLambidfyCreator.CreateSimpleCallbackForSolveIvp()
 
-testSolution = solve_ivp(odeCallback, [0.0, tfVal], initialElements.ToArray(), args=tuple(), t_eval=np.linspace(0.0, tfVal,900), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
-marsSolution = solve_ivp(odeCallback, [0.0, tfVal], finalElements.ToArray(), args=tuple(), t_eval=np.linspace(0.0, tfVal,900), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
+earthSolution = solve_ivp(odeCallback, [0.0, tfVal], initialElements.ToArray(), args=tuple(), t_eval=np.linspace(0.0, tfVal,900), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
+marsSolution = solve_ivp(odeCallback, [tfVal, 0.0], finalElements.ToArray(), args=tuple(), t_eval=np.linspace(tfVal, 0.0, 900), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
 
 def GetEquiElementsOutOfIvpResults(ivpResults) :
     t = []
@@ -170,6 +177,9 @@ def GetEquiElementsOutOfIvpResults(ivpResults) :
         equi.append(temp)
         t.append(ivpResults.t[i])
 
+    if t[0] > t[1] :
+        t.reverse()
+        equi.reverse()
     return (t, equi)
 
 import pyeq2orb.Graphics.Primitives as prim
@@ -245,6 +255,7 @@ def scaleEquinoctialElements(equiElements : EquinoctialElements, distanceDivisor
 
 #initialElements = scaleEquinoctialElements(initialElements, Au, tfVal)
 #finalElements = scaleEquinoctialElements(finalElements, Au, tfVal)
+
 muVal = initialElements.GravitationalParameter
 per0 = initialElements.PeriapsisRadius
 g0 = initialElements.EccentricitySinTermG
@@ -256,17 +267,14 @@ lon0 = initialElements.TrueLongitude
 m0Val = 2000
 isp = 3000
 nRev = 2
-thrustVal =  0.1996
-g = 9.8065
-n=100
-tSpace = np.linspace(0.0, 1.0, n)
-from pyeq2orb.Numerical.LambdifyModule import LambdifyHelper
-from scipy.integrate import solve_ivp
-
+thrustVal =  0.1996  
+g = 9.8065 
+n = 300
+tSpace = np.linspace(0.0, tfVal/tfVal, n)
 
 baseProblem = HowManyImpulses()
 newSvs = ScaledSymbolicProblem.CreateBarVariables(baseProblem.StateVariables, baseProblem.TimeSymbol)
-baseProblem.SubstitutionDictionary[baseProblem.Mu] = muVal
+baseProblem.SubstitutionDictionary[baseProblem.Mu] = initialElements.GravitationalParameter
 baseProblem.SubstitutionDictionary[baseProblem.Isp] = isp
 baseProblem.SubstitutionDictionary[baseProblem.Mass] = m0Val
 baseProblem.SubstitutionDictionary[baseProblem.Thrust] = thrustVal
@@ -279,7 +287,7 @@ integrationSymbols.extend(baseProblem.StateVariables)
 arguments = [*baseProblem.Alphas, baseProblem.Throttle, baseProblem.TimeFinalSymbol]
 
 for emK, emV in baseProblem.EquationsOfMotion.items() :
-    jh.showEquation(emK, emV)
+    jh.showEquation(sy.diff(emK, t), emV)
 
 lambdifyHelper = LambdifyHelper(baseProblem.TimeSymbol, integrationSymbols, baseProblem.EquationsOfMotion.values(), arguments, baseProblem.SubstitutionDictionary)
 odeIntEomCallback = lambdifyHelper.CreateSimpleCallbackForSolveIvp()
@@ -298,110 +306,34 @@ trivialScalingDic[baseProblem.StateVariables[0]] = Au
 scaledProblem = ScaledSymbolicProblem(baseProblem, baseProblem.StateVariables, trivialScalingDic, True)
 asNumericalProblem = NumericalProblemFromSymbolicProblem(scaledProblem, lambdiafyFunctionMap)
 
-def plotlotAnimationSetup(title, aniData : List[go.Scatter3d]):
-    
-    
+
+def plotlotAnimationSetup(title, aniData : List[go.Scatter3d], scaleData : go.Scatter3d):
+        
     item = aniData[0]
+    t = []
+    x = []
+    y = []
+    z = []
+    colors = []
+    dataDict = {}
+    for item in aniData :
+        for i in range(0, len(item.x)) :
+            t.append(i)
+            colors.append(item.line.color)
+        x.extend(item.x)
+        y.extend(item.y)
+        z.extend(item.z)
+
+    dataDict = {"t": t, "x": x, "y":y, "z":z, "color": colors}
     
-    dataDict = {"t": np.linspace(0, len(item.x)), "x": item.x, "y":item.y, "z":item.z}
-    fig = px.scatter_3d(dataDict, x="x", y="y", z="z", animation_frame="t")
+    fig = go.Figure(px.scatter_3d(dataDict, x="x", y="y", z="z", animation_frame="t", color="color"))
+    for item in aniData :
+        fig.add_trace(item)
+    fig.add_trace(scaleData)
     fig.show()
 
-    # for i in range(0, len(item.x)) :
-    #     fig.add_trace(go.Scatter3d(x=[item.x[i]], y=[item.y[i]], z=[item.z[i]], mode='markers', marker_color='red', marker_size=10))#, row=1, col=1)   
-    # # Frames
-    # fig = go.Figure(data = [item], 
-
-    #                 layout=go.Layout(
-    #                     xaxis=dict(range=[aniData[-1].x[0], aniData[-1].x[1]], autorange=False, zeroline=False),
-    #                     yaxis=dict(range=[aniData[-1].y[0], aniData[-1].y[1]], autorange=False, zeroline=False),
-    #                     #zaxis=dict(range=[aniData[3].y[0], aniData[3].z[1]], autorange=False, zeroline=False),
-    #                     #title_text="Kinematic Generation of a Planar Curve", hovermode="closest",
-    #                     updatemenus=[dict(type="buttons",
-    #                                     buttons=[dict(label="Play",
-    #                                                     method="animate",
-    #                                                     args=[None]),
-    #                                             dict(label="Pause",
-    #                                                     method="animate",
-    #                                                     args=[None])
-    #                                                     ])]))    
-                    # frames = [go.Frame(data=[go.Scatter3d(
-                    #                        x=item.x[:k+1],
-                    #                        y=item.y[:k+1],
-                    #                        z=item.z[:k+1],
-                    #                        mode="markers",
-                    #                        marker={"color": item.line.color, "size":10}
-                    #                     )])for k in range(len(item.x))])
-    #fig.add_trace(item, row=1, col=1)
-
-    #fig.frames=frames
-    #fig.update(frames=frames)
-
-
-
-
-    # def frame_args(duration):
-    #     return {
-    #             "frame": {"duration": duration},
-    #             "mode": "immediate",
-    #             "fromcurrent": True,
-    #             "transition": {"duration": duration, "easing": "linear"},
-    #             }
-
-
-    # sliders = [
-    #     {"pad": {"b": 10, "t": 60},
-    #     "len": 0.9,
-    #     "x": 0.1,
-    #     "y": 0,
-        
-    #     "steps": [
-    #                 {"args": [[f.name], frame_args(0)],
-    #                 "label": str(k),
-    #                 "method": "animate",
-    #                 } for k, f in enumerate(fig.frames)
-    #             ]
-    #     }
-    #         ]
-
-    # fig.update_layout(
-
-    #     updatemenus = [{"buttons":[
-    #                     {
-    #                         "args": [None, frame_args(50)],
-    #                         "label": "Play", 
-    #                         "method": "animate",
-    #                     },
-    #                     {
-    #                         "args": [[None], frame_args(0)],
-    #                         "label": "Pause", 
-    #                         "method": "animate",
-    #                 }],
-                        
-    #                 "direction": "left",
-    #                 "pad": {"r": 10, "t": 70},
-    #                 "type": "buttons",
-    #                 "x": 0.1,
-    #                 "y": 0,
-    #             }
-    #         ],
-    #         sliders=sliders
-    #     )
-    # fig.update_layout(scene = dict(xaxis=dict(range=[min(item.x), max(item.x)], autorange=False),
-    #                             yaxis=dict(range=[min(item.y), max(item.y)], autorange=False),
-    #                             zaxis=dict(range=[min(item.z), max(item.z)], autorange=False)
-    #                             )
-    #                 )
-
-    #fig.update_layout(sliders=sliders)
-    #fig.show()
-
-
-
-
-
 if True :
-    testSolution = solve_ivp(odeIntEomCallback, [0.0, 1.0*tfVal], fullInitialState, args=tuple([0.0, 1.0, 0.0, 1.0, tfVal]), t_eval=tSpace*tfVal, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
+    testSolution = solve_ivp(odeIntEomCallback, [0.0, 1.0*tfVal], fullInitialState, args=tuple([0.0, 1.0, 0.0, 1.0, tfVal]), t_eval=np.linspace(0.0, tfVal,900), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
     equiElements = []
     yFromIntegrator = testSolution.y #TODO
     for i in range(0, len(yFromIntegrator[0])):
@@ -423,9 +355,9 @@ if True :
     #dataArray.append(CreatePlotlyLineDataObject(satPath))
     dataArray.append(CreatePlotlyLineDataObject(simPath))
     maxVal = float(max(earthEphemeris.X, key=abs))
-    dataArray.append(CreateScalingItems(maxVal))
+    #dataArray.append(CreateScalingItems(maxVal))
 
-    plotlotAnimationSetup("Some Title", dataArray)
+    plotlotAnimationSetup("Some Title", dataArray, CreateScalingItems(maxVal))
 
 
     # overallFig = go.Figure(data=dataArray)
@@ -435,8 +367,6 @@ if True :
     #     fig.add_trace(item)
 
     # overallFig.show()
-
-#exit()
 
 #%%
 if False :

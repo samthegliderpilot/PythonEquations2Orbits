@@ -1,4 +1,5 @@
 from typing import List
+import numpy as np
 
 class EphemerisArrays :
     def __init__(self) :
@@ -14,34 +15,34 @@ class EphemerisArrays :
         self.AppendFromEphemeris(timeArray, [motion.Position for motion in motionArray])
 
     def InitFromEphemeris(self, timeArray, cartesianArray) :
-        self._t = []
-        self._x = []
-        self._y = []
-        self._z = []
         self.AppendFromEphemeris(timeArray, cartesianArray)
 
     def AppendFromEphemeris(self, timeArray, cartesianArray) :
-        for i in range(0, len(timeArray)) :
-            self._t.append(timeArray[i])
-            here = cartesianArray[i]
-            self._x.append(here.X)
-            self._y.append(here.Y)
-            self._z.append(here.Z)
+        self._t = np.array(timeArray)
+        self._x = np.array([float(pos.X) for pos in cartesianArray])
+        self._y = np.array([float(pos.Y) for pos in cartesianArray])
+        self._z = np.array([float(pos.Z) for pos in cartesianArray])
+        # for i in range(0, len(timeArray)) :
+        #     self._t.append(timeArray[i])
+        #     here = cartesianArray[i]
+        #     self._x.append(here.X)
+        #     self._y.append(here.Y)
+        #     self._z.append(here.Z)
 
     @property
-    def T(self) -> List[float] :
+    def T(self) -> np.array :
         return self._t
 
     @property
-    def X(self) -> List[float] :
+    def X(self) -> np.array :
         return self._x
 
     @property
-    def Y(self) -> List[float] :
+    def Y(self) -> np.array :
         return self._y
 
     @property
-    def Z(self) -> List[float] :
+    def Z(self) -> np.array :
         return self._z     
 
     def GetMaximumValue(self) :
@@ -55,7 +56,10 @@ class Primitive :
         self._color = "#000000"
 
     def maxumumValue(self) -> float : 
-        return 0.0
+        return self.maximumValueFromEphemeris(self.ephemeris)
+
+    def maximumValueFromEphemeris(self, ephemeris):
+        return ephemeris.GetMaximumValue()
 
     @property
     def color(self) : 
@@ -82,8 +86,11 @@ class PathPrimitive(Primitive) :
         return self._width
 
     @width.setter
-    def width(self, value) :
+    def set_width(self, value) :
         self._width = value 
+
+    def maxumumValue(self) -> float:
+        return super().maxumumValue()
 
 class MarkerPrimitive(Primitive) :
     def __init__(self, ephemeris = EphemerisArrays()) :
@@ -123,4 +130,22 @@ class Sphere(Primitive) :
     @radius.setter
     def radius(self, value) :
         self._radius = value
-   
+
+
+class PlanetPrimitive(MarkerPrimitive, PathPrimitive) :
+    def __init__(self, postionCartesians, markerSize, lineWidth, color, planetRadius, name):
+        PathPrimitive.__init__(self, postionCartesians)
+        MarkerPrimitive.__init__(self, postionCartesians)
+        self._color = color
+        self._size = markerSize
+        self._width = lineWidth
+        self._radius = planetRadius
+        self.name = name
+
+    @property
+    def radius(self) :
+        return self._radius
+
+    @radius.setter
+    def radius(self, value) :
+        self._radius = value
