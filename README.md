@@ -8,6 +8,16 @@ The goal with this project is to create an easy-to-understand set of types to as
 
 This is clearly a work in progress, interfaces will almost certainly change and there is no real verification or validation.  Some of the tests are pretty weak and I have a list of things to refactor after rushing to get this good enough for a release by my personal deadline.
 
+The way I've been setting up my environments has been with these conda/pip commands.  Note that in all cases, I have a C++ compiler on my computer (Visual Studio 2021 Commuinty is installed on Windows, gcc on Linux).  Cmake can find it, and it is probably required for setting up pyomo all the way:
+
+conda create --name Py39OptFun python=3.9
+conda activate Py39OptFun
+conda install sympy numpy pandas scipy plotly matplotlib jupyter pygmo pyomo cmake pytest
+conda install -c conda-forge ipopt glpk
+pyomo download-extensions
+pyomo build-extensions
+
+
 ### Near-term future work
 This is clearly a lot for me to learn about techniques for NLP techniques for optimal control problems.  In the near term I am adding the following:
 - More complicated problems
