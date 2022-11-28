@@ -78,7 +78,7 @@ class PathPrimitive(Primitive) :
         self._width = 1
 
     @property
-    def ephemeris(self) -> List[float] :
+    def ephemeris(self) -> EphemerisArrays :
         return self._ephemeris     
 
     @property
@@ -100,7 +100,7 @@ class MarkerPrimitive(Primitive) :
         self._size = 1
 
     @property
-    def ephemeris(self) -> List[float] :
+    def ephemeris(self) -> EphemerisArrays :
         return self._ephemeris     
 
     @property
@@ -120,7 +120,7 @@ class Sphere(Primitive) :
         self._radius = 1
 
     @property
-    def ephemeris(self) -> List[float] :
+    def ephemeris(self) -> EphemerisArrays :
         return self._ephemeris     
 
     @property

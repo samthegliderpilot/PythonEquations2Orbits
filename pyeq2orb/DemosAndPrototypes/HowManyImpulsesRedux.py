@@ -1,8 +1,9 @@
 #%%
 
 import sys
+import os
 from tkinter import E
-sys.path.append(r'C:\src\PythonEquations2Orbits') # and this line is needed for running like a normal python script
+sys.path.insert(1, os.path.dirname(os.path.dirname(sys.path[0]))) # need to import 2 directories up
 
 
 from IPython.display import display

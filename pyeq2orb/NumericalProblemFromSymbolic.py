@@ -34,8 +34,8 @@ class NumericalProblemFromSymbolicProblem(NumericalOptimizerProblemBase) :
         self._equationOfMotionList = []
         for (sv, eom) in wrappedProblem.EquationsOfMotion.items() :
             numericaEom = SymbolicProblem.SafeSubs(eom, wrappedProblem.SubstitutionDictionary)
-            if isinstance(numericaEom, Expr)  :
-                numericaEom=numericaEom.simplify()
+            #if isinstance(numericaEom, Expr)  :
+            #    numericaEom=numericaEom.simplify()
             eomCb = lambdify(entireState, numericaEom, functionMap)
             self._equationOfMotionList.append(eomCb) 
 
