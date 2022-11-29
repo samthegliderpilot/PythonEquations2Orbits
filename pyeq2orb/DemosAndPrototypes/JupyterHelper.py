@@ -5,7 +5,7 @@ from pytest import mark
 import sympy as sy
 from sympy.printing.latex import LatexPrinter
 from sympy.core import evaluate
-
+import sys
 defaultCleanEquations = True
 silent = False
 syFunctions = ['cos', 'sin', 'tan', 'exp', 'log', 're', 'im', 'Abs']
@@ -19,9 +19,13 @@ def isRunningJupyter():
     import __main__ as main
     return not hasattr(main, '__file__')
 
+#https://stackoverflow.com/questions/2356399/tell-if-python-is-in-interactive-mode
+def isInInteractiveMode() :
+    return hasattr(sys, 'ps1')
+
 def printMarkdown(markdown : str) -> None :
     if (not silent):
-        if(isRunningJupyter()) :
+        if(isInInteractiveMode()) :
             display(Markdown(markdown))
         else :
             print(markdown)

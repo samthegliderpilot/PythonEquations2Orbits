@@ -8,13 +8,17 @@ from typing import List
 class EquinoctialElements:
     def __init__(self, periapsis, f, g, h, k, l, mu) :
         self.PeriapsisRadius = periapsis
-        self.EccentricityCosTermF = g
-        self.EccentricitySinTermG = f        
-        self.InclinationSinTermK = h
-        self.InclinationCosTermH = k
+        self.EccentricityCosTermF = f
+        self.EccentricitySinTermG = g        
+        self.InclinationCosTermH = h
+        self.InclinationSinTermK = k        
         self.TrueLongitude = l
         self.GravitationalParameter = mu
     
+    @property
+    def sSquared(self) :
+        return 1.0+self.InclinationCosTermH*self.InclinationCosTermH+self.InclinationSinTermK*self.InclinationSinTermK
+
     def ToKeplerian(self) -> KeplerianElements :
         per = self.PeriapsisRadius
         g = self.EccentricitySinTermG
@@ -24,11 +28,11 @@ class EquinoctialElements:
         tl = self.TrueLongitude
 
         e = sy.sqrt(f**2+g**2)
-        a = per/(1-f*f-g*g)
+        a = per/(1.0-f*f-g*g)
         i = 2*sy.atan(sy.sqrt(h*h+k*k))#, (1-h*h-k*k))
         raan = sy.atan2(k, h)
         w = sy.atan2(g*h-f*k, f*h+g*k)
-        ta = tl - sy.atan2(f, g) #TODO: atan2's for the angles?
+        ta = tl - sy.atan2(f, g) 
 
         return KeplerianElements(a, e, i, w, raan, ta, self.GravitationalParameter)
 
@@ -40,9 +44,6 @@ class EquinoctialElements:
         h = self.InclinationCosTermH
         tl = self.TrueLongitude
         mu = self.GravitationalParameter
-        e = (f**2+g**2)**(1.0/2.0)
-        a = p/(1-f*f-g*g)
-        i = 2*sy.atan(h**2+k**2)**(1.0/2.0)
         alp2 = h*h-k*k
         s2 = 1+h*h+k*k
         w = 1+f*sy.cos(tl)+g*sy.sin(tl)
@@ -57,7 +58,6 @@ class EquinoctialElements:
         vz = (2/s2) * (sy.sqrt(mu/p)) * (h*sy.cos(tl) + k*sy.sin(tl) + f*h + g*k)
 
         return MotionCartesian(Cartesian(x, y, z), Cartesian(vx, vy, vz))
-        #return self.ToKeplerian().ToInertialMotionCartesian() # TODO: something that avoids keplerian elements
 
     def ToArray(self) -> List :
         return [self.PeriapsisRadius, self.EccentricityCosTermF, self.EccentricitySinTermG, self.InclinationCosTermH, self.InclinationSinTermK, self.TrueLongitude]
