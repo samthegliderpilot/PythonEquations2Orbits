@@ -18,7 +18,7 @@ equiElements = CreateSymbolicElements(t)
 cartesian = equiElements.ToPseuodNormalizedCartesian()
 jh.showEquation("R", cartesian.Position)
 jh.showEquation("V", cartesian.Velocity)
-rMag = equiElements.PeriapsisRadius/(1+equiElements.EccentricityCosTermF*sy.cos(equiElements.TrueLongitude) + equiElements.EccentricitySinTermG*sy.sin(equiElements.TrueLongitude))
+rMag = equiElements.PeriapsisRadius/(1+equiElements.EccentricitySinTermG*sy.cos(equiElements.TrueLongitude) + equiElements.EccentricitySinTermG*sy.sin(equiElements.TrueLongitude))
 
 def expandAndSimplify(s) :
     return s.trigsimp(deep=True).simplify()

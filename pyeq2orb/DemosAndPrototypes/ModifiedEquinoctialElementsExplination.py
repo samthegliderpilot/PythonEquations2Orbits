@@ -29,7 +29,7 @@ jh.printMarkdown("We will show how to convert Keplerian elements to Modified Equ
 kepElements = KepModule.CreateSymbolicElements()
 equiInTermsOfKep = ConvertKeplerianToEquinoctial(kepElements)
 jh.showEquation("p", equiInTermsOfKep.PeriapsisRadius)
-jh.showEquation("f", equiInTermsOfKep.EccentricityCosTermF)
+jh.showEquation("f", equiInTermsOfKep.EccentricitySinTermG)
 jh.showEquation("g", equiInTermsOfKep.EccentricitySinTermG)
 jh.showEquation("h", equiInTermsOfKep.InclinationCosTermH)
 jh.showEquation("k", equiInTermsOfKep.InclinationSinTermK)

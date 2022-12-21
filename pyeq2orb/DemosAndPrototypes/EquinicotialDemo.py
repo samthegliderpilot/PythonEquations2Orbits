@@ -8,7 +8,7 @@ from pyeq2orb.ForceModels.TwoBodyForce import CreateTwoBodyMotionMatrix, CreateT
 from pyeq2orb.ScaledSymbolicProblem import ScaledSymbolicProblem
 from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
 from pyeq2orb.Coordinates.KeplerianModule import KeplerianElements
-from pyeq2orb.Coordinates.EquinoctialElements import EquinoctialElements, CreateSymbolicElements
+from pyeq2orb.Coordinates.ModifiedEquinoctialElementsModule import ModifiedEquinoctialElements, CreateSymbolicElements
 from pyeq2orb.Numerical.LambdifyModule import LambdifyHelper
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 from typing import List, Dict
@@ -174,13 +174,13 @@ AuSy = sy.Symbol('A_u')
 muVal = 1.32712440042e20
 r0 = Cartesian(58252488010.7, 135673782531.3, 2845058.1)
 v0 = Cartesian(-27844.5, 11659.9, 0000.3)
-initialElements = EquinoctialElements.FromMotionCartesian(MotionCartesian(r0, v0), muVal)
+initialElements = ModifiedEquinoctialElements.FromMotionCartesian(MotionCartesian(r0, v0), muVal)
 
 gSy = sy.Symbol('g', real=True, positive=True)
 
 rf = Cartesian(36216277800.4, -211692395522.5, -5325189049.9)
 vf = Cartesian(24798.8, 6168.2, -480.0)
-finalElements = EquinoctialElements.FromMotionCartesian(MotionCartesian(rf, vf), muVal)
+finalElements = ModifiedEquinoctialElements.FromMotionCartesian(MotionCartesian(rf, vf), muVal)
 
 t = sy.Symbol('t', real=True)
 symbolicElements = CreateSymbolicElements(t)
@@ -196,7 +196,7 @@ def GetEquiElementsOutOfIvpResults(ivpResults) :
     equi = []
     yFromIntegrator = ivpResults.y 
     for i in range(0, len(yFromIntegrator[0])):
-        temp = EquinoctialElements(yFromIntegrator[0][i], yFromIntegrator[1][i], yFromIntegrator[2][i], yFromIntegrator[3][i], yFromIntegrator[4][i], yFromIntegrator[5][i], muVal)
+        temp = ModifiedEquinoctialElements(yFromIntegrator[0][i], yFromIntegrator[1][i], yFromIntegrator[2][i], yFromIntegrator[3][i], yFromIntegrator[4][i], yFromIntegrator[5][i], muVal)
         equi.append(temp)
         t.append(ivpResults.t[i])
 
@@ -208,14 +208,14 @@ def GetEquiElementsOutOfIvpResults(ivpResults) :
 import pyeq2orb.Graphics.Primitives as prim
 
 (tArray, equiElements) = GetEquiElementsOutOfIvpResults(earthSolution)
-motions = EquinoctialElements.CreateEphemeris(equiElements)
+motions = ModifiedEquinoctialElements.CreateEphemeris(equiElements)
 earthEphemeris = prim.EphemerisArrays()
 earthEphemeris.InitFromMotions(tArray, motions)
 earthPath = prim.PathPrimitive(earthEphemeris)
 earthPath.color = "#0000ff"
 
 (tArray, equiElements) = GetEquiElementsOutOfIvpResults(marsSolution)
-marsMotions = EquinoctialElements.CreateEphemeris(equiElements)
+marsMotions = ModifiedEquinoctialElements.CreateEphemeris(equiElements)
 marsEphemeris = prim.EphemerisArrays()
 marsEphemeris.InitFromMotions(tArray, marsMotions)
 marsPath = prim.PathPrimitive(marsEphemeris)
@@ -241,20 +241,20 @@ sphereThing = Mesh3d({
 
 
 
-def scaleEquinoctialElements(equiElements : EquinoctialElements, distanceDivisor, timeDivisor) :
-    newPer = equiElements.PeriapsisRadius/distanceDivisor
+def scaleEquinoctialElements(equiElements : ModifiedEquinoctialElements, distanceDivisor, timeDivisor) :
+    newPer = equiElements.SemiParameter/distanceDivisor
     newMu = equiElements.GravitationalParameter * timeDivisor*timeDivisor/(distanceDivisor*distanceDivisor*distanceDivisor)
-    return EquinoctialElements(newPer, equiElements.EccentricityCosTermF, equiElements.EccentricitySinTermG, equiElements.InclinationCosTermH, equiElements.InclinationSinTermK, equiElements.TrueLongitude, newMu)
+    return ModifiedEquinoctialElements(newPer, equiElements.EccentricityCosTermF, equiElements.EccentricitySinTermG, equiElements.InclinationCosTermH, equiElements.InclinationSinTermK, equiElements.TrueLongitude, newMu)
 
 #initialElements = scaleEquinoctialElements(initialElements, Au, tfVal)
 #finalElements = scaleEquinoctialElements(finalElements, Au, tfVal)
 
 muVal = initialElements.GravitationalParameter
-per0 = initialElements.PeriapsisRadius
-g0 = initialElements.EccentricitySinTermG
+per0 = initialElements.SemiParameter
 f0 = initialElements.EccentricityCosTermF
-k0 = initialElements.InclinationSinTermK
-h0 = initialElements.InclinationCosTermH
+g0 = initialElements.EccentricitySinTermG
+k0 = initialElements.InclinationCosTermH
+h0 = initialElements.InclinationSinTermK
 lon0 = initialElements.TrueLongitude
 print("making base base problem")
 baseProblem = HowManyImpulses()
@@ -487,7 +487,7 @@ model.kEom = poenv.Constraint(model.t, rule =lambda m, t2: m.kDot[t2] == mapPyom
 model.lonEom = poenv.Constraint(model.t, rule =lambda m, t2: m.lonDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 5)))
 model.massEom = poenv.Constraint(model.t, rule =lambda m, t2: m.mDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 6)))
 
-model.bc1 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[0](mod1, 1.0) - float(finalElements.PeriapsisRadius/trivialScalingDic[baseProblem.StateVariables[0]]))
+model.bc1 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[0](mod1, 1.0) - float(finalElements.SemiParameter/trivialScalingDic[baseProblem.StateVariables[0]]))
 model.bc2 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[1](mod1, 1.0) - float(finalElements.EccentricityCosTermF))
 model.bc3 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[2](mod1, 1.0) - float(finalElements.EccentricitySinTermG))
 model.bc4 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[3](mod1, 1.0) - float(finalElements.InclinationCosTermH))
@@ -563,16 +563,16 @@ time = time*tfVal
 dictSolution = scaledProblem.DescaleResults(dictSolution)
 equiElements = []
 for i in range(0, len(time)):    
-    temp = EquinoctialElements(dictSolution[stateSymbols[0]][i]*trivialScalingDic[baseProblem.StateVariables[0]], dictSolution[stateSymbols[1]][i], dictSolution[stateSymbols[2]][i], dictSolution[stateSymbols[3]][i], dictSolution[stateSymbols[4]][i], dictSolution[stateSymbols[5]][i], muVal)
+    temp = ModifiedEquinoctialElements(dictSolution[stateSymbols[0]][i]*trivialScalingDic[baseProblem.StateVariables[0]], dictSolution[stateSymbols[1]][i], dictSolution[stateSymbols[2]][i], dictSolution[stateSymbols[3]][i], dictSolution[stateSymbols[4]][i], dictSolution[stateSymbols[5]][i], muVal)
     #realEqui = scaleEquinoctialElements(temp, 1.0, 1.0)
     equiElements.append(temp)
 
 simEqui = []
 for i in range(0, len(tsim)) :
-    temp = EquinoctialElements(profiles[i][0]*trivialScalingDic[baseProblem.StateVariables[0]], profiles[i][1], profiles[i][2], profiles[i][3], profiles[i][4], profiles[i][5], muVal)
+    temp = ModifiedEquinoctialElements(profiles[i][0]*trivialScalingDic[baseProblem.StateVariables[0]], profiles[i][1], profiles[i][2], profiles[i][3], profiles[i][4], profiles[i][5], muVal)
     simEqui.append(temp)
 
-guessMotions = EquinoctialElements.CreateEphemeris(simEqui)
+guessMotions = ModifiedEquinoctialElements.CreateEphemeris(simEqui)
 simEphem = prim.EphemerisArrays()
 simEphem.InitFromMotions(tsim*tfVal, guessMotions)
 simPath = prim.PathPrimitive(simEphem)
@@ -581,7 +581,7 @@ simPath.color = "#00ff00"
 #dataArray.append(CreatePlotlyLineDataObject(earthPath))
 #dataArray.append(CreatePlotlyLineDataObject(marsPath))
 try :
-    motions = EquinoctialElements.CreateEphemeris(equiElements)
+    motions = ModifiedEquinoctialElements.CreateEphemeris(equiElements)
     satEphem = prim.EphemerisArrays()
     satEphem.InitFromMotions(time, motions)
     satPath = prim.PathPrimitive(satEphem)

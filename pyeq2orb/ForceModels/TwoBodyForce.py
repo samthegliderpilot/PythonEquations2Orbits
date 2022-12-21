@@ -1,14 +1,12 @@
 from typing import List
-from pyeq2orb.Coordinates.EquinoctialElements import EquinoctialElements
+from pyeq2orb.Coordinates.ModifiedEquinoctialElementsModule import ModifiedEquinoctialElements
 import sympy as sy
 
-def CreateTwoBodyMotionMatrix(eqElements : EquinoctialElements) ->sy.Matrix :
+def CreateTwoBodyMotionMatrix(eqElements : ModifiedEquinoctialElements) ->sy.Matrix :
     mu = eqElements.GravitationalParameter
-    p = eqElements.PeriapsisRadius
-    keq = eqElements.InclinationSinTermK
-    heq = eqElements.InclinationCosTermH
+    p = eqElements.SemiParameter    
     feq = eqElements.EccentricityCosTermF
-    geq = eqElements.EccentricitySinTermG
+    geq = eqElements.EccentricitySinTermG    
     leq = eqElements.TrueLongitude
     #wsy = sy.Symbol("w")#(feq, geq, leq)
     w = 1+feq*sy.cos(leq)+geq*sy.sin(leq)
@@ -18,7 +16,7 @@ def CreateTwoBodyMotionMatrix(eqElements : EquinoctialElements) ->sy.Matrix :
     f = sy.Matrix([[0],[0],[0],[0],[0],[sy.sqrt(mu*p)*((w/p)**2)]])
     return f
 
-def CreateTwoBodyList(eqElements : EquinoctialElements) -> List[sy.Expr] :
+def CreateTwoBodyList(eqElements : ModifiedEquinoctialElements) -> List[sy.Expr] :
     mat = CreateTwoBodyMotionMatrix(eqElements)
     rows = []
     for i in range(0, 6) :
