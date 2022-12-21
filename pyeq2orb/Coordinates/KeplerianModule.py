@@ -256,7 +256,7 @@ def CreateSymbolicElements(elementsFunctionOf : sy.Symbol = None) -> KeplerianEl
     """
     if(elementsFunctionOf == None) :
         a = sy.Symbol("a", real=True)
-        ecc = sy.Symbol('e', nonnegative=True)
+        ecc = sy.Symbol('e', real=True, nonnegative=True)
         inc = sy.Symbol('i', real=True)
         raan = sy.Symbol('\Omega', real=True)
         aop = sy.Symbol('\omega', real=True)
