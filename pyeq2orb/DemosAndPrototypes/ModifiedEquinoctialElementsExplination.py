@@ -9,7 +9,7 @@ from pyeq2orb.ForceModels.TwoBodyForce import CreateTwoBodyMotionMatrix, CreateT
 from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
 from pyeq2orb.Coordinates.KeplerianModule import KeplerianElements
 import pyeq2orb.Coordinates.KeplerianModule as KepModule
-from pyeq2orb.Coordinates.EquinoctialElements import EquinoctialElements, CreateSymbolicElements, ConvertKeplerianToEquinoctial
+from pyeq2orb.Coordinates.ModifiedEquinoctialElementsModule import CreateSymbolicElements, ConvertKeplerianToEquinoctial, EquinoctialElementsHalfI
 import JupyterHelper as jh
 jh.printMarkdown("# Modified Equinoctial Elements Summary")
 jh.printMarkdown("While working with optimal control problems for satellite maneuvers, I needed a reference for working with Equinoctial and Modifeid Equinoctial Elements. This will pull together several sources and show the equations and some of the derivations of these equations that are encoded in the library I'm writing.")
@@ -28,7 +28,7 @@ jh.printMarkdown("## Modified Equinoctial Orbial Elements Relationship with Kepl
 jh.printMarkdown("We will show how to convert Keplerian elements to Modified Equinoctial Elements:")
 kepElements = KepModule.CreateSymbolicElements()
 equiInTermsOfKep = ConvertKeplerianToEquinoctial(kepElements)
-jh.showEquation("p", equiInTermsOfKep.PeriapsisRadius)
+jh.showEquation("p", equiInTermsOfKep.SemiParameter)
 jh.showEquation("f", equiInTermsOfKep.EccentricitySinTermG)
 jh.showEquation("g", equiInTermsOfKep.EccentricitySinTermG)
 jh.showEquation("h", equiInTermsOfKep.InclinationCosTermH)
@@ -49,7 +49,7 @@ jh.showEquation("t", kepElements.TrueAnomaly)
 
 jh.printMarkdown("Where:")
 jh.printMarkdown("- a = semimajor axis")
-jh.printMarkdown("- p = semiparameter") #TODO: WHOOPS!
+jh.printMarkdown("- p = semiparameter") 
 jh.printMarkdown("- e = orbit eccentricity")
 jh.printMarkdown("- i = orbit inclination")
 jh.printMarkdown("- $" + r'\omega' + "$ = argument of perigee")
@@ -58,3 +58,38 @@ jh.printMarkdown("- t = true anomaly") #TODO: Change default symbol in Keplerian
 jh.printMarkdown("- L = true longitude")
 jh.printMarkdown("- $" + r'\mu' + "$ = gravitational paraemter")
 
+jh.printMarkdown("## Equinoctial Orbial Elements")
+jh.printMarkdown("Indeed, the Modified elements are not the originally defined Equinoctial elements. Many sources describe vanilla Equinoctial elements, and they are fine.")
+jh.printMarkdown("The only difference is that the size of the orbit is defined with the semi-major axis, and the order of the other elements (the sin terms come before the cos terms).  The converstion from Modified Equinoctial Elements is:")
+jh.printMarkdown("Going from Modified to original Equinoctial Elements:")
+meeToEe = EquinoctialElementsHalfI.FromModifiedEquinoctialElements(equiElements)
+jh.showEquation("a", meeToEe.SemiMajorAxis)
+jh.showEquation("h", meeToEe.EccentricitySinTermH)
+jh.showEquation("k", meeToEe.EccentricityCosTermJ)
+jh.showEquation("p", meeToEe.InclinationSinTermP)
+jh.showEquation("q", meeToEe.InclinationCosTermQ)
+jh.showEquation("L", meeToEe.Longitude)
+
+jh.printMarkdown("Going from Original Equinoctial Elements to Modified:")
+
+ee = EquinoctialElementsHalfI.CreateSymbolicElements()
+eeToMee = ee.ConvertToModifiedEquinoctial()
+jh.showEquation("p", eeToMee.SemiParameter)
+jh.showEquation("f", eeToMee.EccentricitySinTermG)
+jh.showEquation("g", eeToMee.EccentricitySinTermG)
+jh.showEquation("h", eeToMee.InclinationCosTermH)
+jh.showEquation("k", eeToMee.InclinationSinTermK)
+jh.showEquation("L", eeToMee.TrueLongitude)
+
+jh.printMarkdown("However, I have been told of a set of equinoctial elements that the inclination terms are in terms of the inclination instead of half of the inclination.  This causes the converstion to be much more complicated.  However I can not find a source for the elements in this form, so they will not be covered here.")
+
+
+
+# import subprocess
+# subprocess.run('p2j ModifiedEquinoctialElementsExplination.py -o')
+# #subprocess.run("jupyter nbconvert --execute ModifiedEquinoctialElementsExplination.ipynb")
+# subprocess.run("jupyter nbconvert --execute --to pdf ModifiedEquinoctialElementsExplination.ipynb")
+# #next convert markdown to ms word
+# #conversionCommand = 'pandoc -s ModifiedEquinoctialElementsExplination.md -t docx -o ModifiedEquinoctialElementsExplination.docx --filter pandoc-citeproc --bibliography="sources.bib" --csl="apa.csl"'
+# #subprocess.run(conversionCommand)
+print("done")

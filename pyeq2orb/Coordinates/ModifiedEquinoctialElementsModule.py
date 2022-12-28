@@ -16,7 +16,7 @@ class ModifiedEquinoctialElements:
 
     @staticmethod
     def FromCartesian(x, y, z, vx, vy, vz) :
-        pass
+        pass #TODO
     
     @property
     def W(self) :
@@ -191,4 +191,44 @@ def TwoBodyGravityForceOnElements(elements : ModifiedEquinoctialElements, w=None
 
 
 
+
+class EquinoctialElementsHalfI :
+    def __init__(self, a, h, k, p, q, longitude, mu) :
+        self.SemiMajorAxis = a
+        self.EccentricitySinTermH = h
+        self.EccentricityCosTermJ = k
+        self.InclinationSinTermP = p
+        self.InclinationCosTermQ = q
+        self.Longitude = longitude # consider how things would work if longitude was left ambigious
+        self.GravitationalParameter = mu
+
+    def ConvertToModifiedEquinoctial(self) ->ModifiedEquinoctialElements:
+        eSq = self.EccentricityCosTermJ**2+self.EccentricitySinTermH**2
+        param = self.SemiMajorAxis * (1.0 - eSq)
+        return ModifiedEquinoctialElements(param, self.EccentricityCosTermJ, self.EccentricitySinTermH, self.InclinationCosTermQ, self.InclinationSinTermP, self.Longitude, self.GravitationalParameter)
+
+    @staticmethod
+    def FromModifiedEquinoctialElements(mee : ModifiedEquinoctialElements) :
+        eSq = mee.EccentricityCosTermF**2+mee.EccentricitySinTermG**2
+        sma = mee.SemiParameter/(1.0-eSq)
+        return EquinoctialElementsHalfI(sma, mee.EccentricitySinTermG, mee.EccentricityCosTermF, mee.InclinationSinTermK, mee.InclinationCosTermH, mee.TrueLongitude, mee.GravitationalParameter)
+
+    def CreateSymbolicElements(elementOf = None)  : #TODO kargs of mu and element of
+        if(elementOf == None) : 
+            a = sy.Symbol('a', real=True)
+            h = sy.Symbol('h', real=True)
+            k = sy.Symbol('k', real=True)
+            p = sy.Symbol('p', real=True)
+            q= sy.Symbol('q', real=True)
+            l = sy.Symbol('l', real=True)
+        else :
+            a = sy.Function('a', positive=True)(elementOf)
+            h = sy.Function('h', real=True)(elementOf)
+            k = sy.Function('k', real=True)(elementOf)
+            p = sy.Function('p', real=True)(elementOf)
+            q= sy.Function('q', real=True)(elementOf)
+            l = sy.Function('l', real=True)(elementOf)
+        mu = sy.Symbol(r'\mu', positive=True, real=True)
+
+        return EquinoctialElementsHalfI(a, h, k, p, q, l, mu)
 

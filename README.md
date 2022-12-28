@@ -12,11 +12,12 @@ The way I've been setting up my environments has been with these conda/pip comma
 
 conda create --name Py39OptFun python=3.9
 conda activate Py39OptFun
-conda install sympy numpy pandas scipy plotly matplotlib jupyter pygmo pyomo cmake pytest
+conda install sympy numpy pandas scipy plotly matplotlib jupyter pygmo pyomo cmake pytest p2j
 conda install -c conda-forge ipopt glpk
 pyomo download-extensions
 pyomo build-extensions
 
+Note that my conversion of Jupyter notebooks requires LaTeX of some sort to be installed (on Windows, I'm using MiKTeX)
 
 ### Near-term future work
 This is clearly a lot for me to learn about techniques for NLP techniques for optimal control problems.  In the near term I am adding the following:
