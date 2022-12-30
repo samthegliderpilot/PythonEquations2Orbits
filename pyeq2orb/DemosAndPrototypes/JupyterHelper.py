@@ -1,11 +1,11 @@
 # This is a set of helper function to display pretty printed equations and markdown in a Jupyter (or Jupyter-like window like in VS Code).
 # This is just for outputting purposes and I don't plan on adding tests or thorough documentation to this (for now).
 from IPython.display import  Latex, display, Markdown
-from pytest import mark
 import sympy as sy
 from sympy.printing.latex import LatexPrinter
 from sympy.core import evaluate
 import sys
+from typing import List
 defaultCleanEquations = True
 silent = False
 syFunctions = ['cos', 'sin', 'tan', 'exp', 'log', 're', 'im', 'Abs']
@@ -120,3 +120,101 @@ def showEquation(lhs, rhs=None, cleanEqu=defaultCleanEquations) :
             display(realLhs) 
         else :
             display(sy.Eq(realLhs, realRhs))
+
+
+
+# import subprocess
+# subprocess.run('p2j ModifiedEquinoctialElementsExplination.py -o')
+# #subprocess.run("jupyter nbconvert --execute ModifiedEquinoctialElementsExplination.ipynb")
+# subprocess.run("jupyter nbconvert --execute --to pdf ModifiedEquinoctialElementsExplination.ipynb")
+# #next convert markdown to ms word
+# #conversionCommand = 'pandoc -s ModifiedEquinoctialElementsExplination.md -t docx -o ModifiedEquinoctialElementsExplination.docx --filter pandoc-citeproc --bibliography="sources.bib" --csl="apa.csl"'
+# #subprocess.run(conversionCommand)
+import subprocess
+class ReportGeneratorFromPythonFileWithCells :
+    def __init__(self, directory, pythonFileName, outputFileName) :
+        self.directory = directory
+        self.pythonFileName = pythonFileName
+        self.pythonFilePath = join(self.directory, self.pythonFileName)
+        self.outputFileName = outputFileName
+        self.outputFilePath = join(self.directory, self.outputFileName)
+
+    @property
+    def baseFilePathAsIpynb(self) -> str :
+        return join(self.directory, self.pythonFilePath.replace(".py", ".ipynb"))
+
+    @property
+    def baseFileNameAsIpynb(self) -> str :
+        return self.pythonFileName.replace(".py", ".ipynb")
+
+    @property
+    def baseFilePathAsMarkdown(self) -> str :
+        return join(self.directory, self.pythonFilePath.replace(".py", ".md"))
+
+    @property
+    def baseFileNameAsMarkdown(self) -> str :
+        return self.pythonFileName.replace(".py", ".md")
+
+    def WritePdfDirectlyFromJupyter(self) :
+        markerFileName = self.baseFileNameAsIpynb
+        with FileMarker(self.directory, markerFileName) as fm:
+            if not fm.fileAlreadyExists: 
+                subprocess.run('p2j ' + self.pythonFileName + ' -o', cwd = self.directory)
+                subprocess.run("jupyter nbconvert --execute --to pdf --no-input " + self.baseFileNameAsIpynb, cwd = self.directory)
+            #jupyter nbconvert --execute --to pdf --no-input
+    # def WritePdfWithMarkdownInTheMiddile(self) :
+    #     pass
+
+    # def _executeCommandsToMakePdf(self, commands : List[str]) :
+    #     # first, convert to jupyter
+    #     # then the ipynb must get executed BUT, if this command is at the end of the ipynb, we can't let it run the same 
+    #     # way over again, otherwise it will execute the command again...
+        
+    #     subprocess.run('p2j ModifiedEquinoctialElementsExplination.py -o')
+    #     subprocess.run("jupyter nbconvert --execute --to pdf ModifiedEquinoctialElementsExplination.md")
+
+
+from os import listdir, unlink, remove
+from os.path import isfile, join, basename
+import os
+import glob
+
+class FileScope :
+    def __init__(self, directory : str, localNewFilesToKeep : List[str] = []) :
+        self.localNewFilesToKeep = localNewFilesToKeep
+        self.directory = directory
+        return self
+
+    def __enter__(self) :
+        self.filesInDirectory = []
+        for filename in glob.iglob(self.directory, recursive=True) :
+            self.filesInDirectory.append(filename)
+        return self
+
+    def __exit__(self, exc_type, exc_value, tb) :
+        itemsAtEnd = listdir(self.directory)
+        for item in itemsAtEnd :
+            fileNameOfItem = basename(item)
+            if not item in self.filesInDirectory and not fileNameOfItem in self.localNewFilesToKeep :
+                if isfile(item) :
+                    remove(item)
+import uuid
+class FileMarker :
+    def __init__(self, directory, fileName = None) :
+        self.directory = directory
+        if fileName == None :
+            fileName = str(uuid.uuid4())
+        self.fileName =join(self.directory, fileName)
+        self.fileAlreadyExists = isfile(self.fileName)
+    
+    def __enter__(self) :        
+        if not self.fileAlreadyExists :
+            f = open(self.fileName, 'w')
+            f.close()
+        return self
+
+    def __exit__(self, exc_type, exc_value, tb) :
+        if not self.fileAlreadyExists and isfile(self.fileName) :
+            remove(self.fileName)
+
+    

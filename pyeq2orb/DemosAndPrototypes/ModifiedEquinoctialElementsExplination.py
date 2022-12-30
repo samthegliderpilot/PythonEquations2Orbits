@@ -1,3 +1,6 @@
+#%% [markdown]
+# (my-label)=## My header
+
 #%%
 import sympy as sy
 import os
@@ -12,8 +15,9 @@ import pyeq2orb.Coordinates.KeplerianModule as KepModule
 from pyeq2orb.Coordinates.ModifiedEquinoctialElementsModule import CreateSymbolicElements, ConvertKeplerianToEquinoctial, EquinoctialElementsHalfI
 import JupyterHelper as jh
 jh.printMarkdown("# Modified Equinoctial Elements Summary")
-jh.printMarkdown("While working with optimal control problems for satellite maneuvers, I needed a reference for working with Equinoctial and Modifeid Equinoctial Elements. This will pull together several sources and show the equations and some of the derivations of these equations that are encoded in the library I'm writing.")
+jh.printMarkdown("While working with optimal control problems for satellite maneuvers, I needed a reference for working with Equinoctial and Modifeid Equinoctial Elements. This will pull together several sources and show the equations and some of the derivations of these equations that are encoded in the library I'm writing.[here's my label](my-label)")
 
+#%%
 jh.printMarkdown("Note that this document is made with python code using sympy.  Some of the equations may be simplified or have their terms ordered in an odd way.")
 
 jh.printMarkdown("First off, why even bother with Modified Equinoctial Elements?  There are a few reasons:")
@@ -83,13 +87,9 @@ jh.showEquation("L", eeToMee.TrueLongitude)
 
 jh.printMarkdown("However, I have been told of a set of equinoctial elements that the inclination terms are in terms of the inclination instead of half of the inclination.  This causes the converstion to be much more complicated.  However I can not find a source for the elements in this form, so they will not be covered here.")
 
-
-
-# import subprocess
-# subprocess.run('p2j ModifiedEquinoctialElementsExplination.py -o')
-# #subprocess.run("jupyter nbconvert --execute ModifiedEquinoctialElementsExplination.ipynb")
-# subprocess.run("jupyter nbconvert --execute --to pdf ModifiedEquinoctialElementsExplination.ipynb")
-# #next convert markdown to ms word
-# #conversionCommand = 'pandoc -s ModifiedEquinoctialElementsExplination.md -t docx -o ModifiedEquinoctialElementsExplination.docx --filter pandoc-citeproc --bibliography="sources.bib" --csl="apa.csl"'
-# #subprocess.run(conversionCommand)
-print("done")
+#%%
+if '__file__' in globals() or '__file__' in locals():
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    reportCreator = jh.ReportGeneratorFromPythonFileWithCells(dir_path, "ModifiedEquinoctialElementsExplination.py", "ModifiedEquinoctialElementsExplination.pdf")
+    reportCreator.WritePdfDirectlyFromJupyter()
+    jh.printMarkdown("done")
