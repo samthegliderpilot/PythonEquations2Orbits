@@ -1,6 +1,3 @@
-#%% [markdown]
-# (my-label)=## My header
-
 #%%
 import sympy as sy
 import os
@@ -15,16 +12,15 @@ import pyeq2orb.Coordinates.KeplerianModule as KepModule
 from pyeq2orb.Coordinates.ModifiedEquinoctialElementsModule import CreateSymbolicElements, ConvertKeplerianToEquinoctial, EquinoctialElementsHalfI
 import JupyterHelper as jh
 jh.printMarkdown("# Modified Equinoctial Elements Summary")
-jh.printMarkdown("While working with optimal control problems for satellite maneuvers, I needed a reference for working with Equinoctial and Modifeid Equinoctial Elements. This will pull together several sources and show the equations and some of the derivations of these equations that are encoded in the library I'm writing.[here's my label](my-label)")
+jh.printMarkdown("While working with optimal control problems for satellite maneuvers, I needed a reference for working with Equinoctial and Modifeid Equinoctial Elements. This will pull together several sources and show the equations and some of the derivations of these equations that are encoded in the library I'm writing.")
 
-#%%
-jh.printMarkdown("Note that this document is made with python code using sympy.  Some of the equations may be simplified or have their terms ordered in an odd way.")
+jh.printMarkdown("Note that this document is made by leveraging the symbolic (sympy) routines I have written to do optimal control problems.  As such, sympy will rearrange and perform minor simplification such that terms will be in different order than what we might be used to seeing in other sources.")
 
 jh.printMarkdown("First off, why even bother with Modified Equinoctial Elements?  There are a few reasons:")
 jh.printMarkdown("- Similar to Keplerian Elements, there is only 1 fast variable (as opposed to Cartesian radius and velocity vectors which are all fast variables) which assists with the various optimization techniques that follows.")
 jh.printMarkdown("- Keplerian elements have singularties at orbit common in the industry (GEO orbits especally) where the eccentriciy is very low and the inclination is near 0. Equinoctial elements are much better behaved in those orbit regiems")
 jh.printMarkdown("- Normal Equinoctial Elements have a singularity at inclinations of 90 degrees and cannot completely describe parabolic orbits.  Modified Equinoctial Elements only have singularities for orbits with an inclination of 180 degrees")
-jh.printMarkdown("-- Note that there is ambuguity for orbits with an inclination near 0 or 180 degrees")
+jh.printMarkdown("-- Note that there is ambuguity for orbits with an inclination near 0 or 180 degrees.  Technically there should be a 'retorgrade factor' that will determin if the orbit is posigrade or retorgrade, however for ximplicity we will not be adding this factor. (@Vallado5thEdition)")
 
 jh.printMarkdown("These characteristics make Equinoctial Elements a good choice for many types of problems.")
 
@@ -86,10 +82,13 @@ jh.showEquation("k", eeToMee.InclinationSinTermK)
 jh.showEquation("L", eeToMee.TrueLongitude)
 
 jh.printMarkdown("However, I have been told of a set of equinoctial elements that the inclination terms are in terms of the inclination instead of half of the inclination.  This causes the converstion to be much more complicated.  However I can not find a source for the elements in this form, so they will not be covered here.")
+jh.printMarkdown("") # newline
+jh.printMarkdown('### Sources')
+jh.printMarkdown("This document was created using the AIAA Citation Style Language (@AiaaCslDef, @CslDefinition)")
 
-#%%
 if '__file__' in globals() or '__file__' in locals():
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    reportCreator = jh.ReportGeneratorFromPythonFileWithCells(dir_path, "ModifiedEquinoctialElementsExplination.py", "ModifiedEquinoctialElementsExplination.pdf")
-    reportCreator.WritePdfDirectlyFromJupyter()
+    reportCreator = jh.ReportGeneratorFromPythonFileWithCells(dir_path, "ModifiedEquinoctialElementsExplination.py", "ModifiedEquinoctialElementsExplination.docx")
+    #reportCreator.WritePdfDirectlyFromJupyter()
+    reportCreator.WriteIpynbToDocxWithPandoc()
     jh.printMarkdown("done")

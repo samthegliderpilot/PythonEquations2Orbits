@@ -140,20 +140,32 @@ class ReportGeneratorFromPythonFileWithCells :
         self.outputFilePath = join(self.directory, self.outputFileName)
 
     @property
-    def baseFilePathAsIpynb(self) -> str :
-        return join(self.directory, self.pythonFilePath.replace(".py", ".ipynb"))
+    def baseFileNameAsDocx(self) -> str :
+        return self.pythonFileName.replace(".py", ".docx").replace(".md", ".docx")
 
     @property
     def baseFileNameAsIpynb(self) -> str :
-        return self.pythonFileName.replace(".py", ".ipynb")
+        return self.pythonFileName.replace(".py", ".ipynb").replace(".md", ".ipynb")
 
     @property
-    def baseFilePathAsMarkdown(self) -> str :
-        return join(self.directory, self.pythonFilePath.replace(".py", ".md"))
+    def baseFilePathAsIpynb(self) -> str :
+        return join(self.directory, self.baseFileNameAsIpynb)
 
     @property
     def baseFileNameAsMarkdown(self) -> str :
-        return self.pythonFileName.replace(".py", ".md")
+        return self.pythonFileName.replace(".py", ".md").replace(".ipynb", ".md")
+
+    @property
+    def baseFilePathAsMarkdown(self) -> str :
+        return join(self.directory, self.baseFileNameAsMarkdown)
+
+    def WriteIpynbToDocxWithPandoc(self) :
+        markerFileName = self.baseFileNameAsIpynb
+        with FileScope(self.directory, [self.baseFileNameAsDocx]) :
+            with FileMarker(self.directory, markerFileName) as fm:
+                subprocess.run('p2j ' + self.pythonFileName + ' -o', cwd = self.directory)
+                subprocess.run("jupyter nbconvert --execute --to markdown --no-input " + self.baseFileNameAsIpynb)
+                subprocess.run("pandoc " + self.baseFileNameAsMarkdown + " -s -N -o " + self.outputFilePath +" --citeproc --bibliography=sources.bib --csl=apa.csl ", cwd = self.directory)
 
     def WritePdfDirectlyFromJupyter(self) :
         markerFileName = self.baseFileNameAsIpynb
@@ -161,18 +173,6 @@ class ReportGeneratorFromPythonFileWithCells :
             if not fm.fileAlreadyExists: 
                 subprocess.run('p2j ' + self.pythonFileName + ' -o', cwd = self.directory)
                 subprocess.run("jupyter nbconvert --execute --to pdf --no-input " + self.baseFileNameAsIpynb, cwd = self.directory)
-            #jupyter nbconvert --execute --to pdf --no-input
-    # def WritePdfWithMarkdownInTheMiddile(self) :
-    #     pass
-
-    # def _executeCommandsToMakePdf(self, commands : List[str]) :
-    #     # first, convert to jupyter
-    #     # then the ipynb must get executed BUT, if this command is at the end of the ipynb, we can't let it run the same 
-    #     # way over again, otherwise it will execute the command again...
-        
-    #     subprocess.run('p2j ModifiedEquinoctialElementsExplination.py -o')
-    #     subprocess.run("jupyter nbconvert --execute --to pdf ModifiedEquinoctialElementsExplination.md")
-
 
 from os import listdir, unlink, remove
 from os.path import isfile, join, basename
