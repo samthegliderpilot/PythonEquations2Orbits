@@ -88,7 +88,8 @@ jh.printMarkdown("This document was created using the AIAA Citation Style Langua
 
 if '__file__' in globals() or '__file__' in locals():
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    reportCreator = jh.ReportGeneratorFromPythonFileWithCells(dir_path, "ModifiedEquinoctialElementsExplination.py", "ModifiedEquinoctialElementsExplination.docx")
+    reportCreator = jh.ReportGeneratorFromPythonFileWithCells(dir_path, "ModifiedEquinoctialElementsExplination.py", "ModifiedEquinoctialElementsExplination")
     #reportCreator.WritePdfDirectlyFromJupyter()
-    reportCreator.WriteIpynbToDocxWithPandoc()
+    reportCreator.WriteIpynbToDocxWithPandoc("pdf")
     jh.printMarkdown("done")
+

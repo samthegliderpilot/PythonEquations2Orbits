@@ -132,74 +132,91 @@ def showEquation(lhs, rhs=None, cleanEqu=defaultCleanEquations) :
 # #subprocess.run(conversionCommand)
 import subprocess
 class ReportGeneratorFromPythonFileWithCells :
-    def __init__(self, directory, pythonFileName, outputFileName) :
+    def __init__(self, directory, pythonFileName, outputFileNameNoExtension) :
         self.directory = directory
         self.pythonFileName = pythonFileName
         self.pythonFilePath = join(self.directory, self.pythonFileName)
-        self.outputFileName = outputFileName
-        self.outputFilePath = join(self.directory, self.outputFileName)
+        self.outputFileNameNoExtension = outputFileNameNoExtension
+        self.outputFilePath = join(self.directory, self.outputFileNameNoExtension)
 
-    @property
-    def baseFileNameAsDocx(self) -> str :
-        return self.pythonFileName.replace(".py", ".docx").replace(".md", ".docx")
+    # @property
+    # def baseFileNameAsDocx(self) -> str :
+    #     return self.pythonFileName.replace(".py", ".docx").replace(".md", ".docx")
 
-    @property
-    def baseFileNameAsIpynb(self) -> str :
-        return self.pythonFileName.replace(".py", ".ipynb").replace(".md", ".ipynb")
+    # @property
+    # def baseFileNameAsIpynb(self) -> str :
+    #     return self.pythonFileName.replace(".py", ".ipynb").replace(".md", ".ipynb")
 
-    @property
-    def baseFilePathAsIpynb(self) -> str :
-        return join(self.directory, self.baseFileNameAsIpynb)
+    # @property
+    # def baseFilePathAsIpynb(self) -> str :
+    #     return join(self.directory, self.baseFileNameAsIpynb)
 
-    @property
-    def baseFileNameAsMarkdown(self) -> str :
-        return self.pythonFileName.replace(".py", ".md").replace(".ipynb", ".md")
+    # @property
+    # def baseFileNameAsMarkdown(self) -> str :
+    #     return self.pythonFileName.replace(".py", ".md").replace(".ipynb", ".md")
 
-    @property
-    def baseFilePathAsMarkdown(self) -> str :
-        return join(self.directory, self.baseFileNameAsMarkdown)
+    # @property
+    # def baseFilePathAsMarkdown(self) -> str :
+    #     return join(self.directory, self.baseFileNameAsMarkdown)
 
-    def WriteIpynbToDocxWithPandoc(self) :
-        markerFileName = self.baseFileNameAsIpynb
-        with FileScope(self.directory, [self.baseFileNameAsDocx]) :
-            with FileMarker(self.directory, markerFileName) as fm:
+    def WriteIpynbToDocxWithPandoc(self, extension = "pdf") :
+        markerFileName = self.outputFileNameNoExtension + ".ipynb"
+        mdFileName = self.outputFileNameNoExtension + ".md"
+        outputFileWithExtension = self.outputFileNameNoExtension +"." + extension
+        with CleanDirectoryScope(self.directory, [outputFileWithExtension]) :
+            with SoftFileLock(self.directory, markerFileName) as fm:
                 subprocess.run('p2j ' + self.pythonFileName + ' -o', cwd = self.directory)
-                subprocess.run("jupyter nbconvert --execute --to markdown --no-input " + self.baseFileNameAsIpynb)
-                subprocess.run("pandoc " + self.baseFileNameAsMarkdown + " -s -N -o " + self.outputFilePath +" --citeproc --bibliography=sources.bib --csl=apa.csl ", cwd = self.directory)
+                subprocess.run("jupyter nbconvert --execute --to markdown --no-input " + markerFileName)
+                subprocess.run("pandoc " + mdFileName + " -s -N -o " + outputFileWithExtension +" --citeproc --bibliography=sources.bib --csl=apa.csl ", cwd = self.directory)
 
     def WritePdfDirectlyFromJupyter(self) :
-        markerFileName = self.baseFileNameAsIpynb
-        with FileMarker(self.directory, markerFileName) as fm:
+        markerFileName = self.outputFileNameNoExtension + ".ipynb"
+        with SoftFileLock(self.directory, markerFileName) as fm:
             if not fm.fileAlreadyExists: 
                 subprocess.run('p2j ' + self.pythonFileName + ' -o', cwd = self.directory)
-                subprocess.run("jupyter nbconvert --execute --to pdf --no-input " + self.baseFileNameAsIpynb, cwd = self.directory)
+                subprocess.run("jupyter nbconvert --execute --to pdf --no-input " + markerFileName, cwd = self.directory)
 
-from os import listdir, unlink, remove
+from os import listdir, unlink, remove, walk, rmdir
 from os.path import isfile, join, basename
-import os
-import glob
 
-class FileScope :
+class CleanDirectoryScope :
+    """
+    A scope that will record the contents of a directory upon entry, and 
+    on exit will delete all new files and directories.  When working with a process 
+    where a bunch of extra files might clutter up an otherwise well manicured directory, 
+    this is a easy way to keep that directory clean.
+    """
     def __init__(self, directory : str, localNewFilesToKeep : List[str] = []) :
-        self.localNewFilesToKeep = localNewFilesToKeep
+        for file in localNewFilesToKeep :
+            self.localNewFilesToKeep = join(directory, file)
         self.directory = directory
-        return self
 
     def __enter__(self) :
-        self.filesInDirectory = []
-        for filename in glob.iglob(self.directory, recursive=True) :
-            self.filesInDirectory.append(filename)
+        self.filesInDirectory, self.directories = self.getFilesAndDirectoreisInDirectory()
         return self
 
-    def __exit__(self, exc_type, exc_value, tb) :
-        itemsAtEnd = listdir(self.directory)
-        for item in itemsAtEnd :
-            fileNameOfItem = basename(item)
-            if not item in self.filesInDirectory and not fileNameOfItem in self.localNewFilesToKeep :
-                if isfile(item) :
-                    remove(item)
+    def __exit__(self, exc_type, exc_value, tb) :        
+        filesAtEnd, directoriesAtEnd = self.getFilesAndDirectoreisInDirectory()
+        for file in filesAtEnd :
+            if not file in self.filesInDirectory and not file in self.localNewFilesToKeep :
+                if isfile(file) :
+                    remove(file)
+        for dir in directoriesAtEnd :
+            if not dir in self.directories and len(listdir(dir)) == 0: # since we already removed files, only delete dir if empty
+                rmdir(dir)
+
+    def getFilesAndDirectoreisInDirectory(self) -> List[List[str]] :
+        files = []
+        directories = []
+        for (dirpath, dirnames, filenames) in walk(self.directory) :
+            for dir in dirnames :
+                directories.append(join(dirpath, dir))
+            for file in filenames :
+                files.append(join(dirpath, file))
+        return [files, directories]
+
 import uuid
-class FileMarker :
+class SoftFileLock :
     def __init__(self, directory, fileName = None) :
         self.directory = directory
         if fileName == None :
