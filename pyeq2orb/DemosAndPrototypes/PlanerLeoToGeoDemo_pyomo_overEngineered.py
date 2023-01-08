@@ -21,7 +21,7 @@ from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 from pyeq2orb.ScaledSymbolicProblem import ScaledSymbolicProblem
 from pyeq2orb.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
 from pyeq2orb.Numerical import ScipyCallbackCreators
-import JupyterHelper as jh
+import scipyPaperPrinter as jh
 import pyomo.environ as poenv
 import pyomo.dae as podae
 from pyeq2orb.NumericalOptimizerProblem import NumericalOptimizerProblemBase

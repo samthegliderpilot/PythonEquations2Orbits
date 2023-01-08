@@ -4,7 +4,7 @@ import os
 import sys
 sys.path.insert(1, os.path.dirname(os.path.dirname(sys.path[0]))) # need to import 2 directories up (so pyeq2orb is a subfolder)
 
-from pyeq2orb.ForceModels.TwoBodyForce import CreateTwoBodyMotionMatrix, CreateTwoBodyList
+from pyeq2orb.ForceModels.TwoBodyForce import CreateTwoBodyMotionMatrix, CreateTwoBodyListForModifiedEquinoctialElements
 from pyeq2orb.ScaledSymbolicProblem import ScaledSymbolicProblem
 from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
 from pyeq2orb.Coordinates.KeplerianModule import KeplerianElements
@@ -13,7 +13,7 @@ from pyeq2orb.Numerical.LambdifyModule import LambdifyHelper
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 from typing import List, Dict
 from matplotlib.figure import Figure
-import JupyterHelper as jh
+import scipyPaperPrinter as jh
 import pyomo.environ as poenv
 import pyomo.dae as podae
 from matplotlib.figure import Figure
@@ -164,7 +164,7 @@ tfVal = 793*86400.0
 m0Val = 2000.0
 isp = 3000.0
 nRev = 2.0
-thrustVal =  0.1997
+thrustVal =  0.1997*1.2
 g = 9.8065 
 n = 100
 tSpace = np.linspace(0.0, tfVal, n)
@@ -184,7 +184,7 @@ finalElements = ModifiedEquinoctialElements.FromMotionCartesian(MotionCartesian(
 
 t = sy.Symbol('t', real=True)
 symbolicElements = CreateSymbolicElements(t)
-twoBodyMatrix = CreateTwoBodyList(symbolicElements)
+twoBodyMatrix = CreateTwoBodyListForModifiedEquinoctialElements(symbolicElements)
 simpleTwoBodyLambidfyCreator = LambdifyHelper(t, symbolicElements.ToArray(), twoBodyMatrix, [], {symbolicElements.GravitationalParameter: muVal})
 odeCallback =simpleTwoBodyLambidfyCreator.CreateSimpleCallbackForSolveIvp()
 print("propagating earth and mars")
@@ -511,7 +511,7 @@ tsim, profiles = sim.simulate(numpoints=n, varying_inputs=model.var_input, integ
 
 #poenv.TransformationFactory('dae.finite_difference').apply_to(model, wrt=model.t, nfe=n, scheme='BACKWARD')
 print("transforming pyomo")
-poenv.TransformationFactory('dae.collocation').apply_to(model, wrt=model.t, nfe=n,ncp=3, scheme='LAGRANGE-RADAU')
+poenv.TransformationFactory('dae.collocation').apply_to(model, wrt=model.t, nfe=n, ncp=3, scheme='LAGRANGE-RADAU')
 #['LAGRANGE-RADAU', 'LAGRANGE-LEGENDRE']
 print("initing the pyomo model")
 sim.initialize_model()

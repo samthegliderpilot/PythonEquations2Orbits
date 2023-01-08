@@ -20,7 +20,7 @@ from pyeq2orb.Numerical import ScipyCallbackCreators
 from pyeq2orb.Numerical.LambdifyModule import LambdifyHelper
 from pyeq2orb.Utilities.SolutionDictionaryFunctions import GetValueFromStateDictionaryAtIndex
 from pyeq2orb.Coordinates.EquinoctialElements import EquinoctialElements,CreateSymbolicElements
-import JupyterHelper as jh
+import scipyPaperPrinter as jh
 import EquinicotialDemo as ed
 # constants
 g = 9.80665

@@ -16,7 +16,7 @@ def CreateTwoBodyMotionMatrix(eqElements : ModifiedEquinoctialElements) ->sy.Mat
     f = sy.Matrix([[0],[0],[0],[0],[0],[sy.sqrt(mu*p)*((w/p)**2)]])
     return f
 
-def CreateTwoBodyList(eqElements : ModifiedEquinoctialElements) -> List[sy.Expr] :
+def CreateTwoBodyListForModifiedEquinoctialElements(eqElements : ModifiedEquinoctialElements) -> List[sy.Expr] :
     mat = CreateTwoBodyMotionMatrix(eqElements)
     rows = []
     for i in range(0, 6) :

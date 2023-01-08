@@ -8,7 +8,7 @@ from pyeq2orb.ForceModels.TwoBodyForce import CreateTwoBodyMotionMatrix, CreateT
 from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
 from pyeq2orb.Coordinates.KeplerianModule import KeplerianElements
 from pyeq2orb.Coordinates.EquinoctialElements import EquinoctialElements, CreateSymbolicElements
-import JupyterHelper as jh
+import scipyPaperPrinter as jh
 
 jh.printMarkdown("# Non-TwoBody Acceleration Vector in terms of Equinoctial Elements")
 jh.printMarkdown("While working with an optimization problem that uses Equinoctial elements, I found that the acceleration vector was still mostly in terms of cartesian elements.  In many cases, that isn't a problem, but for my uses it was something that I would prefer was also in terms of Equinoctial elements as well.  So, let's do that!")

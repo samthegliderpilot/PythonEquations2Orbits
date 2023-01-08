@@ -31,8 +31,12 @@ class ModifiedEquinoctialElements:
         return 1+self.InclinationCosTermH**2+self.InclinationSinTermK**2
     
     @property
-    def Alpha(self) :
+    def AlphaSquared(self) :
         return self.InclinationCosTermH**2-self.InclinationSinTermK**2
+
+    @property
+    def Radius(self) :
+        return self.SemiParameter / self.W
 
     def ToKeplerian(self) -> KeplerianElements :
         l = self.TrueLongitude
@@ -61,20 +65,21 @@ class ModifiedEquinoctialElements:
         mu = self.GravitationalParameter
         w = self.W
 
-        r = p/w
+        r = self.Radius
         sSquared = self.SSquared
         w = self.W
-        alp = self.Alpha
-        alpSq = alp**2
+        alpSq = self.AlphaSquared
         
-        rx = (r/sSquared)*(sy.cos(l) + alpSq*sy.cos(l) + 2*h*k*sy.sin(l))
-        ry = (r/sSquared)*(sy.sin(l) + alpSq*sy.sin(l) + 2*h*k*sy.cos(l))
-        rz = 2*(r/sSquared)*(h*sy.sin(l) - k*sy.cos(l))
+        cosL = sy.cos(l)
+        sinL = sy.sin(l)
+        rx = (r/sSquared)*(cosL + alpSq*cosL + 2*h*k*sinL)
+        ry = (r/sSquared)*(sinL - alpSq*sinL + 2*h*k*cosL)
+        rz = 2*(r/sSquared)*(h*sinL - k*cosL)
 
         sqrtMuOverP = sy.sqrt(mu/p)
-        vx = -1*(1/sSquared) *sqrtMuOverP*(sy.sin(l) + alpSq*sy.sin(l)-2*h*k*sy.cos(l) + g - 2*f*h*k + alpSq*g)
-        vy = -1*(1/sSquared) *sqrtMuOverP*(-1*sy.cos(l) + alpSq*sy.cos(l)+2*h*k*sy.sin(l) + f + 2*g*h*k+alpSq*f)
-        vz = (2/(sSquared))*sqrtMuOverP*(h*sy.cos(l) + k*sy.sin(l) + f*h+g*k)
+        vx = -1*(1/sSquared) *sqrtMuOverP*(   sinL + alpSq*sinL - 2*h*k*cosL + g - 2*f*h*k + alpSq*g)
+        vy = -1*(1/sSquared) *sqrtMuOverP*(-1*cosL + alpSq*cosL + 2*h*k*sinL - f + 2*g*h*k + alpSq*f)
+        vz = (2/(sSquared))*sqrtMuOverP*(h*cosL + k*sinL + f*h + g*k)
 
         return MotionCartesian(Cartesian(rx, ry, rz), Cartesian(vx, vy, vz))
 

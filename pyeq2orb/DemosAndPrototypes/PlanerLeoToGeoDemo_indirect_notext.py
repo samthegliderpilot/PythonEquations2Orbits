@@ -17,7 +17,7 @@ from pyeq2orb.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousTh
 from pyeq2orb.Numerical import ScipyCallbackCreators
 from pyeq2orb.Numerical.LambdifyModule import LambdifyHelper
 from pyeq2orb.Utilities.SolutionDictionaryFunctions import GetValueFromStateDictionaryAtIndex
-import JupyterHelper as jh
+import scipyPaperPrinter as jh
 
 # constants
 g = 9.80665
