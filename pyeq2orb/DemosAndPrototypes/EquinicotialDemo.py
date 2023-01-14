@@ -54,15 +54,8 @@ class HowManyImpulses(SymbolicProblem) :
         self._azi = azi
         self._elv = elv
 
-        #ux = sy.Function('u_x', real=True)(t)
-        #uy = sy.Function('u_y', real=True)(t)
-        #uz = sy.Function('u_z', real=True)(t)
-        #self._ux = ux
-        #self._uy = uy
-        #self._uz = uz
-
-
-        alp = sy.Matrix([[sy.cos(azi)*sy.cos(elv)], [sy.sin(azi)*sy.cos(elv)], [sy.sin(elv)]])
+        alp = elements.CreateComplicatedRicToInertialMatrix().transpose()*sy.Matrix([[sy.cos(azi)*sy.cos(elv)], [sy.sin(azi)*sy.cos(elv)], [sy.sin(elv)]])
+        #alp = sy.Matrix([[sy.cos(azi)*sy.cos(elv)], [sy.sin(azi)*sy.cos(elv)], [sy.sin(elv)]])
         #alp = sy.Matrix([[ux], [uy], [uz]])
         thrust = sy.Symbol('T')
         m = sy.Function('m')(t)
@@ -76,7 +69,7 @@ class HowManyImpulses(SymbolicProblem) :
         for i in range(0, len(elementsList)) :
             self.EquationsOfMotion[elementsList[i]] = eoms[i]
             self.StateVariables.append(elementsList[i])
-        self.EquationsOfMotion[m]=-1*thrustVal/(isp*g)
+        self.EquationsOfMotion[m]=-1*thrust*throttle/(isp*g)
         self.StateVariables.append(m)
         #self.StateVariables.append(self._timeFinalSymbol)
         self.ControlVariables.append(azi)
@@ -166,7 +159,7 @@ isp = 3000.0
 nRev = 2.0
 thrustVal =  0.1997*1.2
 g = 9.8065 
-n = 100
+n = 200
 tSpace = np.linspace(0.0, tfVal, n)
 
 Au = 149597870700.0
@@ -285,7 +278,7 @@ lambdiafyFunctionMap = {'sqrt': poenv.sqrt, 'sin': poenv.sin, 'cos':poenv.cos} #
 trivialScalingDic = {}
 for sv in baseProblem.StateVariables :
     trivialScalingDic[sv]=1
-trivialScalingDic[baseProblem.StateVariables[0]] = Au
+trivialScalingDic[baseProblem.StateVariables[0]] = Au/10
 print("making scaled problem")
 scaledProblem = ScaledSymbolicProblem(baseProblem, baseProblem.StateVariables, trivialScalingDic, True)
 asNumericalProblem = NumericalProblemFromSymbolicProblem(scaledProblem, lambdiafyFunctionMap)
@@ -424,14 +417,14 @@ print("making pyomo model")
 
 model = poenv.ConcreteModel()
 model.t = podae.ContinuousSet(initialize=np.linspace(0.0, 1.0, n), domain=poenv.NonNegativeReals)
-smaLow = 146.10e9/trivialScalingDic[baseProblem.StateVariables[0]] # little less than earth
-smaHigh = 267.0e9/trivialScalingDic[baseProblem.StateVariables[0]] # little more than mars
+smaLow = 126.10e9/trivialScalingDic[baseProblem.StateVariables[0]] # little less than earth
+smaHigh = 287.0e9/trivialScalingDic[baseProblem.StateVariables[0]] # little more than mars
 model.perRad = poenv.Var(model.t, bounds=(smaLow, smaHigh), initialize=float(per0/trivialScalingDic[baseProblem.StateVariables[0]]))
-model.f = poenv.Var(model.t, bounds=(-0.3, 0.3), initialize=float(f0))
-model.g = poenv.Var(model.t, bounds=(-0.3, 0.3), initialize=float(g0))
-model.h  = poenv.Var(model.t, bounds=(-0.3, 0.3), initialize=float(h0))
-model.k = poenv.Var(model.t, bounds=(-0.3, 0.3), initialize=float(k0))
-model.lon = poenv.Var(model.t, bounds=(0, 6*math.pi), initialize=float(lon0))
+model.f = poenv.Var(model.t, bounds=(-0.7, 0.7), initialize=float(f0))
+model.g = poenv.Var(model.t, bounds=(-0.7, 0.7), initialize=float(g0))
+model.h  = poenv.Var(model.t, bounds=(-0.7, 0.7), initialize=float(h0))
+model.k = poenv.Var(model.t, bounds=(-0.7, 0.7), initialize=float(k0))
+model.lon = poenv.Var(model.t, bounds=(0, 8*math.pi), initialize=float(lon0))
 model.mass = poenv.Var(model.t, bounds=(0.0, m0Val), initialize=(m0Val))
 
 model.perRad[0].fix(float(per0/trivialScalingDic[baseProblem.StateVariables[0]]))
@@ -492,8 +485,9 @@ model.bc2 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[1](mod1, 
 model.bc3 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[2](mod1, 1.0) - float(finalElements.EccentricitySinTermG))
 model.bc4 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[3](mod1, 1.0) - float(finalElements.InclinationCosTermH))
 model.bc5 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[4](mod1, 1.0) - float(finalElements.InclinationSinTermK))
-model.bc6 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[5](mod1, 1.0) - float(finalElements.TrueLongitude))
-
+#model.bc6 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[5](mod1, 1.0) - float(finalElements.TrueLongitude + (4*math.pi)))
+model.bc6 = poenv.Constraint(rule = lambda mod1 : 0 == poenv.sin(indexToStateMap[5](mod1, 1.0)) - math.sin(finalElements.TrueLongitude%(2*math.pi)))
+model.bc7 = poenv.Constraint(rule = lambda mod1 : 0 == poenv.cos(indexToStateMap[5](mod1, 1.0)) - math.cos(finalElements.TrueLongitude%(2*math.pi)))
 finalMassCallback = lambda m : m.mass[1.0]
 model.massObjective = poenv.Objective(expr = finalMassCallback, sense=poenv.maximize)
 
@@ -517,6 +511,7 @@ print("initing the pyomo model")
 sim.initialize_model()
 print("running the pyomo model")
 solver = poenv.SolverFactory('cyipopt')
+solver.config.options['tol'] = 1e-7
 try :
     solver.solve(model, tee=True)
 except Exception as ex:
@@ -556,7 +551,7 @@ def extractPyomoSolution(model, stateSymbols):
     ansAsDict[stateSymbols[9]]= throttle
 
     return [tSpace, ansAsDict]
-
+#%%
 stateSymbols = [*baseProblem.StateVariables, *baseProblem.ControlVariables, baseProblem.Throttle]
 [time, dictSolution] = extractPyomoSolution(model, stateSymbols)
 time = time*tfVal
@@ -589,6 +584,25 @@ try :
     #dataArray.append(CreatePlotlyLineDataObject(satPath))
 except :
     print("Couldn't plot optimized path")
+marsPath.color = "#990011"
 thrustVectRun = getInertialThrustVectorFromAzimuthElevationMagnitudeArrays(dictSolution[stateSymbols[7]], dictSolution[stateSymbols[8]], dictSolution[stateSymbols[9]])
 thrustPlotlyItemsRun = createScattersForThrustVecters(satPath.ephemeris, thrustVectRun, "#ff0000", Au/10.0)
-PlotAndAnimatePlanetsWithPlotly("some title", [earthPath, marsPath, simPath, satPath], time, thrustPlotlyItemsRun)
+PlotAndAnimatePlanetsWithPlotly("some title", [earthPath, marsPath, satPath], time, thrustPlotlyItemsRun)
+#%%
+class plotableData :
+    def __init__(self, x, y, color, width, name) :
+        self.X = x
+        self.Y = y
+        self.Color = color
+        self.Width = width
+        self.Name = name
+
+import plotly.express as ex
+def plotSetOfPlotableData(plotableDatas : List[plotableData]) :
+    for plotableItem in plotableDatas :
+        df = DataFrame([list(zip(plotableItem.X, plotableItem.Y))], columns=["T", plotableItem.Name])
+        fig = px.line(df, x="T", y=plotableItem.Name, color=plotableItem.Color)
+        fig.show()
+
+theParameterPlotable = plotableData(time, dictSolution[stateSymbols[0]], "blue", 1, "Parameter")
+plotSetOfPlotableData([theParameterPlotable])

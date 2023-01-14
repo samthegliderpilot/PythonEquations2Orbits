@@ -133,20 +133,32 @@ class ModifiedEquinoctialElements:
         pEq = eqElements.SemiParameter        
         fEq = eqElements.EccentricityCosTermF
         gEq = eqElements.EccentricitySinTermG        
-        kEq = eqElements.InclinationCosTermH
-        hEq = eqElements.InclinationSinTermK
+        hEq = eqElements.InclinationCosTermH
+        kEq = eqElements.InclinationSinTermK
         lEq = eqElements.TrueLongitude
         w = 1+fEq*sy.cos(lEq)+gEq*sy.sin(lEq)
-        s2 = 1+hEq**2+kEq**2
+        s2 = 1+kEq**2+hEq**2
         sqrtPOverMu=sy.sqrt(pEq/mu)
         # note that in teh 3rd row, middle term, I added a 1/w because I think it is correct even though the MME pdf doesn't have it
         B = sy.Matrix([[0, (2*pEq/w)*sqrtPOverMu, 0],
-                    [sqrtPOverMu*sy.sin(lEq), sqrtPOverMu*(1/w)*((w+1)*sy.cos(lEq)+fEq), -1*sqrtPOverMu*(gEq/w)*(hEq*sy.sin(lEq)-kEq*sy.cos(lEq))],
-                    [-1*sqrtPOverMu*sy.cos(lEq), sqrtPOverMu*(1/w)*((w+1)*sy.sin(lEq)+gEq), sqrtPOverMu*(fEq/w)*(hEq*sy.sin(lEq)-kEq*sy.cos(lEq))],
+                    [sqrtPOverMu*sy.sin(lEq), sqrtPOverMu*(1/w)*((w+1)*sy.cos(lEq)+fEq), -1*sqrtPOverMu*(gEq/w)*(kEq*sy.sin(lEq)-hEq*sy.cos(lEq))],
+                    [-1*sqrtPOverMu*sy.cos(lEq), sqrtPOverMu*(1/w)*((w+1)*sy.sin(lEq)+gEq), sqrtPOverMu*(fEq/w)*(kEq*sy.sin(lEq)-hEq*sy.cos(lEq))],
                     [0,0,sqrtPOverMu*(s2*sy.cos(lEq)/(2*w))],
                     [0,0,sqrtPOverMu*(s2*sy.sin(lEq)/(2*w))],
-                    [0,0,sqrtPOverMu*(hEq*sy.sin(lEq)-kEq*sy.cos(lEq))/w]])
+                    [0,0,sqrtPOverMu*(kEq*sy.sin(lEq)-hEq*sy.cos(lEq))/w]])
         return B        
+
+    def CreateComplicatedRicToInertialMatrix(self) :
+        asCart = self.ToMotionCartesian()
+        r = asCart.Position
+        v = asCart.Velocity
+        i_r = r.Normalize()
+        rxv = r.cross(v)
+        i_c = rxv.Normalize()
+        i_t = i_c.cross(i_r)
+        def simp(item) :
+            return item.simplify()
+        return sy.Matrix([i_r.applyfunc(simp).transpose(), i_t.applyfunc(simp).transpose(), i_c.applyfunc(simp).transpose()])
 
 def ConvertKeplerianToEquinoctial(keplerianElements : KeplerianElements, nonModedLongitude = True) ->ModifiedEquinoctialElements :
     a = keplerianElements.SemiMajorAxis
@@ -237,3 +249,21 @@ class EquinoctialElementsHalfI :
 
         return EquinoctialElementsHalfI(a, h, k, p, q, l, mu)
 
+    # def ToFgwRotationMatrix(self) :
+    #     p = self.InclinationSinTermP
+    #     q = self.InclinationCosTermQ
+
+    #     denom = 1+p*p+q*q
+    #     f1 = (1/denom)*(1-p*p+q*q)
+    #     f2 = 2*p*q
+    #     f3 = -2*p
+
+    #     g1 = f2
+    #     g2 = 1+p*p-q*q
+    #     g3 = 2*q
+
+    #     w1 = 2*p
+    #     w2 = -2*q
+    #     w3 = 1-p*p-q*q
+
+    #     return Matrix([[]])
