@@ -1,8 +1,5 @@
 #%%
-import sys
-import os
-thisFile = os.path.abspath(__file__)
-sys.path.append(os.path.abspath(thisFile + '..\\..\\..\\'))
+import __init__
 
 from IPython.display import display
 from scipy.integrate import solve_ivp
@@ -15,7 +12,6 @@ from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 from pyeq2orb.ScaledSymbolicProblem import ScaledSymbolicProblem
 from pyeq2orb.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
 from pyeq2orb.Numerical import ScipyCallbackCreators
-from pyeq2orb.Numerical.LambdifyModule import LambdifyHelper
 from pyeq2orb.Utilities.SolutionDictionaryFunctions import GetValueFromStateDictionaryAtIndex
 import scipyPaperPrinter as jh
 
@@ -137,9 +133,85 @@ stateAndLambdas.extend(problem.StateVariables)
 stateAndLambdas.extend(lambdas)
 odeState = [problem.TimeSymbol, stateAndLambdas, otherArgs]
 
-lambdifyHelper = LambdifyHelper(problem.TimeSymbol, stateAndLambdas, problem.EquationsOfMotion.values(), otherArgs, problem.SubstitutionDictionary)
+def safeSubs(exprs, toBeSubsed):
+    tbr = []
+    for eom in exprs :
+        if hasattr(eom, "subs"):
+            tbr.append(eom.subs(toBeSubsed))
+        else :
+            tbr.append(eom)    
+    return tbr
 
-odeIntEomCallback = lambdifyHelper.CreateSimpleCallbackForSolveIvp()
+class OdeHelper :
+    lambidfyStateFlattenOption = "flatten"
+    lambidfyStateGroupedAllOption = "group"
+    lambidfyStateGroupedAllButParametersOption = "groupFlattenParamerts"
+
+    lambidfyStateOrderOptionTimeFirst = "Time,StateVariables,MissingInitialValues,Parameters"
+    lambidfyStateOrderOptionTimeMiddle = "StateVariables,Time,MissingInitialValues,Parameters"
+    def __init__(self, t) :
+        self.equationsOfMotion = []
+        self.initialSymbols = []
+        self.stateFunctionSymbols = []
+        self.t = t
+        self.constants = {}
+        self.lamdifyParameterSymbols = []
+
+    def setStateElement(self, sympyFunctionSymbol, symbolicEom, initialSymbol) :
+        self.equationsOfMotion.append(symbolicEom)
+        self.stateFunctionSymbols.append(sympyFunctionSymbol)
+        self.initialSymbols.append(initialSymbol)
+
+    def makeStateForLambdififedFunction(self, groupOrFlatten=lambidfyStateGroupedAllButParametersOption, orderOption=lambidfyStateOrderOptionTimeFirst):
+        arrayForLmd = []
+        if orderOption == OdeHelper.lambidfyStateOrderOptionTimeFirst :
+            arrayForLmd.append(self.t)
+        stateArray = []    
+        for svf in self.stateFunctionSymbols :
+            stateArray.append(svf)
+        if groupOrFlatten != OdeHelper.lambidfyStateFlattenOption :
+            arrayForLmd.append(stateArray)    
+        else :
+            arrayForLmd.extend(stateArray)
+        if orderOption == OdeHelper.lambidfyStateOrderOptionTimeMiddle :
+            arrayForLmd.append(self.t)
+
+        if len(self.lamdifyParameterSymbols) != 0 :
+            if groupOrFlatten == OdeHelper.lambidfyStateGroupedAllButParametersOption or groupOrFlatten == OdeHelper.lambidfyStateFlattenOption:
+                arrayForLmd.extend(self.lamdifyParameterSymbols)
+            elif groupOrFlatten == OdeHelper.lambidfyStateGroupedAllOption :
+                arrayForLmd.append(self.lamdifyParameterSymbols)
+        return arrayForLmd
+
+    def _createParameterOptionalWrapperOfLambdifyCallback(self, baseLambidfyCallback) :
+        def callbackWraper(a, b, *args) :
+            if len(self.lamdifyParameterSymbols) == 0 :
+                return baseLambidfyCallback(a, b)
+            else :
+                return baseLambidfyCallback(a, b, *args)
+        return callbackWraper
+
+    def createLambdifiedCallback(self, groupOrFlatten=lambidfyStateGroupedAllButParametersOption, orderOption=lambidfyStateOrderOptionTimeFirst) :
+        arrayForLmd=self.makeStateForLambdififedFunction(groupOrFlatten, orderOption)
+        subsedEom = safeSubs(self.equationsOfMotion, self.constants)
+        baseLambidfyCallback = sy.lambdify(arrayForLmd, subsedEom, 'numpy')
+        return self._createParameterOptionalWrapperOfLambdifyCallback(baseLambidfyCallback)
+
+thisOdeHelper = OdeHelper(problem.TimeSymbol)
+for key, value in problem.EquationsOfMotion.items() :
+    thisOdeHelper.setStateElement(key, value, key.subs(problem.TimeSymbol, problem.TimeInitialSymbol) )
+
+if scaleTime:
+    thisOdeHelper.lamdifyParameterSymbols.append(baseProblem.TimeFinalSymbol)
+
+if len(nus) != 0:
+    thisOdeHelper.lamdifyParameterSymbols.append(problem.CostateSymbols[1])
+    thisOdeHelper.lamdifyParameterSymbols.append(problem.CostateSymbols[2])
+
+thisOdeHelper.constants = problem.SubstitutionDictionary
+display(thisOdeHelper.makeStateForLambdififedFunction())
+odeIntEomCallback = thisOdeHelper.createLambdifiedCallback()
+
 if len(nus) > 0 :
     # run a test solution to get a better guess for the final nu values, this is a good technique, but 
     # it is still a custom-to-this-problem piece of code because it is still initial-guess work
@@ -165,8 +237,6 @@ stateForBoundaryConditions.extend(SymbolicProblem.SafeSubs(problem.IntegrationSy
 stateForBoundaryConditions.extend(SymbolicProblem.SafeSubs(problem.IntegrationSymbols, {problem.TimeSymbol: problem.TimeFinalSymbol}))
 stateForBoundaryConditions.extend(lambdas)
 stateForBoundaryConditions.extend(otherArgs)
-boundaryConditionHelper = LambdifyHelper(None, stateForBoundaryConditions, problem.BoundaryConditions, None, problem.SubstitutionDictionary)
-
 
 fSolveCallback = ContinuousThrustCircularOrbitTransferProblem.createSolveIvpSingleShootingCallbackForFSolve(problem, problem.IntegrationSymbols, [r0, u0, v0, lon0], tArray, odeIntEomCallback, problem.BoundaryConditions, SymbolicProblem.SafeSubs(lambdas, {problem.TimeSymbol: problem.TimeInitialSymbol}), otherArgs)
 fSolveSol = fsolve(fSolveCallback, initialFSolveStateGuess, epsfcn=0.000001, full_output=True) # just to speed things up and see how the initial one works

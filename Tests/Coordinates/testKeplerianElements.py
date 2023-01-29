@@ -1,4 +1,3 @@
-import contextlib
 import pyeq2orb.Coordinates.KeplerianModule as Keplerian
 from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
 import unittest

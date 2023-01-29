@@ -22,12 +22,6 @@ class EphemerisArrays :
         self._x = np.array([float(pos.X) for pos in cartesianArray])
         self._y = np.array([float(pos.Y) for pos in cartesianArray])
         self._z = np.array([float(pos.Z) for pos in cartesianArray])
-        # for i in range(0, len(timeArray)) :
-        #     self._t.append(timeArray[i])
-        #     here = cartesianArray[i]
-        #     self._x.append(here.X)
-        #     self._y.append(here.Y)
-        #     self._z.append(here.Z)
 
     @property
     def T(self) -> np.array :
@@ -47,8 +41,6 @@ class EphemerisArrays :
 
     def GetMaximumValue(self) :
         return max([max(self.X, key=abs), max(self.Y, key=abs), max(self.Z, key=abs)])
-
-
 
 class Primitive :
     def __init__(self) :
@@ -149,3 +141,12 @@ class PlanetPrimitive(MarkerPrimitive, PathPrimitive) :
     @radius.setter
     def radius(self, value) :
         self._radius = value
+
+class XAndYPlottableLineData :
+    def __init__(self, x, y, label, color, lineWidth=0, markerSize=0):
+        self.x = x
+        self.y = y
+        self.label = label
+        self.color = color
+        self.lineWidth = lineWidth
+        self.markerSize = markerSize        

@@ -1,9 +1,6 @@
 #%%
+import __init__
 import sympy as sy
-import os
-import sys
-sys.path.insert(1, os.path.dirname(os.path.dirname(sys.path[0]))) # need to import 2 directories up (so pyeq2orb is a subfolder)
-
 from pyeq2orb.ForceModels.TwoBodyForce import CreateTwoBodyMotionMatrix, CreateTwoBodyListForModifiedEquinoctialElements
 from pyeq2orb.ScaledSymbolicProblem import ScaledSymbolicProblem
 from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
@@ -28,11 +25,13 @@ import plotly.graph_objects as go
 from pyeq2orb.Numerical.LambdifyModule import LambdifyHelper
 from scipy.integrate import solve_ivp
 import pyeq2orb.Graphics.Primitives as prim
+from pyeq2orb.Graphics.Plotly2DModule import plot2DLines
 from pandas import DataFrame
 import plotly.graph_objects as go
 from collections import OrderedDict
 from scipy.interpolate import splev, splrep
 
+import pyeq2orb.Coordinates.OrbitFunctions as orb
 #import plotly.io as pio
 #pio.renderers.default = "vscode"
 
@@ -54,7 +53,8 @@ class HowManyImpulses(SymbolicProblem) :
         self._azi = azi
         self._elv = elv
 
-        alp = elements.CreateComplicatedRicToInertialMatrix().transpose()*sy.Matrix([[sy.cos(azi)*sy.cos(elv)], [sy.sin(azi)*sy.cos(elv)], [sy.sin(elv)]])
+        ricToInertial = orb.CreateComplicatedRicToInertialMatrix(elements.ToMotionCartesian())
+        alp = ricToInertial*sy.Matrix([[sy.cos(azi)*sy.cos(elv)], [sy.sin(azi)*sy.cos(elv)], [sy.sin(elv)]])
         #alp = sy.Matrix([[sy.cos(azi)*sy.cos(elv)], [sy.sin(azi)*sy.cos(elv)], [sy.sin(elv)]])
         #alp = sy.Matrix([[ux], [uy], [uz]])
         thrust = sy.Symbol('T')
@@ -159,7 +159,7 @@ isp = 3000.0
 nRev = 2.0
 thrustVal =  0.1997*1.2
 g = 9.8065 
-n = 200
+n = 100
 tSpace = np.linspace(0.0, tfVal, n)
 
 Au = 149597870700.0
@@ -438,9 +438,6 @@ model.mass[0].fix(float(m0Val))
 model.tf = poenv.Var(bounds=(tfVal, tfVal), initialize=float(tfVal))
 model.controlAzimuth = poenv.Var(model.t, bounds=(-1*math.pi, math.pi))
 model.controlElevation = poenv.Var(model.t, bounds=(-0.6, 0.6))  # although this can go from -90 to 90 deg, common sense suggests that a lower bounds would be approprate for this problem.  If the optimizer stays at these limits, then increase them
-#model.ux = poenv.Var(model.t, bounds=(-1.0, 1.0))
-#model.uy = poenv.Var(model.t, bounds=(-1.0, 1.0))
-#model.uz = poenv.Var(model.t, bounds=(-1.0, 1.0))
 model.throttle = poenv.Var(model.t, bounds=(0.0, 1.0))
 
 model.perDot = podae.DerivativeVar(model.perRad, wrt=model.t)
@@ -492,12 +489,9 @@ finalMassCallback = lambda m : m.mass[1.0]
 model.massObjective = poenv.Objective(expr = finalMassCallback, sense=poenv.maximize)
 
 model.var_input = poenv.Suffix(direction=poenv.Suffix.LOCAL)
-model.var_input[model.controlAzimuth] = {0: 0.0}
-model.var_input[model.controlElevation] = {0: 0.0}
-#model.var_input[model.ux] = {0: 0.0}
-#model.var_input[model.uy] = {0: 1.0}
-#model.var_input[model.uz] = {0: 0.0}
-model.var_input[model.throttle] = {0: 1.0}
+model.var_input[model.controlAzimuth] = {0: math.pi/2.0, 1.0:math.pi/2.0}
+model.var_input[model.controlElevation] = {0: 0.0, 1.0:0.0}
+model.var_input[model.throttle] = {0: 1.0, 1.0: 1.0}
 model.var_input[model.tf] = {0: tfVal}
 print("siming the pyomo model")
 sim = podae.Simulator(model, package='scipy')
@@ -511,7 +505,9 @@ print("initing the pyomo model")
 sim.initialize_model()
 print("running the pyomo model")
 solver = poenv.SolverFactory('cyipopt')
-solver.config.options['tol'] = 1e-7
+solver.config.options['tol'] = 1e-6
+solver.config.options['max_iter'] = 3000
+
 try :
     solver.solve(model, tee=True)
 except Exception as ex:
@@ -530,9 +526,6 @@ def extractPyomoSolution(model, stateSymbols):
     massSym = np.array([model.mass[t]() for t in model.t])
     controlAzimuth = np.array([model.controlAzimuth[t]() for t in model.t])
     controlElevation = np.array([model.controlElevation[t]() for t in model.t])
-    #ux = np.array([model.ux[t]() for t in model.t])
-    #uy = np.array([model.uy[t]() for t in model.t])
-    #uz = np.array([model.uz[t]() for t in model.t])
     throttle = np.array([model.throttle[t]() for t in model.t])
     ansAsDict = OrderedDict()
     ansAsDict[stateSymbols[0]]= pSym
@@ -542,10 +535,6 @@ def extractPyomoSolution(model, stateSymbols):
     ansAsDict[stateSymbols[4]]= kSym
     ansAsDict[stateSymbols[5]]= lonSym
     ansAsDict[stateSymbols[6]]= massSym
-    #ansAsDict[stateSymbols[7]]= ux
-    #ansAsDict[stateSymbols[8]]= uy
-    #ansAsDict[stateSymbols[9]]= uz
-    #ansAsDict[stateSymbols[10]]= throttle
     ansAsDict[stateSymbols[7]]= controlAzimuth
     ansAsDict[stateSymbols[8]]= controlElevation
     ansAsDict[stateSymbols[9]]= throttle
@@ -563,18 +552,26 @@ for i in range(0, len(time)):
     equiElements.append(temp)
 
 simEqui = []
+simOtherValues = {}
+simOtherValues[stateSymbols[6]] = []
+# simOtherValues[stateSymbols[7]] = []
+# simOtherValues[stateSymbols[8]] = []
+# simOtherValues[stateSymbols[9]] = []
 for i in range(0, len(tsim)) :
     temp = ModifiedEquinoctialElements(profiles[i][0]*trivialScalingDic[baseProblem.StateVariables[0]], profiles[i][1], profiles[i][2], profiles[i][3], profiles[i][4], profiles[i][5], muVal)
+    simOtherValues[stateSymbols[6]].append(profiles[i][6])
+    # simOtherValues[stateSymbols[7]].append(profiles[i][7])
+    # simOtherValues[stateSymbols[8]].append(profiles[i][8])
+    # simOtherValues[stateSymbols[9]].append(profiles[i][9])
     simEqui.append(temp)
+    
 
 guessMotions = ModifiedEquinoctialElements.CreateEphemeris(simEqui)
 simEphem = prim.EphemerisArrays()
 simEphem.InitFromMotions(tsim*tfVal, guessMotions)
 simPath = prim.PathPrimitive(simEphem)
 simPath.color = "#00ff00"
-
-#dataArray.append(CreatePlotlyLineDataObject(earthPath))
-#dataArray.append(CreatePlotlyLineDataObject(marsPath))
+#%%
 try :
     motions = ModifiedEquinoctialElements.CreateEphemeris(equiElements)
     satEphem = prim.EphemerisArrays()
@@ -587,22 +584,16 @@ except :
 marsPath.color = "#990011"
 thrustVectRun = getInertialThrustVectorFromAzimuthElevationMagnitudeArrays(dictSolution[stateSymbols[7]], dictSolution[stateSymbols[8]], dictSolution[stateSymbols[9]])
 thrustPlotlyItemsRun = createScattersForThrustVecters(satPath.ephemeris, thrustVectRun, "#ff0000", Au/10.0)
-PlotAndAnimatePlanetsWithPlotly("some title", [earthPath, marsPath, satPath], time, thrustPlotlyItemsRun)
+PlotAndAnimatePlanetsWithPlotly("some title", [earthPath, marsPath, simPath, satPath], time, thrustPlotlyItemsRun)
 #%%
-class plotableData :
-    def __init__(self, x, y, color, width, name) :
-        self.X = x
-        self.Y = y
-        self.Color = color
-        self.Width = width
-        self.Name = name
+azimuthPlotData = prim.XAndYPlottableLineData(time, dictSolution[stateSymbols[7]]*180.0/math.pi, "azimuth", '#0000ff', 2, 0)
+elevationPlotData = prim.XAndYPlottableLineData(time, dictSolution[stateSymbols[8]]*180.0/math.pi, "elevation", '#00ff00', 2, 0)
 
-import plotly.express as ex
-def plotSetOfPlotableData(plotableDatas : List[plotableData]) :
-    for plotableItem in plotableDatas :
-        df = DataFrame([list(zip(plotableItem.X, plotableItem.Y))], columns=["T", plotableItem.Name])
-        fig = px.line(df, x="T", y=plotableItem.Name, color=plotableItem.Color)
-        fig.show()
+#azimuthPlotDataSim = prim.XAndYPlottableLineData(time, np.array(simOtherValues[stateSymbols[7]])*180.0/math.pi, "azimuth_sim", '#ff00ff', 2, 0)
+#elevationPlotDataSim = prim.XAndYPlottableLineData(time, np.array(simOtherValues[stateSymbols[8]])*180.0/math.pi, "elevation_sim", '#ffff00', 2, 0)
 
-theParameterPlotable = plotableData(time, dictSolution[stateSymbols[0]], "blue", 1, "Parameter")
-plotSetOfPlotableData([theParameterPlotable])
+plot2DLines([azimuthPlotData, elevationPlotData], "Thrust angles (deg)")
+
+throttle = prim.XAndYPlottableLineData(time, dictSolution[stateSymbols[9]], "throttle", '#FF0000', 2)
+plot2DLines([throttle], "Throttle (0 to 1)")
+# %%

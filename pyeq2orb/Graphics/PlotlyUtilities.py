@@ -8,6 +8,7 @@ class PlotlyDataAndFramesAccumulator :
     def __init__(self):
         self.data = []
         self.frames = []
+        
     @staticmethod
     def CreatePlotlyEphemerisDataFrame(ephemeris : prim.EphemerisArrays) :
         x = ephemeris.X
