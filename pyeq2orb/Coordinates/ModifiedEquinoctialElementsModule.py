@@ -14,6 +14,11 @@ class ModifiedEquinoctialElements:
         self.TrueLongitude = l
         self.GravitationalParameter = mu
 
+        self._wSymbol = sy.Symbol('w')
+        self._sSquaredSymbol = sy.Symbol('s^2')
+        self._alphaSymbol = sy.Symbol(r'\alpha')
+        self._rSymbol = sy.Symbol('r')
+
     @staticmethod
     def FromCartesian(x, y, z, vx, vy, vz) :
         pass #TODO
@@ -21,10 +26,6 @@ class ModifiedEquinoctialElements:
     @property
     def W(self) :
         return 1+self.EccentricityCosTermF*sy.cos(self.TrueLongitude)+self.EccentricitySinTermG*sy.sin(self.TrueLongitude)
-
-    @property
-    def Q(self) :
-        return self.W
 
     @property
     def SSquared(self) :
@@ -37,6 +38,28 @@ class ModifiedEquinoctialElements:
     @property
     def Radius(self) :
         return self.SemiParameter / self.W
+
+    @property
+    def WSymbol(self) :
+        return self._wSymbol
+
+    @property
+    def SSquaredSymbol(self) :
+        return self._sSquaredSymbol
+    
+    @property
+    def AlphaSquaredSymbol(self) :
+        return self._alphaSymbol
+
+    def AuxiliarySymbolsDict(self) -> dict[sy.Expr, sy.Expr] :
+        return {self.WSymbol: self.W, 
+                self.SSquaredSymbol: self.SSquared,
+                self.AlphaSquaredSymbol: self.AlphaSquared,
+                self.RadiusSymbol: self.Radius}
+
+    @property
+    def RadiusSymbol(self) :
+        return self._rSymbol
 
     def ToKeplerian(self) -> KeplerianElements :
         l = self.TrueLongitude
@@ -55,7 +78,7 @@ class ModifiedEquinoctialElements:
         ta = l-raan+w
         return KeplerianElements(a, e, i, w, raan, ta, self.GravitationalParameter)
     
-    def ToMotionCartesian(self) -> MotionCartesian :
+    def ToMotionCartesian(self, useSymbolsForAuxiliaryElements = False) -> MotionCartesian :
         l = self.TrueLongitude
         f = self.EccentricityCosTermF
         g = self.EccentricitySinTermG        
@@ -63,12 +86,17 @@ class ModifiedEquinoctialElements:
         k = self.InclinationSinTermK
         p = self.SemiParameter
         mu = self.GravitationalParameter
-        w = self.W
 
-        r = self.Radius
-        sSquared = self.SSquared
-        w = self.W
-        alpSq = self.AlphaSquared
+        if useSymbolsForAuxiliaryElements :
+            w = self.WSymbol
+            r = self.RadiusSymbol
+            sSquared = self.SSquaredSymbol
+            alpSq = self.AlphaSquaredSymbol
+        else :
+            w = self.W
+            r = self.Radius
+            sSquared = self.SSquared        
+            alpSq = self.AlphaSquared
         
         cosL = sy.cos(l)
         sinL = sy.sin(l)
@@ -87,30 +115,36 @@ class ModifiedEquinoctialElements:
         motion = self.ToCartesian()
         return [[motion.Position.X,motion.Position.Y,motion.Position.Z], [motion.Velocity.X,motion.Velocity.Y,motion.Velocity.Z]]
 
-    def ToPseuodNormalizedCartesian(self) :
-        # sorry for the copy/paste of the above
-        p = self.SemiParameter
-        f = self.EccentricityCosTermF
-        g = self.EccentricitySinTermG        
-        k = self.InclinationSinTermK
-        h = self.InclinationCosTermH
-        tl = self.TrueLongitude
-        mu = self.GravitationalParameter
-        alp2 = h*h-k*k
-        s2 = 1+h*h+k*k
-        w = 1+f*sy.cos(tl)+g*sy.sin(tl)
-        rM = p/w
+    # def ToPseuodNormalizedCartesian(self, useSymbolsForAuxiliaryElements = False) :
+    #     # sorry for the copy/paste of the above
+    #     p = self.SemiParameter
+    #     f = self.EccentricityCosTermF
+    #     g = self.EccentricitySinTermG        
+    #     k = self.InclinationSinTermK
+    #     h = self.InclinationCosTermH
+    #     tl = self.TrueLongitude
+    #     mu = self.GravitationalParameter
+    #     if useSymbolsForAuxiliaryElements :
+    #         alp2 = self.AlphaSquaredSymbol
+    #         s2 = self.SSquaredSymbol
+    #         w = self.WSymbol
+    #         rM = self.Radius
+    #     else :
+    #         alp2 = h*h-k*k
+    #         s2 = 1+h*h+k*k
+    #         w = 1+f*sy.cos(tl)+g*sy.sin(tl)
+    #         rM = p/w
         
-        x = (sy.cos(tl) + alp2*sy.cos(tl) + 2*h*k *sy.sin(tl))
-        y = (sy.sin(tl) + alp2*sy.sin(tl) + 2*h*k *sy.cos(tl))
-        z = (1/s2)*(h*sy.sin(tl) - k*sy.cos(tl))
+    #     x = (sy.cos(tl) + alp2*sy.cos(tl) + 2*h*k *sy.sin(tl))
+    #     y = (sy.sin(tl) + alp2*sy.sin(tl) + 2*h*k *sy.cos(tl))
+    #     z = (1/s2)*(h*sy.sin(tl) - k*sy.cos(tl))
 
-        # not being rigirous about the normalizing here, just removing various parameters
-        vx = (-1) * (sy.sin(tl) + alp2*sy.sin(tl) - 2*h*k*sy.cos(tl) + g - 2*f*h*k + alp2*g)
-        vy = (-1) * (-1*sy.cos(tl) + alp2*sy.cos(tl) + 2*h*k*sy.sin(tl) - f - 2*g*h*k + alp2*f)
-        vz = (1/s2) * (h*sy.cos(tl) + k*sy.sin(tl) + f*h + g*k)
+    #     # not being rigirous about the normalizing here, just removing various parameters
+    #     vx = (-1) * (sy.sin(tl) + alp2*sy.sin(tl) - 2*h*k*sy.cos(tl) + g - 2*f*h*k + alp2*g)
+    #     vy = (-1) * (-1*sy.cos(tl) + alp2*sy.cos(tl) + 2*h*k*sy.sin(tl) - f - 2*g*h*k + alp2*f)
+    #     vz = (1/s2) * (h*sy.cos(tl) + k*sy.sin(tl) + f*h + g*k)
 
-        return MotionCartesian(Cartesian(x, y, z), Cartesian(vx, vy, vz))   
+    #     return MotionCartesian(Cartesian(x, y, z), Cartesian(vx, vy, vz))   
 
     def ToArray(self) -> List :
         return [self.SemiParameter, self.EccentricityCosTermF, self.EccentricitySinTermG, self.InclinationCosTermH, self.InclinationSinTermK, self.TrueLongitude]
@@ -127,7 +161,7 @@ class ModifiedEquinoctialElements:
             motions.append(equi.ToMotionCartesian())
         return motions
 
-    def CreatePerturbationMatrix(self) ->sy.Matrix :
+    def CreatePerturbationMatrix(self, useSymbolsForAuxElements = False) ->sy.Matrix :
         eqElements=self
         mu = eqElements.GravitationalParameter
         pEq = eqElements.SemiParameter        
@@ -136,16 +170,21 @@ class ModifiedEquinoctialElements:
         hEq = eqElements.InclinationCosTermH
         kEq = eqElements.InclinationSinTermK
         lEq = eqElements.TrueLongitude
-        w = 1+fEq*sy.cos(lEq)+gEq*sy.sin(lEq)
-        s2 = 1+kEq**2+hEq**2
+        if useSymbolsForAuxElements : 
+            w = self.WSymbol
+            s2 = self.SSquaredSymbol
+        else :
+            w = 1+fEq*sy.cos(lEq)+gEq*sy.sin(lEq)
+            s2 = 1+kEq**2+hEq**2
         sqrtPOverMu=sy.sqrt(pEq/mu)
         # note that in teh 3rd row, middle term, I added a 1/w because I think it is correct even though the MME pdf doesn't have it
+        # note that SAO/NASA (Walked, Ireland and Owens) says that the final term of the third element is feq/w instead of heq/w
         B = sy.Matrix([[0, (2*pEq/w)*sqrtPOverMu, 0],
-                    [sqrtPOverMu*sy.sin(lEq), sqrtPOverMu*(1/w)*((w+1)*sy.cos(lEq)+fEq), -1*sqrtPOverMu*(gEq/w)*(kEq*sy.sin(lEq)-hEq*sy.cos(lEq))],
-                    [-1*sqrtPOverMu*sy.cos(lEq), sqrtPOverMu*(1/w)*((w+1)*sy.sin(lEq)+gEq), sqrtPOverMu*(fEq/w)*(kEq*sy.sin(lEq)-hEq*sy.cos(lEq))],
-                    [0,0,sqrtPOverMu*(s2*sy.cos(lEq)/(2*w))],
-                    [0,0,sqrtPOverMu*(s2*sy.sin(lEq)/(2*w))],
-                    [0,0,sqrtPOverMu*(kEq*sy.sin(lEq)-hEq*sy.cos(lEq))/w]])
+                    [   sqrtPOverMu*sy.sin(lEq), sqrtPOverMu*(1.0/w)*((w+1)*sy.cos(lEq)+fEq), -1*sqrtPOverMu*(gEq/w)*(kEq*sy.sin(lEq)-hEq*sy.cos(lEq))],
+                    [-1*sqrtPOverMu*sy.cos(lEq), sqrtPOverMu*(1.0/w)*((w+1)*sy.sin(lEq)+gEq),    sqrtPOverMu*(fEq/w)*(kEq*sy.sin(lEq)-hEq*sy.cos(lEq))],
+                    [0.0,0.0,sqrtPOverMu*(s2*sy.cos(lEq)/(2*w))],
+                    [0.0,0.0,sqrtPOverMu*(s2*sy.sin(lEq)/(2*w))],
+                    [0.0,0.0,sqrtPOverMu*(hEq*sy.sin(lEq)-kEq*sy.cos(lEq))/w]])
         return B        
 
 def ConvertKeplerianToEquinoctial(keplerianElements : KeplerianElements, nonModedLongitude = True) ->ModifiedEquinoctialElements :
@@ -176,23 +215,25 @@ def CreateSymbolicElements(elementOf = None) -> ModifiedEquinoctialElements : #T
         g = sy.Symbol('g', real=True)
         h = sy.Symbol('h', real=True)
         k= sy.Symbol('k', real=True)
-        l = sy.Symbol('l', real=True)
+        l = sy.Symbol('L', real=True)
     else :
         p = sy.Function('p', positive=True)(elementOf)
         f = sy.Function('f', real=True)(elementOf)
         g = sy.Function('g', real=True)(elementOf)
         h = sy.Function('h', real=True)(elementOf)
         k= sy.Function('k', real=True)(elementOf)
-        l = sy.Function('l', real=True)(elementOf)
+        l = sy.Function('L', real=True)(elementOf)
     mu = sy.Symbol(r'\mu', positive=True, real=True)
 
     return ModifiedEquinoctialElements(p, f, g, h, k, l, mu)
 
 
-def TwoBodyGravityForceOnElements(elements : ModifiedEquinoctialElements, w=None) ->sy.Matrix:
-    if(w==None) :
-        w = elements.W
-    return sy.Matrix([[0],[0],[0],[0],[0],[sy.sqrt(elements.GravitationalParameter*elements.SemiParameter)*(w/elements.SemiParameter)**2]])
+# def TwoBodyGravityForceOnElements(elements : ModifiedEquinoctialElements, useSymbolsForAuxiliaryElements = False) ->sy.Matrix:
+#     if useSymbolsForAuxiliaryElements :
+#         w = elements.WSymbol
+#     else :
+#         w = elements.W
+#     return sy.Matrix([[0],[0],[0],[0],[0],[sy.sqrt(elements.GravitationalParameter*elements.SemiParameter)*(w/elements.SemiParameter)**2]])
 
 
 

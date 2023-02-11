@@ -26,6 +26,14 @@ class testOrbitFunctions(unittest.TestCase) :
         self.assertAlmostEqual(expected[2,2], ricToInert[2,2], places=10, msg="2,2")
         ricDir = Cartesian(1.0, 1.0, 0.0).Normalize()
         expectedInertDirection = Cartesian(-1.0, 0.0, 0.0)
+        print(ricToInert)
+        calculatedInertial =  ricToInert*ricDir
+        
+        self.assertAlmostEqual(expectedInertDirection[0], calculatedInertial[0], places=10, msg="converted 0,0 " + str(expectedInertDirection) + " but was " + str(calculatedInertial))
+        self.assertAlmostEqual(expectedInertDirection[1], calculatedInertial[1], places=10, msg="converted 0,1 " + str(expectedInertDirection) + " but was " + str(calculatedInertial))
+        self.assertAlmostEqual(expectedInertDirection[2], calculatedInertial[2], places=10, msg="converted 0,2 " + str(expectedInertDirection) + " but was " + str(calculatedInertial))
+
+
 
 
 

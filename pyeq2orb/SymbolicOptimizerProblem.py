@@ -5,7 +5,7 @@ from pyeq2orb.Symbolics.Vectors import Vector
 from abc import ABC, abstractmethod
 import numpy as np
 from matplotlib.figure import Figure
-
+from collections import OrderedDict
 # it is likely that this class will get split up into a problem definition and an 
 # indirect solver in the near future
 
@@ -25,7 +25,7 @@ class SymbolicProblem(ABC) :
         self._timeSymbol = None
         self._timeInitialSymbol = None
         self._timeFinalSymbol= None
-        self._substitutionDictionary = {}
+        self._substitutionDictionary = OrderedDict()
         self._costateSymbols = []
 
     def RegisterConstantValue(self, symbol :sy.Expr, value : float) :

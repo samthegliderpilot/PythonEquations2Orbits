@@ -2,6 +2,7 @@ from typing import List
 import sympy as sy
 from sympy.solvers.ode.systems import dsolve_system
 from pyeq2orb import SafeSubs
+from..DemosAndPrototypes import scipyPaperPrinter as jh
 
 class OdeHelper :
     lambidfyStateFlattenOption = "flatten"
