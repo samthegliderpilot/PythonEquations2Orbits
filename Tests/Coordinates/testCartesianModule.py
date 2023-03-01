@@ -89,6 +89,16 @@ class testMotionCartesian(unittest.TestCase) :
         self.assertEqual(motion[0], motion.Position, msg="position indexing")
         self.assertEqual(motion[1], None, msg="velocity indexing")        
 
+    def testEqualsWithinTolerance(self) :
+        motion = MotionCartesian(Cartesian(1,2,3), Cartesian(4,5,6))
+        asFloat = MotionCartesian(Cartesian(1.0,2.0,3.0), Cartesian(4.0,5.0,6.0))
+        almostSame =  MotionCartesian(Cartesian(1.1,2.1,3.1), Cartesian(4.01,5.01,6.01))
+        self.assertTrue(motion.EqualsWithinTolerance(asFloat, 0.000001, 0.000001), msg="float and int match")
+        self.assertTrue(asFloat.EqualsWithinTolerance(almostSame, 0.2, 0.2), msg="within tolerance")
+        self.assertFalse(asFloat.EqualsWithinTolerance(almostSame, 0.0, 0.2), msg="pos not in tolerance")
+        self.assertFalse(asFloat.EqualsWithinTolerance(almostSame, 0.2, 0.0002), msg="vel not in tolerance")
+
+
 
 
 

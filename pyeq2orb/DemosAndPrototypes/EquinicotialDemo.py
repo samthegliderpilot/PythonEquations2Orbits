@@ -246,7 +246,8 @@ lambdiafyFunctionMap = {'sqrt': poenv.sqrt, 'sin': poenv.sin, 'cos':poenv.cos} #
 trivialScalingDic = {}
 for sv in baseProblem.StateVariables :
     trivialScalingDic[sv]=1
-trivialScalingDic[baseProblem.StateVariables[0]] = Au/50
+trivialScalingDic[baseProblem.StateVariables[0]] = Au/10.0
+trivialScalingDic[baseProblem.StateVariables[5]] = 1.0
 print("making scaled problem")
 for sv, eom in baseProblem.EquationsOfMotion.items() :
     jh.showEquation(sy.diff(sv, baseProblem.TimeSymbol), eom)
@@ -272,7 +273,7 @@ def PlotAndAnimatePlanetsWithPlotly(title : str, wanderers : List[prim.PathPrimi
         
         thisMax = planet.ephemeris.GetMaximumValue()
         if thisMax > maxValue :
-            maxVal = thisMax
+            maxValue = thisMax
         
         # for the animation, we can only have 1 scatter_3d and we need to shuffle all of the 
         # points for all of the planets to be at the same time 
@@ -307,17 +308,17 @@ def PlotAndAnimatePlanetsWithPlotly(title : str, wanderers : List[prim.PathPrimi
         showlegend=False,
         opacity=0, # full transparent
         hoverinfo='none',
-        x=[0,maxVal],
-        y=[0,maxVal],
-        z=[0,maxVal])
-        
+        x=[0,maxValue*1.5],
+        y=[0,maxValue*1.5],
+        z=[0,maxValue*1.5])
+    print(str(maxValue))
     fig.add_trace(scalingMarker)
     for item in lines :
         fig.add_trace(item)
     if thrustVect != None :
         for thrust in thrustVect :
             fig.add_trace(thrust)
-    fig.update_layout(autosize=False, width=1200, height=800)
+    fig.update_layout(autosize=False, width=800, height=600)
     fig.show()
 
 def getInertialThrustVectorFromDataDict(problem : SymbolicProblem, dataDict, muValue) -> List[Cartesian] :
@@ -428,7 +429,7 @@ simPath.color = "#00ff00"
 simDataDict = convertIvpResultsToDataDict(baseProblem, testSolution)
 addFixedAzElMagToDataDict(baseProblem, simDataDict, fixedAz, fixedEl, fixedMag)
 thrustCartesians = getInertialThrustVectorFromDataDict(baseProblem, simDataDict, muVal)
-sampleThrustLines = createScattersForThrustVecters(simEphem, thrustCartesians, "#ff0000", Au/10.0)
+sampleThrustLines = createScattersForThrustVecters(simEphem, thrustCartesians, "#ff0000", Au/05.0)
 #PlotAndAnimatePlanetsWithPlotly("Integration sample", [earthPath, marsPath, simPath], testSolution.t, sampleThrustLines)
 #%%
 print("making pyomo model")
@@ -521,7 +522,7 @@ sim = podae.Simulator(model, package='scipy')
 model.var_input = poenv.Suffix(direction=poenv.Suffix.IMPORT)
 model.var_input[model.controlAzimuth] = {0.0: math.pi/2.0}
 model.var_input[model.controlElevation] = {0.0: 0.0}
-model.var_input[model.throttle] = {0.0: 0.8}
+model.var_input[model.throttle] = {0.0: 0.7}
 #model.var_input[model.tf] = {0.0: tfVal}
 simming=True
 tsim, profiles = sim.simulate(numpoints=n, varying_inputs=model.var_input, integrator='dop853')
@@ -529,14 +530,14 @@ simming=False
 
 #poenv.TransformationFactory('dae.finite_difference').apply_to(model, wrt=model.t, nfe=n, scheme='BACKWARD')
 print("transforming pyomo")
-poenv.TransformationFactory('dae.collocation').apply_to(model, wrt=model.t, nfe=n, ncp=3, scheme='LAGRANGE-RADAU')
+poenv.TransformationFactory('dae.collocation').apply_to(model, wrt=model.t, nfe=n, ncp=5, scheme='LAGRANGE-LEGENDRE')
 #['LAGRANGE-RADAU', 'LAGRANGE-LEGENDRE']
 print("initing the pyomo model")
 sim.initialize_model()
 
 print("running the pyomo model")
 solver = poenv.SolverFactory('cyipopt')
-solver.config.options['tol'] = 1e-6
+solver.config.options['tol'] = 1e-9
 solver.config.options['max_iter'] = 3000
 
 try :
@@ -615,7 +616,7 @@ except :
 
 #%%
 thrustVectRun = getInertialThrustVectorFromDataDict(baseProblem, dictSolution, muVal)
-thrustPlotlyItemsRun = createScattersForThrustVecters(satPath.ephemeris, thrustVectRun, "#ff0000", Au/25.0)
+thrustPlotlyItemsRun = createScattersForThrustVecters(satPath.ephemeris, thrustVectRun, "#ff0000", Au/10.0)
 PlotAndAnimatePlanetsWithPlotly("some title", [earthPath, marsPath, simPath, satPath], time, thrustPlotlyItemsRun)
 
 azimuthPlotData = prim.XAndYPlottableLineData(time, dictSolution[stateSymbols[7]]*180.0/math.pi, "azimuth", '#0000ff', 2, 0)

@@ -139,7 +139,16 @@ class Cartesian(sy.Matrix) :
         Cartesian._addXYZ(newOne)
         return newOne
 
-    def EqualsWithinTolerance(self, other : Cartesian, tolerance: float) :
+    def EqualsWithinTolerance(self, other : Cartesian, tolerance: float) -> bool :
+        """ Returns if this cartesian is equal to the other cartesian to within the passed in tolerance
+
+        Args: 
+            other (Cartesian): The motion to compare to this one
+            tolerance: The tolerance
+
+        Returns:
+            True if the cartesians are equal to within the tolerance, False otherwise
+        """        
         return other.shape == self.shape and abs(self[0]-other[0]) <= tolerance and abs(self[1]-other[1]) <= tolerance and abs(self[2]-other[2]) <= tolerance
 
     def Magnitude(self) :
@@ -232,50 +241,24 @@ class MotionCartesian :
             return self.Velocity # return the None, it is ok.
         raise Exception("Motions does not support indexes outside the range of 0 to 1 inclusive, but was passed " +str(i))
 
-    def EqualsWithinTolerance(self, other, posTolerance, velTolerance) :
+    def EqualsWithinTolerance(self, other : MotionCartesian, positionTolerance : float, velocityTolerance : float) -> bool :
+        """ Returns if this motion is equal to the other motion to within the passed in tolerances
+
+        Args: 
+            other (MotionCartesian): The motion to compare to this one
+            positionTolerance: The position tolerance
+            velocityTolerance: The velocity tolerance
+
+        Returns:
+            True if the motions are equal to within the tolerance, False otherwise
+        """
         if type(other) != type(self):
             return False
-        return self.Position.EqualsWithinTolerance(other.Position, posTolerance) and self.Velocity.EqualsWithinTolerance(other.Velocity, velTolerance)
-
-
-# def Plot3DOrbit(x, y, z) :
-#     from mpl_toolkits import mplot3d
-#     import numpy as np
-#     import matplotlib.pyplot as plt
-#     def _set_axes_radius(ax, origin, radius):
-#         x, y, z = origin
-#         ax.set_xlim3d([x - radius, x + radius])
-#         ax.set_ylim3d([y - radius, y + radius])
-#         ax.set_zlim3d([z - radius, z + radius])
-#     def set_axes_equal(ax: plt.Axes):
-#         """Set 3D plot axes to equal scale.
-
-#         Make axes of 3D plot have equal scale so that spheres appear as
-#         spheres and cubes as cubes.  Required since `ax.axis('equal')`
-#         and `ax.set_aspect('equal')` don't work on 3D.
-#         """
-#         limits = np.array([
-#             ax.get_xlim3d(),
-#             ax.get_ylim3d(),
-#             ax.get_zlim3d(),
-#         ])
-#         origin = np.mean(limits, axis=1)
-#         radius = 0.5 * np.max(np.abs(limits[:, 1] - limits[:, 0]))
-#         _set_axes_radius(ax, origin, radius)
-
-
-    # fig = plt.figure()
-    # figsize=plt.figaspect(1)
-    # ax = plt.axes(projection ='3d', proj_type='ortho')
-    # ax.auto_scale_xyz(x, y)
-    # ax.plot3D(x, y, z, 'red')
-    # ax.set_title('Orbit')
-
-    # u, v = np.mgrid[0:2*np.pi:20j, 0:np.pi:10j]
-    # x = np.cos(u)*np.sin(v)*6378137
-    # y = np.sin(u)*np.sin(v)*6378137
-    # z = np.cos(v)*6378137
-    # ax.plot_surface(x, y, z, color="b")
-    # ax.set_box_aspect([1,1,1])
-    # set_axes_equal(ax)
-    # return plt
+        if other == None :
+            return False
+        posEqual = self.Position.EqualsWithinTolerance(other.Position, positionTolerance)
+        if other.Velocity == None and self.Velocity == None :
+            return posEqual
+        if other.Velocity == None :
+            return False
+        return posEqual and self.Velocity.EqualsWithinTolerance(other.Velocity, velocityTolerance)

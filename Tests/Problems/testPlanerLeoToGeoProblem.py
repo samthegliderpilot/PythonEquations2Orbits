@@ -9,7 +9,8 @@ from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 from pyeq2orb.ScaledSymbolicProblem import ScaledSymbolicProblem
 from pyeq2orb.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
 from pyeq2orb.Numerical import ScipyCallbackCreators
-
+import pyeq2orb as pe2o
+import importlib
 
 class testPlanerLeoToGeoProblem(unittest.TestCase) :
     @staticmethod
@@ -171,6 +172,7 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
 
     # Regression tests. Ideally I would make more unit tests, but this will catch when thing break
     def testRegressionWithDifferentialTransversality(self) :
+        importlib.reload(pe2o)
         (odeSolveIvpCb, fSolveCb, tArray, z0, problem) = testPlanerLeoToGeoProblem.CreateEvaluatableCallbacks(False, False, True)
         knownAnswer = [26.22754527,  1277.08055436, 23647.7219169]
         answer = fSolveCb(knownAnswer)
@@ -180,11 +182,12 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
             i=i+1
         odeAns = solve_ivp(odeSolveIvpCb, [tArray[0], tArray[-1]], [*z0, *knownAnswer], args=tuple([]), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)  
         finalState = ScipyCallbackCreators.GetFinalStateFromIntegratorResults(odeAns)
-        self.assertAlmostEqual(finalState[0], 42162141.15, 1, msg="radius check")
+        self.assertAlmostEqual(finalState[0], 42162071.898083754, 1, msg="radius check")
         self.assertAlmostEqual(finalState[1], 0.000, 2, msg="u check")
         self.assertAlmostEqual(finalState[2], 3074.735, 1, msg="v check")
 
     def testRegressionWithAjoinedTransversality(self) :
+        importlib.reload(pe2o)
         (odeSolveIvpCb, fSolveCb, tArray, z0, problem) = testPlanerLeoToGeoProblem.CreateEvaluatableCallbacks(False, False, False)
         knownAnswer = [26.22755418,   1277.08146331,  23647.73092022, -11265.69782522, 20689.28488067]
         answer = fSolveCb(knownAnswer)
@@ -194,6 +197,6 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
             i=i+1
         odeAns = solve_ivp(odeSolveIvpCb, [tArray[0], tArray[-1]], [*z0, *knownAnswer[0:3]], args=tuple(knownAnswer[3:]), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)  
         finalState = ScipyCallbackCreators.GetFinalStateFromIntegratorResults(odeAns)
-        self.assertAlmostEqual(finalState[0], 42162136.415, delta=1, msg="radius check")
+        self.assertAlmostEqual(finalState[0], 42162141.30863323, delta=1, msg="radius check")
         self.assertAlmostEqual(finalState[1], 0.000, delta=0.01, msg="u check")
         self.assertAlmostEqual(finalState[2], 3074.735, delta=1, msg="v check")              

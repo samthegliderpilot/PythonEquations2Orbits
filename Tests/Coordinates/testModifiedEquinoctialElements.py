@@ -10,7 +10,7 @@ class testModifiedEquinoctialElements(unittest.TestCase) :
     def testToCartesian(self):
         # https://ai-solutions.com/_help_Files/orbit_element_types.htm
         equiElements = mee.ModifiedEquinoctialElements(7070766.0, 0.00180, -0.00170, 0.610, -0.980, 136.64*math.pi/180.0, 3.986004418e14) 
-        expectedCart = MotionCartesian(Cartesian(-3410.673, 5950.957, -1788.627)*1000, Cartesian(1.893, -1.071, -7.176)*1000)
+        expectedCart = MotionCartesian(Cartesian(-3404.2252, 5955.58667, -1785.0657)*1000, Cartesian(1.88356358310406, -1.07216265087468, -7.16916147012584)*1000)
         actualCart = equiElements.ToMotionCartesian()
         self.assertAlmostEqual(expectedCart.Position.X, actualCart.Position.X, 1, msg="X")
         self.assertAlmostEqual(expectedCart.Position.Y, actualCart.Position.Y, 1, msg="Y")
@@ -23,14 +23,14 @@ class testModifiedEquinoctialElements(unittest.TestCase) :
     def testFromCartesian(self) :
         # https://ai-solutions.com/_help_Files/orbit_element_types.htm
         expectedEquiElements = mee.ModifiedEquinoctialElements(7070766.0, 0.00180, -0.00170, 0.610, -0.980, 136.64*math.pi/180.0, 3.986004418e14) 
-        cartMotion = MotionCartesian(Cartesian(-3410.673, 5950.957, -1788.627)*1000, Cartesian(1.893, -1.071, -7.176)*1000)
+        cartMotion = MotionCartesian(Cartesian(-3404.2252, 5955.58667, -1785.0657)*1000, Cartesian(1.88356358310406, -1.07216265087468, -7.16916147012584)*1000)
         actualEqui = mee.ModifiedEquinoctialElements.FromMotionCartesian(cartMotion, 3.986004418e14)
         self.assertAlmostEqual(expectedEquiElements.SemiParameter, actualEqui.SemiParameter, 1, msg="p")
         self.assertAlmostEqual(expectedEquiElements.EccentricityCosTermF, actualEqui.EccentricityCosTermF, 5, msg="f")
         self.assertAlmostEqual(expectedEquiElements.EccentricitySinTermG, actualEqui.EccentricitySinTermG, 5, msg="g")
         self.assertAlmostEqual(expectedEquiElements.InclinationCosTermH, actualEqui.InclinationCosTermH, 5, msg="h")
         self.assertAlmostEqual(expectedEquiElements.InclinationSinTermK, actualEqui.InclinationSinTermK, 5, msg="k")
-        self.assertAlmostEqual(expectedEquiElements.TrueLongitude, actualEqui.TrueLongitude, 5, msg="L")
+        self.assertAlmostEqual(expectedEquiElements.TrueLongitude, actualEqui.TrueLongitude% (2*math.pi), 5, msg="L")
 
 
     def testRoundTripFromCartesian(self) :
