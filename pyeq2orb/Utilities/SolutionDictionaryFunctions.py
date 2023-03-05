@@ -1,6 +1,6 @@
 from typing import Dict, List, OrderedDict
 
-def GetValueFromStateDictionaryAtIndex(fullSolutionDictionary : Dict[object, List[object]], index : int) ->Dict[object, object] :
+def GetValueFromStateDictionaryAtIndex(fullSolutionDictionary : Dict[object, List[float]], index : int) ->Dict[object, float] :
     """From a dictionary containing lists of something (often the evaluated floats), get a 
     similar dictionary that is the final values.
 
@@ -15,7 +15,7 @@ def GetValueFromStateDictionaryAtIndex(fullSolutionDictionary : Dict[object, Lis
         finalValues[key] = value[index]
     return finalValues 
 
-def GetInitialStateDictionary(fullSolutionDictionary : Dict[object, List[object]]) ->Dict[object, object] :
+def GetInitialStateDictionary(fullSolutionDictionary : Dict[object, List[float]]) ->Dict[object, float] :
     """From a dictionary containing lists of something (often the evaluated floats), get a 
     similar dictionary that is the initial values.
 
@@ -27,7 +27,7 @@ def GetInitialStateDictionary(fullSolutionDictionary : Dict[object, List[object]
     """
     return GetValueFromStateDictionaryAtIndex(fullSolutionDictionary, 0)
 
-def GetFinalStateDictionary(fullSolutionDictionary : Dict[object, List[object]]) ->Dict[object, object] :
+def GetFinalStateDictionary(fullSolutionDictionary : Dict[object, List[float]]) ->Dict[object, float] :
     """From a dictionary containing lists of something (often the evaluated floats), get a 
     similar dictionary that is the final values.
 

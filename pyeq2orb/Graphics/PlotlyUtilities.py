@@ -46,8 +46,8 @@ class PlotlyDataAndFramesAccumulator :
     def AddScalingPoints(self, primitives : List[prim.Primitive]) :
         maxVal = -1
         for prim in primitives :
-            if prim.maxumumValue() > maxVal :
-                maxVal = prim.maxumumValue()
+            if prim.maximumValue() > maxVal :
+                maxVal = prim.maximumValue()
         
         markers = go.Scatter3d(name="",
         visible=True,

@@ -106,10 +106,6 @@ jh.showEquation("b", twoBodyForceList)
 jh.printMarkdown("As expected, for two body motion, the only change is in the True Longitude")
 jh.printMarkdown("For the perturbation matrix, the cartesian acceleration is defined as:")
 
-
-
-
-
 jh.printMarkdown("## To and from the RIC axes")
 jh.printMarkdown("Although there is room for significant simplication, taking the basic defintions of the radial/in-tract/cross-track axes and the cartesian conversion, we get the following matrix converting an RIC axes to Inertial")
 

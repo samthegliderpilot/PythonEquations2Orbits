@@ -47,7 +47,7 @@ class Primitive :
         pass
         self._color = "#000000"
 
-    def maxumumValue(self) -> float : 
+    def maximumValue(self) -> float : 
         return self.maximumValueFromEphemeris(self.ephemeris)
 
     def maximumValueFromEphemeris(self, ephemeris):
@@ -81,8 +81,8 @@ class PathPrimitive(Primitive) :
     def set_width(self, value) :
         self._width = value 
 
-    def maxumumValue(self) -> float:
-        return super().maxumumValue()
+    def maximumValue(self) -> float:
+        return super().maximumValue()
 
 class MarkerPrimitive(Primitive) :
     def __init__(self, ephemeris = EphemerisArrays()) :
@@ -125,9 +125,9 @@ class Sphere(Primitive) :
 
 
 class PlanetPrimitive(MarkerPrimitive, PathPrimitive) :
-    def __init__(self, postionCartesians, markerSize, lineWidth, color, planetRadius, name):
-        PathPrimitive.__init__(self, postionCartesians)
-        MarkerPrimitive.__init__(self, postionCartesians)
+    def __init__(self, positionCartesians, markerSize, lineWidth, color, planetRadius, name):
+        PathPrimitive.__init__(self, positionCartesians)
+        MarkerPrimitive.__init__(self, positionCartesians)
         self._color = color
         self._size = markerSize
         self._width = lineWidth
@@ -143,7 +143,10 @@ class PlanetPrimitive(MarkerPrimitive, PathPrimitive) :
         self._radius = value
 
 class XAndYPlottableLineData :
-    def __init__(self, x, y, label, color, lineWidth=0, markerSize=0):
+    """
+    A simple class grouping together common data needed to plot a 2D line.
+    """
+    def __init__(self, x : List[float], y: List[float], label : str, color : object, lineWidth=0, markerSize=0):
         self.x = x
         self.y = y
         self.label = label

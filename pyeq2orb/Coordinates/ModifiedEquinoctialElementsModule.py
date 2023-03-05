@@ -78,6 +78,17 @@ class ModifiedEquinoctialElements:
         ta = l-raan+w
         return KeplerianElements(a, e, i, w, raan, ta, self.GravitationalParameter)
     
+    def CreateFgwToInertialAxes(self):
+        p = self.InclinationSinTermK
+        q = self.InclinationCosTermH
+
+        mult = 1/(1+p**2+q**2)
+        fm = mult*sy.Matrix([[1-p**2+q**2], [2*p*q], [-2*p]])
+        gm = mult*sy.Matrix([[2*p*q], [1+p**2-q**2], [2*q]])
+        wm = mult*sy.Matrix([[2*p], [-2*q], [1-p**2-q**2]])
+
+        return sy.Matrix([[fm[0,0], fm[1,0], fm[2,0]],[gm[0,0],gm[1,0],gm[2,0] ],[wm[0,0], wm[1,0], wm[2,0]]]).transpose()
+
     def ToMotionCartesian(self, useSymbolsForAuxiliaryElements = False) -> MotionCartesian :
         l = self.TrueLongitude
         f = self.EccentricityCosTermF
@@ -277,6 +288,54 @@ class EquinoctialElementsHalfI :
         mu = sy.Symbol(r'\mu', positive=True, real=True)
 
         return EquinoctialElementsHalfI(a, h, k, p, q, l, mu)
+    
+    def CreateFgwToInertialAxes(self):
+        p = self.InclinationSinTermP
+        q = self.InclinationCosTermQ
+
+        mult = 1/(1+p**2+q**2)
+        fm = mult*sy.Matrix([[1-p**2+q**2], [2*p*q], [-2*p]]) # first point of aries
+        gm = mult*sy.Matrix([[2*p*q], [1+p**2-q**2], [2*q]]) # completes triad
+        wm = mult*sy.Matrix([[2*p], [-2*q], [1-p**2-q**2]]) # orbit normal
+
+        return sy.Matrix([[fm[0,0], fm[1,0], fm[2,0]],[gm[0,0],gm[1,0],gm[2,0] ],[wm[0,0], wm[1,0], wm[2,0]]]).transpose()
+
+
+    def RadiusInFgw(self, eccentricLongitude) -> List[object]:
+        p = self.InclinationSinTermP
+        q = self.InclinationCosTermQ
+        h = self.EccentricitySinTermH
+        k = self.EccentricityCosTermJ
+        mu = self.GravitationalParameter
+        a = self.SemiMajorAxis
+        f = eccentricLongitude
+
+        b = 1/(1+sy.sqrt(1-h**2-k**2))
+        n = sy.sqrt(mu/a)
+        rOverA = 1-k*sy.cos(f)-h*sy.sin(f)
+
+        x1 = a*((1-h**2*b)*sy.cos(f)+h*k*b*sy.sin(f)-k)
+        x2 = a*((1-k**2*b)*sy.sin(f)+h*k*b*sy.cos(f)-h)
+
+        return [x1, x2]
+
+    def VelocityInFgw(self, eccentricLongitude) -> List[object]:
+        p = self.InclinationSinTermP
+        q = self.InclinationCosTermQ
+        h = self.EccentricitySinTermH
+        k = self.EccentricityCosTermJ
+        mu = self.GravitationalParameter
+        a = self.SemiMajorAxis
+        f = eccentricLongitude
+
+        b = 1/(1+sy.sqrt(1-h**2-k**2))
+        n = sy.sqrt(mu/a)
+        rOverA = 1-k*sy.cos(f)-h*sy.sin(f)
+
+        x1Dot = (n*a/rOverA)*(h*k*b*sy.cos(f)-(1-(h**2)*b*sy.sin(f)))
+        x2Dot = (n*a/rOverA)*((1-(k**2)*b*sy.cos(f)-h*k*b*sy.sin(f)))
+
+        return [x1Dot, x2Dot]
 
     # def ToFgwRotationMatrix(self) :
     #     p = self.InclinationSinTermP

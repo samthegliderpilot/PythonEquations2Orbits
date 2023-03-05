@@ -91,7 +91,7 @@ class Vector(sy.Matrix) :
 
         Returns:
             object: The magnitude of this Vector.  If the vector is made up of doubles, then it will be that magnitude.  But it 
-            could also be symbolic expressions, and this will create that experssion too.
+            could also be symbolic expressions, and this will create that expressions too.
         """
         ansSquared = 0
         for i in range(0, len(self)) :
