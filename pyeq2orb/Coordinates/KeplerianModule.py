@@ -224,7 +224,7 @@ class GaussianEquationsOfMotion :
         sU = sy.sin(u)
 
         ar = accelerationVector.X
-        ah = accelerationVector.Y
+        ah = accelerationVector.Y # cross track
         aTh = accelerationVector.Z 
 
         self.SemiMajorAxisDot = (2.0*(a**2.0)/h) * (e*sTa*ar + (p/r)*aTh)

@@ -221,14 +221,14 @@ def ConvertKeplerianToEquinoctial(keplerianElements : KeplerianElements, nonMode
 
 def CreateSymbolicElements(elementOf = None) -> ModifiedEquinoctialElements : #TODO kargs of mu and element of
     if(elementOf == None) : 
-        p = sy.Symbol('p', positive=True)
+        p = sy.Symbol('p', positive=True, real=True)
         f = sy.Symbol('f', real=True)
         g = sy.Symbol('g', real=True)
         h = sy.Symbol('h', real=True)
         k= sy.Symbol('k', real=True)
         l = sy.Symbol('L', real=True)
     else :
-        p = sy.Function('p', positive=True)(elementOf)
+        p = sy.Function('p', positive=True, real=True)(elementOf)
         f = sy.Function('f', real=True)(elementOf)
         g = sy.Function('g', real=True)(elementOf)
         h = sy.Function('h', real=True)(elementOf)
@@ -289,19 +289,21 @@ class EquinoctialElementsHalfI :
 
         return EquinoctialElementsHalfI(a, h, k, p, q, l, mu)
     
-    def CreateFgwToInertialAxes(self):
-        p = self.InclinationSinTermP
-        q = self.InclinationCosTermQ
-
+    @staticmethod
+    def CreateFgwToInertialAxesStatic(p, q):
         mult = 1/(1+p**2+q**2)
         fm = mult*sy.Matrix([[1-p**2+q**2], [2*p*q], [-2*p]]) # first point of aries
         gm = mult*sy.Matrix([[2*p*q], [1+p**2-q**2], [2*q]]) # completes triad
         wm = mult*sy.Matrix([[2*p], [-2*q], [1-p**2-q**2]]) # orbit normal
 
         return sy.Matrix([[fm[0,0], fm[1,0], fm[2,0]],[gm[0,0],gm[1,0],gm[2,0] ],[wm[0,0], wm[1,0], wm[2,0]]]).transpose()
+    
+    def CreateFgwToInertialAxes(self):
+        p = self.InclinationSinTermP
+        q = self.InclinationCosTermQ
+        return EquinoctialElementsHalfI.CreateFgwToInertialAxesStatic(p, q)
 
-
-    def RadiusInFgw(self, eccentricLongitude) -> List[object]:
+    def RadiusInFgw(self, eccentricLongitude, subsDict : dict = None) -> List[object]:
         p = self.InclinationSinTermP
         q = self.InclinationCosTermQ
         h = self.EccentricitySinTermH
@@ -313,13 +315,23 @@ class EquinoctialElementsHalfI :
         b = 1/(1+sy.sqrt(1-h**2-k**2))
         n = sy.sqrt(mu/a)
         rOverA = 1-k*sy.cos(f)-h*sy.sin(f)
+        if(subsDict != None) :            
+            bSy = sy.Function(r'\beta')(h, k)
+            nSy = sy.Function('n')(a)
+            rOverASy = sy.Function(r'\frac{r}{a}')(k, f, h)
+            subsDict[bSy] = b
+            subsDict[nSy] = n
+            subsDict[rOverASy] = rOverA
+            b = bSy
+            n = nSy
+            rOverA = rOverASy
 
         x1 = a*((1-h**2*b)*sy.cos(f)+h*k*b*sy.sin(f)-k)
         x2 = a*((1-k**2*b)*sy.sin(f)+h*k*b*sy.cos(f)-h)
 
         return [x1, x2]
 
-    def VelocityInFgw(self, eccentricLongitude) -> List[object]:
+    def VelocityInFgw(self, eccentricLongitude, subsDict : dict = None) -> List[object]:
         p = self.InclinationSinTermP
         q = self.InclinationCosTermQ
         h = self.EccentricitySinTermH
@@ -329,14 +341,50 @@ class EquinoctialElementsHalfI :
         f = eccentricLongitude
 
         b = 1/(1+sy.sqrt(1-h**2-k**2))
-        n = sy.sqrt(mu/a)
+        n = sy.sqrt(mu/(a**3))
         rOverA = 1-k*sy.cos(f)-h*sy.sin(f)
-
+        if(subsDict != None) :            
+            bSy = sy.Function(r'\beta')(h, k)
+            nSy = sy.Function('n')(a)
+            rOverASy = sy.Function(r'\frac{r}{a}')(k, f, h)
+            subsDict[bSy] = b
+            subsDict[nSy] = n
+            subsDict[rOverASy] = rOverA
+            b = bSy
+            n = nSy
+            rOverA = rOverASy
         x1Dot = (n*a/rOverA)*(h*k*b*sy.cos(f)-(1-(h**2)*b*sy.sin(f)))
         x2Dot = (n*a/rOverA)*((1-(k**2)*b*sy.cos(f)-h*k*b*sy.sin(f)))
 
         return [x1Dot, x2Dot]
 
+    @staticmethod
+    def InTermsOfX1And2AndTheirDots(x1, x2, x3, x1Dot, x2Dot, x3Dot, p, q, mu, subsDict = None, longitude = 0) :
+        rotMat = sy.Matrix.eye(3,3)# EquinoctialElementsHalfI.CreateFgwToInertialAxesStatic(p, q)
+        # if(subsDict != None) :
+        #     rotSymb = sy.Matrix.zeros(3,3)
+        #     fgw = ["f", "g", "w"]
+        #     xyz = ["x","y","z"]
+        #     for r in range(0, 3) :                
+        #         for c in range(0, 3) :
+        #             rotSymb[r,c] = sy.Function(str(fgw[r]) + "_{" + str(xyz[c]) +"}", real=True)(p, q)
+        #             subsDict[rotSymb[r,c]] = rotMat[r,c]
+        #     rotMat = rotSymb
+        xVec = rotMat * Cartesian(x1, x2, x3)
+        xDotVec = rotMat * Cartesian(x1Dot, x2Dot, x3Dot)
+        sma = (1/sy.sqrt(x1*x1+x2**2) - (x1Dot**2+x2Dot**2)/mu)**(-1)
+        rXv = xVec.cross(xDotVec)
+        eVec = (rXv).cross(xDotVec)/mu
+        magSymbol =rXv.Magnitude()#  sy.Function("|rXv|")(rXv)
+        wVec = rXv/magSymbol
+
+        pOut = wVec[0]/(1+wVec[2])
+        qOut = wVec[1]/(1+wVec[2])
+
+        hOut = eVec.dot(Cartesian(rotMat[1,0], rotMat[1,1], rotMat[1,2]))
+        kOut = eVec.dot(Cartesian(rotMat[0,0], rotMat[0,1], rotMat[0,2]))
+        
+        return EquinoctialElementsHalfI(sma, hOut, kOut, pOut, qOut, longitude, mu)
     # def ToFgwRotationMatrix(self) :
     #     p = self.InclinationSinTermP
     #     q = self.InclinationCosTermQ

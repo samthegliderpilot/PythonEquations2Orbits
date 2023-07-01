@@ -3,15 +3,15 @@ import __init__
 import sympy as sy
 import os
 import sys
+from collections import OrderedDict
 sys.path.insert(1, os.path.dirname(os.path.dirname(sys.path[0]))) # need to import 2 directories up (so pyeq2orb is a subfolder)
 sy.init_printing()
-
 
 from pyeq2orb.ForceModels.TwoBodyForce import CreateTwoBodyMotionMatrix, CreateTwoBodyListForModifiedEquinoctialElements
 from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
 from pyeq2orb.Coordinates.KeplerianModule import KeplerianElements
 import pyeq2orb.Coordinates.KeplerianModule as KepModule
-from pyeq2orb.Coordinates.ModifiedEquinoctialElementsModule import CreateSymbolicElements, ConvertKeplerianToEquinoctial, EquinoctialElementsHalfI
+import pyeq2orb.Coordinates.ModifiedEquinoctialElementsModule as mee
 from IPython.display import display
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 import scipyPaperPrinter as jh
@@ -20,16 +20,17 @@ jh.printMarkdown("In working my way up through low-thrust modeling for satellite
 
 jh.printMarkdown("In other work in this python library, I have already created many helper types such as Equinocital elements, their equations of motion, rotation matrices, and more. To start, we will define out set of equinoctial elements.  Unlike the orignial paper, I will be using the modified elements.  This replaces the semi-major axis with the parameter and reorders/renames some of the other elements.")
 t=sy.Symbol('t')
+mu = sy.Symbol(r'\mu')
 kepElements = KepModule.CreateSymbolicElements()
-simpleEquiElements = CreateSymbolicElements()
-simpleBoringEquiElements = EquinoctialElementsHalfI.CreateSymbolicElements()
-equiInTermsOfKep = ConvertKeplerianToEquinoctial(kepElements)
-jh.showEquation("p", equiInTermsOfKep.SemiParameter)
-jh.showEquation("f", equiInTermsOfKep.EccentricitySinTermG)
-jh.showEquation("g", equiInTermsOfKep.EccentricitySinTermG)
-jh.showEquation("h", equiInTermsOfKep.InclinationCosTermH)
-jh.showEquation("k", equiInTermsOfKep.InclinationSinTermK)
-jh.showEquation("L", equiInTermsOfKep.TrueLongitude)
+simpleEquiElements = mee.CreateSymbolicElements()
+simpleBoringEquiElements = mee.EquinoctialElementsHalfI.CreateSymbolicElements()
+equiInTermsOfKep = mee.ConvertKeplerianToEquinoctial(kepElements)
+# jh.showEquation("p", equiInTermsOfKep.SemiParameter)
+# jh.showEquation("f", equiInTermsOfKep.EccentricitySinTermG)
+# jh.showEquation("g", equiInTermsOfKep.EccentricitySinTermG)
+# jh.showEquation("h", equiInTermsOfKep.InclinationCosTermH)
+# jh.showEquation("k", equiInTermsOfKep.InclinationSinTermK)
+# jh.showEquation("L", equiInTermsOfKep.TrueLongitude)
 eccentricAnomaly = sy.Symbol('E')
 eccentricLongitude = sy.Function('F')(t)
 simpleEquiElements.F = eccentricLongitude
@@ -39,24 +40,132 @@ jh.showEquation(eccentricLongitude, equiInTermsOfKep.F) #TODO: Look into how to 
 
 jh.printMarkdown("The rotation matrix of the axes being used for this analysis to inertial is:")
 jh.showEquation("R", simpleEquiElements.CreateFgwToInertialAxes())
+r = simpleEquiElements.CreateFgwToInertialAxes()
 jh.printMarkdown("And with keplerian elements:")
 jh.showEquation("R", equiInTermsOfKep.CreateFgwToInertialAxes())
 
 jh.printMarkdown("And we need the position and velocity in the FGW axes.  Using the normal equinoctial elements (in order to better compare to the original paper):")
-[x1SimpleEqui, x2SimpleEqui] = simpleBoringEquiElements.RadiusInFgw(eccentricLongitude)
-[x1DotSimpleEqui, x2DotSimpleEqui] = simpleBoringEquiElements.VelocityInFgw(eccentricLongitude)
-jh.showEquation("X_1", x1SimpleEqui)
-jh.showEquation("X_2", x2SimpleEqui)
-jh.showEquation("\dot{X_1}", x1SimpleEqui)
-jh.showEquation("\dot{X_2}", x2SimpleEqui)
+x1Sy = sy.Symbol('X_1')
+x2Sy = sy.Symbol('X_2')
+x1DotSy = sy.Symbol(r'\dot{X_1}')
+x2DotSy = sy.Symbol(r'\dot{X_2}')
 
-simpleBoringEquiElements = EquinoctialElementsHalfI.FromModifiedEquinoctialElements(equiInTermsOfKep)
-[x1SimpleEqui, x2SimpleEqui] = simpleBoringEquiElements.RadiusInFgw(equiInTermsOfKep.F)
-[x1DotSimpleEqui, x2DotSimpleEqui] = simpleBoringEquiElements.VelocityInFgw(equiInTermsOfKep.F)
-jh.showEquation("X_1", x1SimpleEqui)
-jh.showEquation("X_2", x2SimpleEqui)
-jh.showEquation("\dot{X_1}", x1SimpleEqui)
-jh.showEquation("\dot{X_2}", x2SimpleEqui)
+xSuperSimple = Cartesian(x1Sy, x2Sy, 0)
+xDotSuperSimple = Cartesian(x1DotSy, x2DotSy, 0)
+fullSubsDictionary = {}
+[x1SimpleEqui, x2SimpleEqui] = simpleBoringEquiElements.RadiusInFgw(eccentricLongitude, fullSubsDictionary)
+[x1DotSimpleEqui, x2DotSimpleEqui] = simpleBoringEquiElements.VelocityInFgw(eccentricLongitude, fullSubsDictionary)
+jh.showEquation(x1Sy, x1SimpleEqui)
+jh.showEquation(x2Sy, x2SimpleEqui)
+jh.showEquation(x1DotSy, x1SimpleEqui)
+jh.showEquation(x2DotSy, x2SimpleEqui)
+normalEquiElementsInTermsOfKep = mee.EquinoctialElementsHalfI.FromModifiedEquinoctialElements(equiInTermsOfKep)
+[x1Complete, x2Complete] = normalEquiElementsInTermsOfKep.RadiusInFgw(equiInTermsOfKep.F)
+[x1DotComplete, x2DotComplete] = normalEquiElementsInTermsOfKep.VelocityInFgw(equiInTermsOfKep.F)
+#jh.showEquation("X_1", x1Complete)
+#jh.showEquation("X_2", x2Complete)
+#jh.showEquation("\dot{X_1}", x1DotComplete)
+#jh.showEquation("\dot{X_2}", x2DotComplete)
+
+#%%
+# x,y,z = sy.symbols('x y z', real=True)
+# vx,vy,vz = sy.symbols('v_x v_y v_z', real=True)
+# cart = MotionCartesian(Cartesian(x,y,z), Cartesian(vx,vy,vz))
+# sma = sy.Function('a', real=True, positive=True)(x,y,z,vz,vy,vz)
+# ecc = sy.Function('ecc', real=True, positive=True)(x,y,z,vz,vy,vz)
+# inc = sy.Function('i', real=True)(x,y,z,vz,vy,vz)
+# raan = sy.Function(r'\Omega', real=True)(x,y,z,vz,vy,vz)
+# aop = sy.Function(r'\omega', real=True)(x,y,z,vz,vy,vz)
+# ta = sy.Function(r'\nu', real=True, positive=True)(x,y,z,vz,vy,vz)
+
+# kep = KepModule.KeplerianElements(sma, ecc, inc, aop, raan, ta, mu)
+# boringEqui = mee.ConvertKeplerianToEquinoctial(kep)
+# k = boringEqui.InclinationSinTermK.simplify()
+# display(k)
+# dkdvz =sy.Derivative(k, vz)
+# display(dkdvz)
+# dkdvz=dkdvz.doit()
+# display(dkdvz)
+#%%
+# radVec = r*Cartesian(x1Complete, x2Complete, 0)
+# velVec = r*Cartesian(x1DotComplete, x2DotComplete, 0)
+# kepElementsInTermsOfCart = KepModule.KeplerianElements.FromMotionCartesian(cart, mu)
+# thisSubsDict = OrderedDict()
+# thisSubsDict[sma] = kepElementsInTermsOfCart.SemiMajorAxis
+# thisSubsDict[ecc] = kepElementsInTermsOfCart.Eccentricity
+# thisSubsDict[inc] = kepElementsInTermsOfCart.Inclination
+# thisSubsDict[raan] = kepElementsInTermsOfCart.RightAscensionOfAscendingNode
+# thisSubsDict[aop] = kepElementsInTermsOfCart.ArgumentOfPeriapsis
+# thisSubsDict[ta] = kepElementsInTermsOfCart.TrueAnomaly
+# thisSubsDict[x] = radVec.X
+# thisSubsDict[y] = radVec.Y
+# thisSubsDict[z] = radVec.Z
+# thisSubsDict[vx] = velVec.X
+# thisSubsDict[vy] = velVec.Y
+# thisSubsDict[vz] = velVec.Z
+# dkdvzSubsed = dkdvz.subs(thisSubsDict, simultaneous=True).subs(thisSubsDict, simultaneous=True).doit()
+# display(dkdvzSubsed)
+# dkdvzSubsed=dkdvzSubsed.expand().simplify()
+# display(dkdvzSubsed)
+
+#%%
+# x1PerAdFunc = sy.Function('x_1', real=True)(simpleBoringEquiElements.SemiMajorAxis, simpleBoringEquiElements.EccentricitySinTermH, simpleBoringEquiElements.EccentricityCosTermJ)
+# x2PerAdFunc = sy.Function('x_2', real=True)(simpleBoringEquiElements.SemiMajorAxis, simpleBoringEquiElements.EccentricitySinTermH, simpleBoringEquiElements.EccentricityCosTermJ)
+# x1DotPerAdFunc = sy.Function('\dot{x_1}', real=True)(simpleBoringEquiElements.SemiMajorAxis, simpleBoringEquiElements.EccentricitySinTermH, simpleBoringEquiElements.EccentricityCosTermJ)
+# x2DotPerAdFunc = sy.Function('\dot{x_2}', real=True)(simpleBoringEquiElements.SemiMajorAxis, simpleBoringEquiElements.EccentricitySinTermH, simpleBoringEquiElements.EccentricityCosTermJ)
+
+# x1AsFunc = sy.Function('X_1', real=True)(x1PerAdFunc, x2PerAdFunc, simpleBoringEquiElements.InclinationCosTermQ, simpleBoringEquiElements.InclinationSinTermP)
+# x2AsFunc = sy.Function('X_2', real=True)(x1PerAdFunc, x2PerAdFunc, simpleBoringEquiElements.InclinationCosTermQ, simpleBoringEquiElements.InclinationSinTermP)
+# x3AsFunc = sy.Function('X_3', real=True)(x1PerAdFunc, x2PerAdFunc, simpleBoringEquiElements.InclinationCosTermQ, simpleBoringEquiElements.InclinationSinTermP)
+# x1DotAsFunc = sy.Function('\dot{X_1}', real=True)(x1PerAdFunc, x2PerAdFunc, simpleBoringEquiElements.InclinationCosTermQ, simpleBoringEquiElements.InclinationSinTermP)
+# x2DotAsFunc = sy.Function('\dot{X_2}', real=True)(x1PerAdFunc, x2PerAdFunc, simpleBoringEquiElements.InclinationCosTermQ, simpleBoringEquiElements.InclinationSinTermP)
+# x3DotAsFunc = sy.Function('\dot{X_3}', real=True)(x1PerAdFunc, x2PerAdFunc, simpleBoringEquiElements.InclinationCosTermQ, simpleBoringEquiElements.InclinationSinTermP)
+
+# w1Func = sy.Function("w_1", real=True)(x1AsFunc, x2AsFunc, x3AsFunc, x1DotAsFunc, x2DotAsFunc, x3DotAsFunc)
+# w2Func = sy.Function("w_2", real=True)(x1AsFunc, x2AsFunc, x3AsFunc, x1DotAsFunc, x2DotAsFunc, x3DotAsFunc)
+# w3Func = sy.Function("w_3", real=True)(x1AsFunc, x2AsFunc, x3AsFunc, x1DotAsFunc, x2DotAsFunc, x3DotAsFunc)
+
+# xSuperSimple = Cartesian(x1AsFunc, x2AsFunc, x3AsFunc) 
+# xDotSuperSimple =Cartesian(x1DotAsFunc, x2DotAsFunc, x3DotAsFunc)
+
+# xComplicated = r*Cartesian(x1Complete, x2Complete, 0)
+# xDotComplicated = r*Cartesian(x1DotComplete, x2DotComplete, 0)
+# fullSubsDictionary[x1PerAdFunc] = x1Complete
+# fullSubsDictionary[x2PerAdFunc] = x2Complete
+# fullSubsDictionary[x1DotPerAdFunc] = x1DotComplete
+# fullSubsDictionary[x2DotPerAdFunc] = x2DotComplete
+# fullSubsDictionary[x1AsFunc] = xComplicated[0]
+# fullSubsDictionary[x2AsFunc] = xComplicated[1]
+# fullSubsDictionary[x3AsFunc] = xComplicated[2]
+# fullSubsDictionary[x1DotAsFunc] = xDotComplicated[0]
+# fullSubsDictionary[x2DotAsFunc] = xDotComplicated[1]
+# fullSubsDictionary[x3DotAsFunc] = xDotComplicated[2]
+
+# equiElementsInTermsOfXs = mee.EquinoctialElementsHalfI.InTermsOfX1And2AndTheirDots(x1AsFunc, x2AsFunc,x3AsFunc, x1DotAsFunc, x2DotAsFunc, x3DotAsFunc, sy.Symbol('p'), sy.Symbol('q'), mu, fullSubsDictionary, 0)
+# pSimple = equiElementsInTermsOfXs.InclinationSinTermP.expand().simplify()
+# jh.showEquationNoFunctionsOf("p", pSimple)
+# display(sy.diff(pSimple.expand(), x1PerAdFunc).expand().simplify())
+#%%
+def poisonBracket(exp, f, g, states) :
+    sum = 0
+    for a in states:
+        for b in states:
+            sum = sum - sy.diff(f, a) * sy.diff(g, b) + sy.diff(f, b)*sy.diff(g, a)
+    return sum
+
+#display(poisonBracket(x1SimpleEqui, simpleBoringEquiElements.SemiMajorAxis, [simpleBoringEquiElements.SemiMajorAxis,
+
+#%%
+
+
+
+
+
+
+fullSubsDictionary[x1Sy] = x1Complete
+fullSubsDictionary[x2Sy] = x2Complete
+fullSubsDictionary[x1DotSy] = x1DotComplete
+fullSubsDictionary[x2DotSy] = x2DotComplete
 
 meanAnomaly = sy.Function("M")(t)
 kepElements.M = meanAnomaly
@@ -151,6 +260,46 @@ display(hAveraged)
 jh.printMarkdown("With this, we need to start filling in our G1 and G2 expressions.  After that, it is applying the Optimal Control Euler-Lagrange expressions.")
 
 display(simpleEquiElements.CreatePerturbationMatrix())
+
+
+#%%
+
+fullRDot = simpleEquiElements.CreateFgwToInertialAxes()*sy.Matrix([[x1DotSimpleEqui],[x2DotSimpleEqui],[0]]) 
+#display(fullRDot)
+
+#display(fullRDot.diff(simpleEquiElements.InclinationCosTermH))
+
+m11 = 2*x1DotSimpleEqui/(simpleBoringEquiElements.SemiMajorAxis * sy.Symbol(r'\mu')/(simpleBoringEquiElements.SemiMajorAxis**3))
+maybeM11 = x1DotSimpleEqui.diff(simpleBoringEquiElements.SemiMajorAxis)
+#display(m11)
+#display(maybeM11)
+#display((m11-maybeM11))
+
+a = sy.Symbol('a')
+mu=sy.Symbol(r'\mu')
+
+simpM11 = 2*a*a/mu
+
+x1DotSuperSimple = sy.sqrt(mu/a)*a
+display(sy.diff(x1DotSuperSimple,a)-1/simpM11)
+
+x1S = sy.Symbol('X_1')
+x2S = sy.Symbol('X_2')
+x1DotS = sy.Symbol('\dot{X_1}')
+x2DotS = sy.Symbol('\dot{X_2}')
+
+xMag = sy.sqrt(x1S**2+x2S**2)
+xDotMag = sy.sqrt(x1DotS**2+x2DotS**2)
+a = (1/xMag-xDotMag**2/mu)**(-1)
+display(a.diff(x1DotS))
+
+#%%
+innerX1Dot = sy.Symbol(r'\dot{X_1}')
+a = simpleBoringEquiElements.SemiMajorAxis
+#simpleX1Dot = sy.sqrt(sy.Symbol(r'\mu')/(a**3))*a**2*innerX1Dot
+simpleX1Dot = sy.Symbol('n')*a**2*innerX1Dot
+display(simpleX1Dot)
+display(sy.powsimp(simpleX1Dot.diff(simpleBoringEquiElements.SemiMajorAxis)))
 
 #%%
 # if '__file__' in globals() or '__file__' in locals():

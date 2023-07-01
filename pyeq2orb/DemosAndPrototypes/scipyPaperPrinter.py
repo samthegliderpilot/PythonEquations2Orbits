@@ -42,6 +42,15 @@ def printMarkdown(markdown : str) -> None :
         else :
             print(markdown)
 
+def deepClean(exp):
+    functions = exp.atoms(sy.Function)
+    subsDict = {}
+    
+    for func in functions:
+        subsDict[func] = sy.Symbol(func.name)
+
+    return exp.subs(subsDict)
+
 def clean(equ) :
     """
     Cleans the passed in sympy expression.  This will remove the (t) that is common in many expressions I've worked with.
@@ -85,6 +94,53 @@ def clean(equ) :
             equ=equ.subs(dt, sy.Symbol(newDtStr))
             equ=equ.subs(val, sy.Symbol(newStr))
         return equ
+
+def showEquationNoFunctionsOf(lhsOrEquation, rhs=None, cleanEqu=True):
+    """
+    Shows the equation.  The first item is a sympy equation and no rhs will be given.  It can also be a string or number but the rhs 
+    must be specified in that case.
+    """
+    def shouldIClean(side) :
+        return (isinstance(side, sy.Function) or 
+                isinstance(side, sy.Derivative) or 
+                isinstance(side, sy.Add) or 
+                isinstance(side, sy.Mul) or 
+                isinstance(side, sy.MutableDenseMatrix) or 
+                isinstance(side, sy.Matrix) or 
+                isinstance(side, sy.ImmutableMatrix))
+
+    realLhs = lhsOrEquation
+    realRhs = rhs
+    if(isinstance(lhsOrEquation, sy.Eq)) :
+        realLhs = lhsOrEquation.lhs
+        realRhs = lhsOrEquation.rhs
+    if(isinstance(lhsOrEquation, str)) :
+        if(isinstance(rhs, sy.Matrix) or 
+           isinstance(rhs, sy.ImmutableMatrix)):
+            realLhs = sy.MatrixSymbol(lhsOrEquation, 
+                                   rhs.shape[0], 
+                                   rhs.shape[1])            
+        else:
+            realLhs = sy.symbols(lhsOrEquation)
+    if(isinstance(rhs, str)) :
+        if(isinstance(lhsOrEquation, sy.Matrix) or 
+           isinstance(lhsOrEquation, sy.ImmutableMatrix)):
+            realRhs = sy.MatrixSymbol(rhs, 
+                                   lhsOrEquation.shape[0], 
+                                   lhsOrEquation.shape[1])
+        else:
+            realRhs = sy.symbols(rhs)
+       
+    if(cleanEqu and shouldIClean(realRhs)) : 
+        realRhs = deepClean(realRhs)
+    if(cleanEqu and shouldIClean(realLhs)) : 
+        realLhs = deepClean(realLhs)
+
+    if(not silent) :
+        if(isinstance(realLhs, sy.Eq) and realRhs == None) :
+            display(realLhs) 
+        else :
+            display(sy.Eq(realLhs, realRhs))
 
 def showEquation(lhsOrEquation, rhs=None, cleanEqu=defaultCleanEquations) :    
     """
