@@ -46,6 +46,7 @@ class Primitive :
     def __init__(self) :
         pass
         self._color = "#000000"
+        self._id = ""
 
     def maximumValue(self) -> float : 
         return self.maximumValueFromEphemeris(self.ephemeris)
@@ -60,6 +61,14 @@ class Primitive :
     @color.setter
     def color(self, value) :
         self._color = value        
+
+    @property
+    def id(self) :
+        return self._id
+    
+    @id.setter
+    def id(self, value) :
+        self._id = value
 
 
 class PathPrimitive(Primitive) :

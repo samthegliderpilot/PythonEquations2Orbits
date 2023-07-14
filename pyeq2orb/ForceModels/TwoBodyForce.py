@@ -25,3 +25,10 @@ def CreateTwoBodyListForModifiedEquinoctialElements(eqElements : ModifiedEquinoc
     for i in range(0, 6) :
         rows.append(mat.row(i))
     return rows
+
+# def CreateCartesianOdeAsArray(mu):
+#     def twoBodyLambda(t, x):
+#         rSqr = x[0]**2+x[1]**2+x[2]**2
+#         muOverR2 = mu/(rSqr)
+#         return [x[3], x[4], x[5], x[0]*muOverR2, x[1]*muOverR2, x[2]*muOverR2]
+#     return twoBodyLambda
