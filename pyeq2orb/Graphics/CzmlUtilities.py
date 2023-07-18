@@ -6,7 +6,7 @@ import pyeq2orb.Graphics.Primitives as prim
 from typing import List
 from datetime import datetime, timedelta
 
-def createCzmlFromPoints(epoch : datetime, name : str, points : List[prim.PathPrimitive]) :
+def createCzmlFromPoints(epoch : datetime, name : str, points : List[prim.PathPrimitive]) ->czml.Document :
 
     earliest = points[0].ephemeris.T[0]
     latest = points[0].ephemeris.T[-1]

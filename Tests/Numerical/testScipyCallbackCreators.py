@@ -1,6 +1,6 @@
 import unittest
 import sympy as sy
-from scipy.integrate import odeint, solve_ivp
+from scipy.integrate import odeint, solve_ivp # type: ignore
 import pyeq2orb.Numerical.ScipyCallbackCreators as scipyCreator
 from pyeq2orb.Numerical.LambdifyModule import LambdifyHelper
 class testScipyCallbackCreators(unittest.TestCase) :

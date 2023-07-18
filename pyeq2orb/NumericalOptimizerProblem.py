@@ -1,8 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict, Callable
+from typing import List, Dict, Callable, Any, Collection
 import numpy as np
-from matplotlib.figure import Figure
+import sympy as sy
+from matplotlib.figure import Figure # type: ignore
 import pyeq2orb.Utilities.SolutionDictionaryFunctions as DictionaryHelper
+from scipy.integrate import simps # type: ignore
 
 class NumericalOptimizerProblemBase(ABC) :
     """ A base type for the kinds of numerical optimization problems I hope to solve. 
@@ -17,13 +19,14 @@ class NumericalOptimizerProblemBase(ABC) :
             t (object): Some identifier for the independent variable (often time).  This is generally a sympy Symbol or a string.
             n (int): The count of segments that the trajectory will be broken up by.
         """
-        self.State = []
-        self._boundaryConditionCallbacks = []
+        self.State = [] #type: List[Any]
+        self._boundaryConditionCallbacks = []#type: List[Callable[[float, List[float], float, List[float]], float]]
         self.Time = t
         self.T0 = 0
-        self.Control = []        
-        self._knownFinalConditions = {}
-        self._knownInitialConditions = {}
+        self.Tf = 0
+        self.Control = [] #type: List[Any]       
+        self._knownFinalConditions = {} #type: Dict[Any, float]
+        self._knownInitialConditions = {}#type: Dict[Any, float]
 
     #TODO: Rework the problem types to use this format of state everywhere
     # def CreateState(self, time : object, states : List, controls : List, otherParameters :object = None) -> List :
@@ -88,7 +91,7 @@ class NumericalOptimizerProblemBase(ABC) :
         t.append(self.Tf)
         return t
     
-    def InitialTrajectoryGuess(self,n :int, t0:float, stateAndControlAtT0 : List[float], tf : float, stateAndControlAtTf : List[float]) -> Dict[object, List[float]] :
+    def InitialTrajectoryGuess(self,n :int, t0:float, stateAndControlAtT0 : List[float], tf : float, stateAndControlAtTf : List[float]) -> Dict[Any, List[float]] :
         """Provides an initial guess for the overall trajectory.  By default this does a linear interpolation from the initial 
         to final conditions, but you are encouraged to override this method with something more refined (maybe integrate the 
         equations of motion making some reasonable guess to the control variables). 
@@ -101,10 +104,10 @@ class NumericalOptimizerProblemBase(ABC) :
             stateAndControlAtTf (List[float]: Final state and control
 
         Returns:
-            Dict[object, List[float]]: A guess for the initial trajectory that better be good enough for a solver of some sort. This will 
+            Dict[Any, List[float]]: A guess for the initial trajectory that better be good enough for a solver of some sort. This will 
             include the time and control histories as well.
         """
-        solution = {}
+        solution = {} #type: Dict[Any, List[float]]
         
         for i in range(0, self.NumberOfStateVariables) :
             solution[self.State[i]]= [stateAndControlAtT0[i] + x*(stateAndControlAtTf[i]-stateAndControlAtT0[i])/n for x in range(n+1)]
@@ -153,7 +156,7 @@ class NumericalOptimizerProblemBase(ABC) :
 
     def ListOfEquationsOfMotionCallbacks(self) -> List :
         callbacks = []
-        for i in len(self.State) :
+        for i in range(1, len(self.State)) :
             b =i*2 # pretty sure this trick to get the loop variable captured properly isn't going to work
             callback = lambda t, stateAndControlAtT : self.SingleEquationOfMotion(t, stateAndControlAtT, int(b/2))
             callbacks.append(callback)
@@ -174,7 +177,7 @@ class NumericalOptimizerProblemBase(ABC) :
         return self.TerminalCost(t[-1], finalState) + self.IntegratePathCost(t, stateAndControl)
 
     @abstractmethod 
-    def UnIntegratedPathCost(self, t : float, stateAndControl : List[float]) -> float :
+    def UnIntegratedPathCost(self, t : float, stateAndControl : tuple[float, ...]) -> float :
         """Evaluates the path cost at t.
 
         Args:
@@ -186,7 +189,7 @@ class NumericalOptimizerProblemBase(ABC) :
         """
         pass
     
-    def IntegratePathCost(self, tArray, stateAndControlDict) -> float :
+    def IntegratePathCost(self, tArray : List[float], stateAndControlDict) -> float :
         """It is highly encouraged to override this function.
         
         Integrates the UnIntegratedPathCost.  Note that if you are using a single shooting method, 
@@ -203,7 +206,7 @@ class NumericalOptimizerProblemBase(ABC) :
         Returns:
             float: The integrated value of the path cost.
         """
-        from scipy.integrate import simps
+        
         unintegratedValues = []
         for i in range(0, len(tArray)) :
             stateNow = DictionaryHelper.GetValueFromStateDictionaryAtIndex(stateAndControlDict, i)
@@ -213,7 +216,7 @@ class NumericalOptimizerProblemBase(ABC) :
         
         return value
 
-    def ConvertStateAndControlDictionaryToArray(self, stateAndControlDict : Dict[object, object]) -> List[object] :
+    def ConvertStateAndControlDictionaryToArray(self, stateAndControlDict : Dict[object, float]) -> List[float] :
         """Provides a way to convert a dictionary to an array that other types may
         prefer (such as integrators where the order of values getting integrated need to align with 
         the order of the equations of motion).  This is a function that should often be overridden 
@@ -259,7 +262,7 @@ class NumericalOptimizerProblemBase(ABC) :
         pass
 
     @property
-    def KnownInitialConditions(self) ->Dict[object, float] :
+    def KnownInitialConditions(self) ->Dict[Any, float] :
         """A dictionary of the known initial conditions. Solvers need to take these into account (either 
         by making boundary conditions) or some other way when solving problems.  This may not be a complete 
         set of conditions, however it is assumed it is enough for the problem to be solvable.
@@ -270,7 +273,7 @@ class NumericalOptimizerProblemBase(ABC) :
         return self._knownInitialConditions
 
     @property
-    def KnownFinalConditions(self) ->Dict[object, float] :
+    def KnownFinalConditions(self) ->Dict[Any, float] :
         """A dictionary of the known final conditions. Solvers need to take these into account (either 
         by making boundary conditions) or some other way when solving problems.  This may not be a complete 
         set of conditions, however it is assumed it is enough for the problem to be solvable.

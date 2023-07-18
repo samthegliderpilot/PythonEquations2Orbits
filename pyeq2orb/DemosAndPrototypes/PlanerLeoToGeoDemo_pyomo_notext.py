@@ -1,4 +1,5 @@
 #%%
+# type: ignore
 # DECLARE all the things!
 import __init__
 import sys

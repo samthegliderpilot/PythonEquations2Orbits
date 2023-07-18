@@ -1,5 +1,6 @@
 #%%
-import __init__
+#type: ignore
+import __init__ 
 import sympy as sy
 import os
 import sys
@@ -14,7 +15,7 @@ import pyeq2orb.Coordinates.KeplerianModule as KepModule
 import pyeq2orb.Coordinates.ModifiedEquinoctialElementsModule as mee
 from IPython.display import display
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
-import scipyPaperPrinter as jh
+import scipyPaperPrinter as jh #type: ignore
 jh.printMarkdown("# Sepspot Recreation")
 jh.printMarkdown("In working my way up through low-thrust modeling for satellite maneuvers, it is inevetable to run into Dr. Edelbaum's work.  Newer work such as Jean Albert Kechichian's practicaly requires understanding SEPSPOT as a prerequesit.  This writeup will go through the basics of SEPSPOT's algorithsm as described in the references below.")
 

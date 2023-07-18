@@ -1,6 +1,6 @@
 import pyeq2orb.Graphics.Primitives as prim
-import plotly.express as px
-import plotly.graph_objects as go
+import plotly.express as px # type: ignore
+import plotly.graph_objects as go # type: ignore
 from typing import List
 
 def plot2DLines(data : List[prim.XAndYPlottableLineData], title : str) :

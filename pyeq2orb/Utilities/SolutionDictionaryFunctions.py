@@ -1,8 +1,8 @@
-from typing import Dict, List, OrderedDict
+from typing import Dict, List, OrderedDict, Any
 
-def GetValueFromStateDictionaryAtIndex(fullSolutionDictionary : Dict[object, List[float]], index : int) ->Dict[object, float] :
+def GetValueFromStateDictionaryAtIndex(fullSolutionDictionary : Dict[Any, List[float]], index : int) ->Dict[Any, float] :
     """From a dictionary containing lists of something (often the evaluated floats), get a 
-    similar dictionary that is the final values.
+    similar dictionary that is just the final values.
 
     Args:
         fullSolutionDictionary (Dict[object, List[object]]): The full solution.

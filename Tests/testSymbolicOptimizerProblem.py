@@ -4,7 +4,7 @@ import sympy as sy
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 from pyeq2orb.Problems.OneDimensionalMinimalWorkProblem import OneDWorkSymbolicProblem
 from pyeq2orb.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
-from pyeq2orb.Symbolics.Vectors import Vector
+from pyeq2orb.Symbolics.Vectors import Vector # type: ignore
 import math
 class testSymbolicOptimizerProblem(unittest.TestCase) :
 

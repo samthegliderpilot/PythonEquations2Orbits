@@ -1,5 +1,5 @@
 #%%
-import __init__
+import __init__ # type: ignore
 import sympy as sy
 import math
 import os
@@ -12,8 +12,8 @@ from pyeq2orb.ForceModels.TwoBodyForce import CreateTwoBodyMotionMatrix, CreateT
 from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
 from pyeq2orb.Coordinates.KeplerianModule import KeplerianElements
 import pyeq2orb.Coordinates.KeplerianModule as KepModule
-import scipyPaperPrinter as jh
-
+import scipyPaperPrinter as jh #type: ignore
+from scipy.optimize import fsolve, root #type: ignore
 from IPython.display import display
 t = sy.Symbol('t')
 t0 = sy.Symbol('t_0')
@@ -55,7 +55,7 @@ lhsP1Guess = sy.Matrix([[42180, 0.36, 10*math.pi/180.0]]).transpose()
 stateArray = sy.Matrix([[kepElements.SemiMajorAxis, kepElements.Eccentricity, kepElements.TrueAnomaly]]).transpose()
 display(stateArray)
 dydx = sy.lambdify(stateArray, rhs, 'sympy')
-from scipy.optimize import fsolve, root
+
 def toSolve(guess) :   
     print(guess)
     sma0 = lhs0[0,0]

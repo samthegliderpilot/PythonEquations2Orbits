@@ -2,7 +2,7 @@ import unittest
 from pyeq2orb.Numerical.LambdifyModule import LambdifyHelper
 from pyeq2orb.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
-from scipy.integrate import solve_ivp
+from scipy.integrate import solve_ivp # type: ignore
 import numpy as np
 import sympy as sy
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem

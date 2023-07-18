@@ -1,10 +1,11 @@
 import sympy as sy
-from typing import List, Dict
+from typing import List, Dict, Optional, cast, Collection
 from collections import OrderedDict
-from pyeq2orb.Symbolics.Vectors import Vector
+from pyeq2orb.Symbolics.Vectors import Vector # type: ignore
 from abc import ABC, abstractmethod
 import numpy as np
-from matplotlib.figure import Figure
+from matplotlib.figure import Figure # type: ignore
+import numpy.typing as npt
 from collections import OrderedDict
 # it is likely that this class will get split up into a problem definition and an 
 # indirect solver in the near future
@@ -50,7 +51,7 @@ class SymbolicProblem(ABC) :
         return self._substitutionDictionary
 
     @staticmethod
-    def CreateCoVector(y, name : str, t : sy.Symbol =None) :
+    def CreateCoVector(y, name : str, t : Optional[sy.Symbol]) -> Vector:
         """Creates a co-vector for the entered y.
 
         Args:
@@ -80,7 +81,7 @@ class SymbolicProblem(ABC) :
 
         coVector = Vector.zeros(y.shape[0])
         for i in range(0, y.shape[0]):
-            coVector[i, 0] = SymbolicProblem.CreateCoVector(y[i], name, t)
+            coVector[i] = SymbolicProblem.CreateCoVector(y[i], name, t)
         return coVector
 
     def CreateHamiltonian(self, lambdas = None) -> sy.Expr:
@@ -94,7 +95,7 @@ class SymbolicProblem(ABC) :
             sy.Expr: The Hamiltonian.
         """
         if(lambdas == None) :
-            lambdas = SymbolicProblem.CreateCoVector(self.StateVariables, r'\lambda', self.TimeSymbol)
+            lambdas = SymbolicProblem.CreateCoVector(self.StateVariables, r'\lambda', self._timeSymbol)
 
         if isinstance(lambdas, list) :
             lambdas = Vector.fromArray(lambdas)
@@ -102,7 +103,7 @@ class SymbolicProblem(ABC) :
         secTerm =  (lambdas.transpose()*self.EquationsOfMotionInMatrixForm())[0,0]
         return secTerm+self.UnIntegratedPathCost     
 
-    def CreateHamiltonianControlExpressions(self, hamiltonian : sy.Expr) -> sy.Expr:
+    def CreateHamiltonianControlExpressions(self, hamiltonian : sy.Expr) -> sy.Matrix:
         """Creates the an expression that can be used to solve for values of the control scalars 
         in terms of the co-state equations. Note that this is difficult to generalize symbolically 
         as often there is some novel or unique operations that can be performed to simplify this 
@@ -132,12 +133,12 @@ class SymbolicProblem(ABC) :
         return -1*sy.Derivative(hamiltonian, x).doit()
 
     @property
-    def IntegrationSymbols(self) -> List[sy.Expr]:
+    def IntegrationSymbols(self) -> List[sy.Symbol]:
         """Gets the list of values that values that are going to be integrated by the equations of motion. 
         Calling code needs to manage the order of the EquationsOfMotion.
 
         Returns:
-            List[sy.Expr]: The values that will be integrated by the equations of motion.
+            List[sy.Symbol]: The values that will be integrated by the equations of motion.
         """
         return list(self.EquationsOfMotion.keys() )
 
@@ -149,7 +150,7 @@ class SymbolicProblem(ABC) :
     def Lambdas(self) :
         return self.CostateSymbols
 
-    def TransversalityConditionsByAugmentation(self, nus : List[sy.Symbol], lambdasFinal : List[sy.Symbol] = None) -> List[sy.Expr]:
+    def TransversalityConditionsByAugmentation(self, nus : List[sy.Symbol], lambdasFinal : Optional[List[sy.Expr]] = None) -> List[sy.Expr]:
         """Creates the transversality conditions by augmenting the terminal constraints to the terminal cost.
 
         Args:
@@ -165,6 +166,7 @@ class SymbolicProblem(ABC) :
                 lambdasFinal = SymbolicProblem.SafeSubs(self.CostateSymbols, {self.TimeSymbol: self.TimeFinalSymbol})
             else :
                 raise Exception("No source of costate symbols.")
+        lambdasFinal = cast(List[sy.Expr], lambdasFinal)
         termFunc = self.TerminalCost.subs(self.TimeSymbol, self.TimeFinalSymbol) + (Vector.fromArray(nus).transpose()*Vector.fromArray(self.BoundaryConditions))[0,0]
         finalConditions = []
         i=0
@@ -178,7 +180,7 @@ class SymbolicProblem(ABC) :
 
         return finalConditions
 
-    def TransversalityConditionInTheDifferentialForm(self, hamiltonian : sy.Expr, dtf, lambdasFinal : List[sy.Symbol] = None) ->List[sy.Expr]:
+    def TransversalityConditionInTheDifferentialForm(self, hamiltonian : sy.Expr, dtf, lambdasFinal : Optional[List[sy.Expr]]= None) ->List[sy.Expr]:
         """Creates the transversality conditions by with the differential form of the transversality conditions. 
 
         Args:
@@ -195,6 +197,7 @@ class SymbolicProblem(ABC) :
                 lambdasFinal = SymbolicProblem.SafeSubs(self.CostateSymbols, {self.TimeSymbol: self.TimeFinalSymbol})
             else :
                 raise Exception("No source of costate symbols.")        
+        lambdasFinal = cast(List[sy.Expr], lambdasFinal)
         variationVector = []
         valuesAtEndSymbols = []
         if isinstance(self.TerminalCost, float) :
@@ -236,8 +239,8 @@ class SymbolicProblem(ABC) :
             variationVector.append(dxfdtf)
 
         variationVector = Vector.fromArray(variationVector)    
-        lambdasFinal = Vector.fromArray(lambdasFinal)
-        overallCond = hamiltonian*dtf - (lambdasFinal.transpose()*variationVector)[0,0] + valuesAtEndDiffTerm
+        lambdasFinalVector = Vector.fromArray(lambdasFinal)
+        overallCond = hamiltonian*dtf - (lambdasFinalVector.transpose()*variationVector)[0,0] + valuesAtEndDiffTerm
         overallCond = overallCond.expand()
         
         for vv in variationVector :
@@ -298,7 +301,7 @@ class SymbolicProblem(ABC) :
         return self._terminalCost
 
     @TerminalCost.setter
-    def set_TerminalCost(self, value : sy.Expr) :
+    def TerminalCost(self, value : sy.Expr) :
         """Sets the Terminal Cost of the function.
 
         Args:
@@ -316,7 +319,7 @@ class SymbolicProblem(ABC) :
         return self._unIntegratedPathCost
 
     @UnIntegratedPathCost.setter
-    def set_UnIntegratedPathCost(self, value: sy.Expr) :
+    def UnIntegratedPathCost(self, value: sy.Expr) :
         """Sets the un-integrated path cost of the trajectory.  For a problem of Bolza, this is the expression in the integral.
 
         Args:
@@ -335,7 +338,7 @@ class SymbolicProblem(ABC) :
         return self._equationsOfMotion
     
     @property
-    def BoundaryConditions(self) ->List[sy.Eq] :
+    def BoundaryConditions(self) ->List[sy.Expr] :
         """Gets the boundary conditions on the system.  These expressions 
         must equal 0 and symbols in them need to be in terms of Time0Symbol 
         or TimeFinalSymbol as appropriate.
@@ -346,7 +349,7 @@ class SymbolicProblem(ABC) :
         return self._boundaryConditions
 
     @property
-    def TimeSymbol(self) -> sy.Expr :
+    def TimeSymbol(self) -> sy.Symbol :
         """Gets the general time symbol.  Instead of using simple symbols for the state and 
         control variables, use sy.Function()(self.TimeSymbol) instead.
 
@@ -356,7 +359,7 @@ class SymbolicProblem(ABC) :
         return self._timeSymbol
 
     @TimeSymbol.setter
-    def set_TimeSymbol(self, value:sy.Expr) :
+    def TimeSymbol(self, value:sy.Symbol) :
         """Sets the general time symbol.  Instead of using simple symbols for the state and 
         control variables, use sy.Function()(self.TimeSymbol) instead.
 
@@ -366,7 +369,7 @@ class SymbolicProblem(ABC) :
         self._timeSymbol = value
 
     @property
-    def TimeInitialSymbol(self) -> sy.Expr :
+    def TimeInitialSymbol(self) -> sy.Symbol :
         """Gets the symbol for the initial time.  Note that boundary 
         conditions ought to use this as the independent variable 
         of sympy Functions for boundary conditions at the start of the time span.
@@ -377,7 +380,7 @@ class SymbolicProblem(ABC) :
         return self._timeInitialSymbol
 
     @TimeInitialSymbol.setter
-    def set_TimeInitialSymbol(self, value:sy.Expr) :
+    def TimeInitialSymbol(self, value:sy.Symbol) :
         """Sets the symbol for the initial time.  Note that boundary 
         conditions ought to use this as the independent variable 
         of sympy Functions for boundary conditions at the start of the time span.
@@ -388,7 +391,7 @@ class SymbolicProblem(ABC) :
         self._timeInitialSymbol = value
 
     @property
-    def TimeFinalSymbol(self) -> sy.Expr :
+    def TimeFinalSymbol(self) -> sy.Symbol :
         """Gets the symbol for the final time.  Note that boundary 
         conditions ought to use this as the independent variable 
         of sympy Functions for boundary conditions at the end of the time span.
@@ -399,7 +402,7 @@ class SymbolicProblem(ABC) :
         return self._timeFinalSymbol
 
     @TimeFinalSymbol.setter
-    def set_TimeFinalSymbol(self, value : sy.Expr) :
+    def TimeFinalSymbol(self, value : sy.Symbol) :
         """Sets the symbol for the final time.  Note that boundary 
         conditions ought to use this as the independent variable 
         of sympy Functions for boundary conditions at the end of the time span.
@@ -411,18 +414,18 @@ class SymbolicProblem(ABC) :
 
 
 
-    def CreateEquationOfMotionsAsEquations(self) -> List[sy.Expr] :
+    def CreateEquationOfMotionsAsEquations(self) -> List[sy.Eq] :
         """Converts the equations of motion dictionary into a list in the order of the state variables.
 
         Returns:
             List[sy.Expr]: The equations of motion in a list in the same order as the state variables.
         """
-        eqs = []
+        eqs = [] #type: List[sy.Eq]
         for sv in self.StateVariables :
             eqs.append(sy.Eq(sy.diff(sv, self.TimeSymbol).doit(), self.EquationsOfMotion[sv]))
         return eqs
 
-    def CreateCostFunctionAsEquation(self, lhs : sy.Expr=None) -> sy.Eq :
+    def CreateCostFunctionAsEquation(self, lhs : Optional[sy.Expr]) -> sy.Eq :
         """Creates a sympy Eq of the cost function.
 
         Args:
@@ -462,7 +465,7 @@ class SymbolicProblem(ABC) :
         """
         return Vector.fromArray(self.ControlVariables)        
 
-    def AddInitialValuesToDictionary(self, subsDict : Dict, initialValuesArray : List, lambdas : List =None):
+    def AddInitialValuesToDictionary(self, subsDict : Dict, initialValuesArray : List, lambdas : Optional[List[sy.Expr]]):
         """Adds the initial values to the provided dictionary.
 
         Args:
@@ -478,6 +481,7 @@ class SymbolicProblem(ABC) :
             i=i+1
         if lambdas == None :
             return
+        lambdas = cast(List[sy.Expr], lambdas)
         for lm in lambdas :
             subsDict[lm.subs(self.TimeSymbol, self.TimeInitialSymbol)] = initialValuesArray[i]
             i = i+1
@@ -559,7 +563,7 @@ class SymbolicProblem(ABC) :
         """
         return resultsDictionary # the subsDict is included because the substitution factors might be symbols themselves.  By the time we have results those values ought to be in the substitution dictionary already
 
-    def EvaluateHamiltonianAndItsFirstTwoDerivatives(self, solution : Dict[sy.Expr, List[float]], tArray: List[float], hamiltonian : sy.Expr, controlSolved :Dict[sy.Expr, sy.Expr], moreSubs :Dict[sy.Expr, float]) ->List[List[float]]:
+    def EvaluateHamiltonianAndItsFirstTwoDerivatives(self, solution : Dict[sy.Symbol, List[float]], tArray: Collection[float], hamiltonian : sy.Expr, controlSolved :Dict[sy.Symbol, sy.Expr], moreSubs :Dict[sy.Symbol, float]) ->List[List[float]]:
         """Evaluates the Hamiltonian and its first 2 derivatives.  This is useful to 
         see if the related conditions are truly satisfied.
 
@@ -598,7 +602,7 @@ class SymbolicProblem(ABC) :
         return [hamltVals, dhduValus, d2hdu2Valus]
 
     @abstractmethod
-    def AddStandardResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[object, List[float]], label : str) -> None:
+    def AddStandardResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[sy.Expr, List[float]], label : str) -> None:
         """Adds the contents of dictionaryOfValueArraysKeyedOffState to the plot.
 
         Args:

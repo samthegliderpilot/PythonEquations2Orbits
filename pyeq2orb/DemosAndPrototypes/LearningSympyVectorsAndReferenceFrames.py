@@ -1,6 +1,6 @@
 #%%
 import sympy.physics.vector as vec
-import __init__
+import __init__ #type: ignore
 import sympy as sy
 import os
 import sys
@@ -14,7 +14,9 @@ import pyeq2orb.Coordinates.KeplerianModule as KepModule
 import pyeq2orb.Coordinates.ModifiedEquinoctialElementsModule as mee
 from IPython.display import display
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
-import scipyPaperPrinter as jh
+import scipyPaperPrinter as jh #type: ignore
+from typing import Dict
+
 t=sy.Symbol('t')
 mu = sy.Symbol(r'\mu')
 kepElements = KepModule.CreateSymbolicElements()
@@ -23,8 +25,8 @@ simpleBoringEquiElements = mee.EquinoctialElementsHalfI.CreateSymbolicElements()
 equiInTermsOfKep = mee.ConvertKeplerianToEquinoctial(kepElements)
 eccentricAnomaly = sy.Symbol('E')
 eccentricLongitude = sy.Function('F')(t)
-simpleEquiElements.F = eccentricLongitude
-equiInTermsOfKep.F = eccentricAnomaly + kepElements.ArgumentOfPeriapsis + kepElements.RightAscensionOfAscendingNode
+f1 = eccentricLongitude
+f2 = eccentricAnomaly + kepElements.ArgumentOfPeriapsis + kepElements.RightAscensionOfAscendingNode
 x1Sy = sy.Symbol('X_1')
 x2Sy = sy.Symbol('X_2')
 x1DotSy = sy.Symbol(r'\dot{X_1}')
@@ -32,12 +34,12 @@ x2DotSy = sy.Symbol(r'\dot{X_2}')
 
 xSuperSimple = Cartesian(x1Sy, x2Sy, 0)
 xDotSuperSimple = Cartesian(x1DotSy, x2DotSy, 0)
-fullSubsDictionary = {}
+fullSubsDictionary = {} #type: Dict[sy.Expr, float]
 [x1SimpleEqui, x2SimpleEqui] = simpleBoringEquiElements.RadiusInFgw(eccentricLongitude, fullSubsDictionary)
 [x1DotSimpleEqui, x2DotSimpleEqui] = simpleBoringEquiElements.VelocityInFgw(eccentricLongitude, fullSubsDictionary)
 normalEquiElementsInTermsOfKep = mee.EquinoctialElementsHalfI.FromModifiedEquinoctialElements(equiInTermsOfKep)
-[x1Complete, x2Complete] = normalEquiElementsInTermsOfKep.RadiusInFgw(equiInTermsOfKep.F)
-[x1DotComplete, x2DotComplete] = normalEquiElementsInTermsOfKep.VelocityInFgw(equiInTermsOfKep.F)
+[x1Complete, x2Complete] = normalEquiElementsInTermsOfKep.RadiusInFgw(f1)
+[x1DotComplete, x2DotComplete] = normalEquiElementsInTermsOfKep.VelocityInFgw(f1)
 x1PerAdFunc = sy.Function('x_1', real=True)(simpleBoringEquiElements.SemiMajorAxis, simpleBoringEquiElements.EccentricitySinTermH, simpleBoringEquiElements.EccentricityCosTermJ)
 x2PerAdFunc = sy.Function('x_2', real=True)(simpleBoringEquiElements.SemiMajorAxis, simpleBoringEquiElements.EccentricitySinTermH, simpleBoringEquiElements.EccentricityCosTermJ)
 x1DotPerAdFunc = sy.Function('\dot{x_1}', real=True)(simpleBoringEquiElements.SemiMajorAxis, simpleBoringEquiElements.EccentricitySinTermH, simpleBoringEquiElements.EccentricityCosTermJ)

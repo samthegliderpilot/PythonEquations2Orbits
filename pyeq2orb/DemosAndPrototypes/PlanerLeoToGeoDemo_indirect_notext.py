@@ -1,20 +1,21 @@
 #%%
-import __init__
-
+import __init__ #type: ignore
 from IPython.display import display
-from scipy.integrate import solve_ivp
-import matplotlib.pyplot as plt
+from scipy.integrate import solve_ivp #type: ignore
+import matplotlib.pyplot as plt#type: ignore
 import numpy as np
 import sympy as sy
+import plotly.express as px#type: ignore
+from pandas import DataFrame #type: ignore
 import math
-from scipy.optimize import fsolve
+from scipy.optimize import fsolve#type: ignore
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 from pyeq2orb.ScaledSymbolicProblem import ScaledSymbolicProblem
 from pyeq2orb.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
 from pyeq2orb.Numerical import ScipyCallbackCreators
 from pyeq2orb.Utilities.SolutionDictionaryFunctions import GetValueFromStateDictionaryAtIndex
-import scipyPaperPrinter as jh
-
+import scipyPaperPrinter as jh#type: ignore
+from typing import cast
 # constants
 g = 9.80665
 mu = 3.986004418e14  
@@ -41,7 +42,7 @@ nus = [sy.Symbol('B_{u_f}'), sy.Symbol('B_{v_f}')]
 
 baseProblem = ContinuousThrustCircularOrbitTransferProblem()
 initialStateValues = baseProblem.CreateVariablesAtTime0(baseProblem.StateVariables)
-problem = baseProblem
+problem = cast(SymbolicProblem, baseProblem)
 
 if scaleElements :
     newSvs = ScaledSymbolicProblem.CreateBarVariables(problem.StateVariables, problem.TimeSymbol) 
@@ -287,13 +288,12 @@ for i in range(0, len(unscaledResults[baseProblem.StateVariables[0]])) :
     xyz[i,1] = y
     xyz[i,2] = 0
 
-import plotly.express as px
-from pandas import DataFrame
+
 df = DataFrame(xyz)
 
-x = np.array(xyz[:,0])
-y = np.array(xyz[:,1])
-z = np.array(xyz[:,2])
-df = DataFrame({"x": x, "y":y, "z":z})
+xf = np.array(xyz[:,0])
+yf = np.array(xyz[:,1])
+zf = np.array(xyz[:,2])
+df = DataFrame({"x": xf, "y":yf, "z":zf})
 fig = px.line_3d(df, x="x", y="y", z="z")
 fig.show()

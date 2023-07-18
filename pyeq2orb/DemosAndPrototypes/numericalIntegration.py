@@ -1,27 +1,28 @@
 #%%
-import __init__
-from typing import List
+import __init__ #type: ignore
+from typing import List, Optional
 import sympy as sy
 from pyeq2orb.Numerical.OdeHelperModule import OdeHelper
 
 import numpy as np 
-import plotly.express as px
-import plotly.graph_objects as go
-import pandas as pd
-from scipy.optimize import fsolve
-import scipyPaperPrinter as jh
+import numpy.typing as npt
+import plotly.express as px#type: ignore
+import plotly.graph_objects as go#type: ignore
+import pandas as pd #type: ignore
+from scipy.optimize import fsolve #type: ignore
+import scipyPaperPrinter as jh #type: ignore
 from pyeq2orb.Graphics.Primitives import XAndYPlottableLineData
 from pyeq2orb.Graphics.Plotly2DModule import plot2DLines
 
-def ActuallySolvedCallback(callbackTThenState, y0 : List[float], t0 : float, tNext :float, parametersArray : List[float] = None) -> List[float] :
+def ActuallySolvedCallback(callbackTThenState, y0 : npt.NDArray, t0 : float, tNext :float, parametersArray : Optional[List[float]] = None) -> List[float] :
     return callbackTThenState(tNext, y0, parametersArray)
 
-def TrapizodalForward(callbackTThenState, y0 : List[float], t0 : float, tNext :float, parametersArray : List[float] = None) -> List[float] :
+def TrapizodalForward(callbackTThenState, y0 :npt.NDArray, t0 : float, tNext :float, parametersArray : Optional[List[float]] = None) -> List[float] :
     dy0 = np.array(callbackTThenState(t0, y0, parametersArray))
     dt = tNext - t0
     return y0 + dt*dy0
 
-def TrapizodalBackward(callbackTThenState, y0 : List[float], t0 : float, tNext :float, parametersArray : List[float] = None) -> List[float] :
+def TrapizodalBackward(callbackTThenState, y0 : npt.NDArray, t0 : float, tNext :float, parametersArray : Optional[List[float]] = None) -> List[float] :
     dt = tNext - t0
     def fSolveCallback(y1) :
         return y0+ dt*np.array(callbackTThenState(tNext, y1, parametersArray)) - y1

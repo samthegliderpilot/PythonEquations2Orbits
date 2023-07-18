@@ -1,5 +1,5 @@
 import sympy as sy
-from typing import List, Dict, Callable
+from typing import List, Dict, Callable, Optional, Any
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 # NOTE, that if EVER the source for the overall project is not available, the source 
 # for this MUST be published.
@@ -68,7 +68,7 @@ class LambdifyHelper :
         return self._time
     
     @Time.setter
-    def set_Time(self, timeValue : sy.Expr) :
+    def Time(self, timeValue : sy.Expr) :
         """Sets the time symbol.  This may be None if that makes sense for the expressions getting lambdified.
 
         Args:
@@ -106,7 +106,7 @@ class LambdifyHelper :
         Returns:
             List[sy.Expr]: _description_
         """
-        stateArray = []
+        stateArray = [] # type: List[Any]
         if self.Time != None :
             stateArray.append(self.Time)
         if self.StateVariableListOrdered != None and len(self.StateVariableListOrdered) != 0:
@@ -115,7 +115,7 @@ class LambdifyHelper :
             stateArray.append(self.OtherArguments)
         return stateArray
 
-    def CreateSimpleCallbackForSolveIvp(self, odeState :List[sy.Expr] = None) -> Callable : 
+    def CreateSimpleCallbackForSolveIvp(self, odeState :Optional[List[sy.Expr]]=None) -> Callable : 
         """Creates a lambdified expression of the (assumed) equations of motion in ExpressionsToLambdify.
 
         Args:
@@ -145,7 +145,7 @@ class LambdifyHelper :
             return eomCallback(t, y, args)
         return callbackFunc        
 
-    def CreateSimpleCallbackForOdeint(self, odeState :List[sy.Expr] = None) -> Callable : 
+    def CreateSimpleCallbackForOdeint(self, odeState : Optional[List[sy.Expr]]) -> Callable : 
         """Creates a lambdified expression of the (assumed) equations of motion in ExpressionsToLambdify.
 
         Args:
@@ -162,9 +162,9 @@ class LambdifyHelper :
                 return originalCallback(t, y)
             return switchTimeOrderCallback
         #else...        
-        def switchTimeOrderCallback(y, t, *args) :
+        def switchTimeOrderCallback2(y, t, *args) :
             return originalCallback(t, y, *args)
-        return switchTimeOrderCallback   
+        return switchTimeOrderCallback2   
 
     @staticmethod
     def CreateLambdifiedExpressions(stateExpressionList : List[sy.Expr], expressionsToLambdify : List[sy.Expr], constantsSubstitutionDictionary : Dict[sy.Expr, float]) ->sy.Expr :

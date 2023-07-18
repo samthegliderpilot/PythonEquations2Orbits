@@ -4,7 +4,7 @@ from pyeq2orb.ScaledSymbolicProblem import ScaledSymbolicProblem
 from pyeq2orb.ScaledSymbolicProblem import SymbolicProblem
 from pyeq2orb.Problems.OneDimensionalMinimalWorkProblem import OneDWorkSymbolicProblem
 from pyeq2orb.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
-from scipy.integrate import solve_ivp
+from scipy.integrate import solve_ivp # type: ignore
 from pyeq2orb.Numerical import ScipyCallbackCreators
 
 class testScaledSymbolicProblem(unittest.TestCase) :

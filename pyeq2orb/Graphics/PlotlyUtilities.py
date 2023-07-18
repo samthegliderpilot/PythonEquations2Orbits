@@ -1,7 +1,7 @@
 from typing import List
 import pyeq2orb.Graphics.Primitives as prim
-from pandas import DataFrame
-import plotly.graph_objects as go
+from pandas import DataFrame # type: ignore
+import plotly.graph_objects as go # type: ignore
 import numpy as np
 
 class PlotlyDataAndFramesAccumulator :
@@ -44,7 +44,7 @@ class PlotlyDataAndFramesAccumulator :
             self.AddLinePrimitive(prim)
 
     def AddScalingPoints(self, primitives : List[prim.Primitive]) :
-        maxVal = -1
+        maxVal = -1.0
         for prim in primitives :
             if prim.maximumValue() > maxVal :
                 maxVal = prim.maximumValue()

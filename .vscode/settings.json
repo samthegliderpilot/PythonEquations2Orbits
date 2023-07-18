@@ -10,5 +10,8 @@
         "./Tests",
         "-p",
         "test*.py"
+    ],
+    "cSpell.words": [
+        "Periapsis"
     ]
 }

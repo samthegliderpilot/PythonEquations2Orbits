@@ -2,7 +2,7 @@ import sympy as sy
 import math
 from pyeq2orb.Coordinates.KeplerianModule import KeplerianElements
 from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
-from typing import List
+from typing import List, Dict, Any, Optional, cast
 
 class ModifiedEquinoctialElements:
     def __init__(self, p, f, g, h, k, l, mu) :
@@ -303,7 +303,7 @@ class EquinoctialElementsHalfI :
         q = self.InclinationCosTermQ
         return EquinoctialElementsHalfI.CreateFgwToInertialAxesStatic(p, q)
 
-    def RadiusInFgw(self, eccentricLongitude, subsDict : dict = None) -> List[object]:
+    def RadiusInFgw(self, eccentricLongitude : Any, subsDict : Optional[dict[Any, Any]]) -> List[Any]:
         p = self.InclinationSinTermP
         q = self.InclinationCosTermQ
         h = self.EccentricitySinTermH
@@ -315,7 +315,8 @@ class EquinoctialElementsHalfI :
         b = 1/(1+sy.sqrt(1-h**2-k**2))
         n = sy.sqrt(mu/a)
         rOverA = 1-k*sy.cos(f)-h*sy.sin(f)
-        if(subsDict != None) :            
+        if(subsDict != None) :          
+            subsDict = cast(dict, subsDict)  
             bSy = sy.Function(r'\beta')(h, k)
             nSy = sy.Function('n')(a)
             rOverASy = sy.Function(r'\frac{r}{a}')(k, f, h)
@@ -331,7 +332,7 @@ class EquinoctialElementsHalfI :
 
         return [x1, x2]
 
-    def VelocityInFgw(self, eccentricLongitude, subsDict : dict = None) -> List[object]:
+    def VelocityInFgw(self, eccentricLongitude : Any, subsDict : Optional[Dict[sy.Expr, Any]]) -> List[object]:
         p = self.InclinationSinTermP
         q = self.InclinationCosTermQ
         h = self.EccentricitySinTermH
@@ -343,7 +344,8 @@ class EquinoctialElementsHalfI :
         b = 1/(1+sy.sqrt(1-h**2-k**2))
         n = sy.sqrt(mu/(a**3))
         rOverA = 1-k*sy.cos(f)-h*sy.sin(f)
-        if(subsDict != None) :            
+        if(subsDict != None) :      
+            subsDict = cast(dict, subsDict)  
             bSy = sy.Function(r'\beta')(h, k)
             nSy = sy.Function('n')(a)
             rOverASy = sy.Function(r'\frac{r}{a}')(k, f, h)

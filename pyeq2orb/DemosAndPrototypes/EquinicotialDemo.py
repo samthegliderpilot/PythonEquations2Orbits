@@ -1,5 +1,6 @@
+
 #%%
-import __init__
+import __init__  #type: ignore
 import sympy as sy
 from pyeq2orb.ForceModels.TwoBodyForce import CreateTwoBodyMotionMatrix, CreateTwoBodyListForModifiedEquinoctialElements
 from pyeq2orb.ScaledSymbolicProblem import ScaledSymbolicProblem
@@ -9,27 +10,27 @@ from pyeq2orb.Coordinates.ModifiedEquinoctialElementsModule import ModifiedEquin
 from pyeq2orb.Numerical.LambdifyModule import LambdifyHelper
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 from typing import List, Dict
-from matplotlib.figure import Figure
-import scipyPaperPrinter as jh
-import pyomo.environ as poenv
-import pyomo.dae as podae
+from matplotlib.figure import Figure #type: ignore
+import scipyPaperPrinter as jh#type: ignore
+import pyomo.environ as poenv#type: ignore
+import pyomo.dae as podae#type: ignore
 from matplotlib.figure import Figure
 from pyeq2orb.NumericalProblemFromSymbolic import NumericalProblemFromSymbolicProblem
 import numpy as np
 import math as math
-import plotly.express as px
-from plotly.offline import iplot, init_notebook_mode
-from plotly.graph_objs import Mesh3d
-from scipy.integrate import solve_ivp
-import plotly.graph_objects as go
+import plotly.express as px#type: ignore
+from plotly.offline import iplot, init_notebook_mode#type: ignore
+from plotly.graph_objs import Mesh3d#type: ignore
+from scipy.integrate import solve_ivp#type: ignore
+import plotly.graph_objects as go #type: ignore
 from pyeq2orb.Numerical.LambdifyModule import LambdifyHelper
 from scipy.integrate import solve_ivp
 import pyeq2orb.Graphics.Primitives as prim
 from pyeq2orb.Graphics.Plotly2DModule import plot2DLines
-from pandas import DataFrame
+from pandas import DataFrame #type: ignore
 import plotly.graph_objects as go
 from collections import OrderedDict
-from scipy.interpolate import splev, splrep
+from scipy.interpolate import splev, splrep #type: ignore
 import pyeq2orb.Graphics.Primitives as prim
 import pyeq2orb.Coordinates.OrbitFunctions as orb
 from pyeq2orb.Numerical import OdeHelperModule
@@ -134,7 +135,7 @@ class HowManyImpulses(SymbolicProblem) :
     def Mu(self) :
         return self._mu
 
-    def AddStandardResultsToFigure(self, figure: Figure, t: List[float], dictionaryOfValueArraysKeyedOffState: Dict[object, List[float]], label: str) -> None:
+    def AddStandardResultsToFigure(self, figure: Figure, t: List[float], dictionaryOfValueArraysKeyedOffState: Dict[sy.Expr, List[float]], label: str) -> None:
         pass
 
     def AddFinalConditions(self, pF, fF, gF, hF, kF, lF) :
@@ -243,7 +244,7 @@ arguments = [baseProblem.Azimuth, baseProblem.Elevation, baseProblem.Throttle, b
 
 lambdiafyFunctionMap = {'sqrt': poenv.sqrt, 'sin': poenv.sin, 'cos':poenv.cos} #TODO: MOOOORE!!!!
 
-trivialScalingDic = {}
+trivialScalingDic = {} # type: Dict[sy.Symbol, float]
 for sv in baseProblem.StateVariables :
     trivialScalingDic[sv]=1
 trivialScalingDic[baseProblem.StateVariables[0]] = Au/10.0
@@ -285,7 +286,7 @@ def PlotAndAnimatePlanetsWithPlotly(title : str, wanderers : List[prim.PathPrimi
         zArrays.append(zForAni)
 
 
-    dataDictionary = {"x":[], "y":[], "z":[], "t":[], "color":[], "size":[]}
+    dataDictionary = {"x":[], "y":[], "z":[], "t":[], "color":[], "size":[]} #type: Dict[str, List[float]]
     t = dataDictionary["t"]
     k = 0
     for step in tArray :
@@ -482,7 +483,7 @@ def finalConditionsCallback(m, t, i) :
     return indexToStateMap[i](m, t)
 
 simming = False
-lastState = None
+lastState = [] #type: List
 def mapPyomoStateToProblemState(m, t, expre) :
     global lastState
     global simming
@@ -583,7 +584,7 @@ for i in range(0, len(time)):
     equiElements.append(temp)
 
 simEqui = []
-simOtherValues = {}
+simOtherValues = {} #type: Dict[sy.Expr, List[float]]
 simOtherValues[stateSymbols[6]] = []
 # simOtherValues[stateSymbols[7]] = []
 # simOtherValues[stateSymbols[8]] = []

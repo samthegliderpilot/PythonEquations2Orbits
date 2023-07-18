@@ -1,9 +1,9 @@
 from pyeq2orb.Coordinates.CartesianModule import MotionCartesian
 import sympy as sy
 
-def CreateComplicatedRicToInertialMatrix(asCart : MotionCartesian) :
-    def simp(item) :
-        return item.simplify()
+def CreateComplicatedRicToInertialMatrix(asCart : MotionCartesian) -> sy.Matrix :
+    def simp(item : sy.Expr) :
+        return item.expand().simplify().trigsimp(deep=True)
     r = asCart.Position
     v = asCart.Velocity
     i_r = r.Normalize().applyfunc(simp)

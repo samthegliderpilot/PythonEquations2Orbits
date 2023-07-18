@@ -3,6 +3,7 @@ from .CartesianModule import Cartesian, MotionCartesian
 import sympy as sy
 import math as math
 from .RotationMatrix import RotAboutXValladoConvention, RotAboutY, RotAboutX, RotAboutZ, RotAboutZValladoConvention
+from typing import Optional, Any
 
 class KeplerianElements() :
     """Represents a set of Keplerian Elements with true anomaly as the fast variable. Note that 
@@ -140,7 +141,7 @@ class KeplerianElements() :
         return self.ArgumentOfPeriapsis+self.RightAscensionOfAscendingNode
 
     @property
-    def BattinH(self):
+    def BattinH(self) -> sy.Expr:
         """Gets an expression of the magnitude of the angular momentum in terms of the mean motion, semimajor axis 
         and semiminor axis.  This is from Battin's textbook (in the 400's).
 
@@ -158,7 +159,7 @@ class KeplerianElements() :
         """
         return self.Parameter/(1+self.Eccentricity*sy.cos(self.TrueAnomaly))
 
-    def PerifocalToInertialRotationMatrix(self) :
+    def PerifocalToInertialRotationMatrix(self) -> sy.Matrix :
         """Gets the rotation matrix from perifocal to inertial coordinates.
 
         Returns:
@@ -166,7 +167,7 @@ class KeplerianElements() :
         """
         return RotAboutZValladoConvention(-1*self.RightAscensionOfAscendingNode) * RotAboutXValladoConvention(-1*self.Inclination) * RotAboutZValladoConvention(-1*self.ArgumentOfPeriapsis)
 
-    def ToPerifocalCartesian(self, theParameter = None) ->MotionCartesian :
+    def ToPerifocalCartesian(self, theParameter = None) -> MotionCartesian :
         """Converts these elements to cartesian elements in perifocal Cartesian values.
 
         Args:
@@ -186,7 +187,7 @@ class KeplerianElements() :
         e = self.Eccentricity
         firstPart = sy.sqrt(mu/p)
         v = Cartesian(-1*firstPart *sy.sin(ta), firstPart*(e+sy.cos(ta)),0)
-        return [r,v]
+        return MotionCartesian(r, v)
 
     def ToInertialMotionCartesian(self) -> MotionCartesian:
         """Converts these elements to inertial Cartesian values.
@@ -194,9 +195,9 @@ class KeplerianElements() :
         Returns:
             MotionCartesian: The inertial Cartesian elements.
         """
-        [r,v] = self.ToPerifocalCartesian()
+        motion = self.ToPerifocalCartesian()
         rotMatrix = self.PerifocalToInertialRotationMatrix()
-        return MotionCartesian(rotMatrix*r, rotMatrix*v)
+        return MotionCartesian(rotMatrix*motion.Position, rotMatrix*motion.Velocity)
 
 class GaussianEquationsOfMotion :
     def __init__(self, elements : KeplerianElements, accelerationVector : Cartesian) :
@@ -245,7 +246,7 @@ class GaussianEquationsOfMotion :
         return sy.Eq(lhs, rhs)
 
 
-def CreateSymbolicElements(elementsFunctionOf : sy.Symbol = None) -> KeplerianElements :
+def CreateSymbolicElements(elementsFunctionOf : Optional[sy.Symbol] = None) -> KeplerianElements :
     """Creates a KeplerianElements structure made of symbols.
 
     Args:

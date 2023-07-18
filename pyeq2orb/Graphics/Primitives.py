@@ -1,5 +1,5 @@
 from typing import List
-import numpy as np
+import numpy as np 
 
 class EphemerisArrays :
     def __init__(self) :
@@ -24,19 +24,19 @@ class EphemerisArrays :
         self._z = np.array([float(pos.Z) for pos in cartesianArray])
 
     @property
-    def T(self) -> np.array :
+    def T(self) -> np.ndarray :
         return self._t
 
     @property
-    def X(self) -> np.array :
+    def X(self) -> np.ndarray :
         return self._x
 
     @property
-    def Y(self) -> np.array :
+    def Y(self) -> np.ndarray :
         return self._y
 
     @property
-    def Z(self) -> np.array :
+    def Z(self) -> np.ndarray :
         return self._z     
 
     def GetMaximumValue(self) :
@@ -44,12 +44,12 @@ class EphemerisArrays :
 
 class Primitive :
     def __init__(self) :
-        pass
         self._color = "#000000"
         self._id = ""
+        self._ephemeris = EphemerisArrays()
 
     def maximumValue(self) -> float : 
-        return self.maximumValueFromEphemeris(self.ephemeris)
+        return self.maximumValueFromEphemeris(self._ephemeris)
 
     def maximumValueFromEphemeris(self, ephemeris):
         return ephemeris.GetMaximumValue()
@@ -83,11 +83,11 @@ class PathPrimitive(Primitive) :
         return self._ephemeris     
 
     @property
-    def width(self) : 
+    def width(self) ->float: 
         return self._width
 
     @width.setter
-    def set_width(self, value) :
+    def width(self, value : float) :
         self._width = value 
 
     def maximumValue(self) -> float:

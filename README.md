@@ -14,6 +14,7 @@ The way I've been setting up my environments has been with these conda/pip comma
 conda create --name Py39OptFun python=3.9
 conda activate Py39OptFun
 conda install sympy numpy pandas scipy plotly matplotlib jupyter pygmo pyomo cmake pytest plotly p2j pandoc networkx openpyxl pint pymysql pyodbc pyro4 xlrd 
+pip install mypy
 conda install -c conda-forge ipopt glpk
 pyomo download-extensions
 pyomo build-extensions
@@ -21,6 +22,8 @@ python setup.py dependencies --extra optional
 ```
 
 That last command is adding additional dependencies for pyomo, not sure how much it is needed.
+
+Note that I am trying to make this library strongly typed with MyPy.  
 
 Note that my conversion of Jupyter notebooks requires LaTeX of some sort to be installed (on Windows, I'm using MiKTeX)
 

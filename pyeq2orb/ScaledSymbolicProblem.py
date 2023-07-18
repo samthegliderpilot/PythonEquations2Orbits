@@ -1,6 +1,6 @@
-from matplotlib.figure import Figure
+from matplotlib.figure import Figure # type: ignore
 import sympy as sy
-from typing import List, Dict
+from typing import List, Dict, Optional, Any, cast
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 import numpy as np
 
@@ -9,7 +9,7 @@ factors can be constants, or symbols themselves that are in the substitution
 dictionary that get used by various solvers.
 """
 class ScaledSymbolicProblem(SymbolicProblem) :
-    def __init__(self, wrappedProblem : SymbolicProblem, newStateVariableSymbols : Dict, valuesToDivideStateVariablesWith : Dict, scaleTime : bool) :        
+    def __init__(self, wrappedProblem : SymbolicProblem, newStateVariableSymbols : List[sy.Symbol], valuesToDivideStateVariablesWith : Dict[sy.Symbol, Any], scaleTime : bool) :        
         """Initializes a new instance.
 
         Args:
@@ -175,7 +175,7 @@ class ScaledSymbolicProblem(SymbolicProblem) :
             Dict[sy.Symbol, List[float]]: A new dictionary where the values are descaled AND the keys are the wrappedProblems's 
             state variables.
         """
-        returnDict = {}
+        returnDict = {} #type: Dict[sy.Symbol, List[float]]
         counter = 0
         for key, value in resultsDictionary.items() :
             sv = key
@@ -189,7 +189,7 @@ class ScaledSymbolicProblem(SymbolicProblem) :
         return returnDict
     
     @property
-    def TimeFinalSymbolOriginal(self)-> sy.Symbol:
+    def TimeFinalSymbolOriginal(self)-> sy.Expr:
         """Gets the original time final symbol from the wrapped problem.
 
         Returns:
@@ -198,7 +198,7 @@ class ScaledSymbolicProblem(SymbolicProblem) :
         return self.WrappedProblem.TimeFinalSymbol
 
     @staticmethod
-    def CreateBarVariables(orgVariables : List[sy.Expr], timeSymbol :sy.Expr) :
+    def CreateBarVariables(orgVariables : List[sy.Symbol], timeSymbol :sy.Symbol) ->List[sy.Symbol] :
         """A helper function to make a 
 
         Args:
@@ -208,9 +208,10 @@ class ScaledSymbolicProblem(SymbolicProblem) :
         Returns:
             _type_: _description_
         """
-        baredVariables = []
+        baredVariables = [] #type : List[sy.Expr]
         for var in orgVariables :
-            baredVariables.append(sy.Function(r'\bar{' + var.name+ '}')(timeSymbol))
+            name = var.__getattribute__('name')            
+            baredVariables.append(sy.Function(r'\bar{' + name+ '}')(timeSymbol))
         return baredVariables
 
     def ScaleExpressions(self, expressions : List[sy.Expr]) -> List[sy.Expr]:
@@ -233,7 +234,7 @@ class ScaledSymbolicProblem(SymbolicProblem) :
 
         return SymbolicProblem.SafeSubs(expressions, simpleSubsDict)
 
-    def TransversalityConditionsByAugmentation(self, nus : List[sy.Symbol], lambdasFinal : List[sy.Symbol] = None) -> List[sy.Expr]:
+    def TransversalityConditionsByAugmentation(self, nus : List[sy.Symbol], lambdasFinal : Optional[List[sy.Expr]]=None) -> List[sy.Expr]:
         """Creates the transversality conditions by augmenting the terminal constraints to the terminal cost. Note that 
         this calls the wrapped problems TransversalityConditionsByAugmentation and then scales that expression.
 
@@ -254,7 +255,7 @@ class ScaledSymbolicProblem(SymbolicProblem) :
         finalConditions = self.WrappedProblem.TransversalityConditionsByAugmentation(nus, lambdasFinal)
         return self.ScaleExpressions(finalConditions)
     
-    def TransversalityConditionInTheDifferentialForm(self, hamiltonian : sy.Expr, dtf, lambdasFinal : List[sy.Symbol] = None) ->List[sy.Expr]:
+    def TransversalityConditionInTheDifferentialForm(self, hamiltonian : sy.Expr, dtf, lambdasFinal : Optional[List[sy.Expr]]=None) ->List[sy.Expr]:
         """Creates the transversality conditions by with the differential form of the transversality conditions. Note that 
         this calls the wrapped problems TransversalityConditionsByAugmentation and then scales that expression.
 
@@ -276,7 +277,7 @@ class ScaledSymbolicProblem(SymbolicProblem) :
         finalConditions = self.WrappedProblem.TransversalityConditionInTheDifferentialForm(hamiltonian, dtf, lambdasFinal)
         return self.ScaleExpressions(finalConditions)
 
-    def AddStandardResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[object, List[float]], label : str) -> None:
+    def AddStandardResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[sy.Expr, List[float]], label : str) -> None:
         """Adds the contents of dictionaryOfValueArraysKeyedOffState to the plot.
 
         Args:

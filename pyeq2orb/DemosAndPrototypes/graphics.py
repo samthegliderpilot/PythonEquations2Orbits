@@ -1,7 +1,7 @@
 import sys
 
-from vispy import scene
-from vispy.visuals.transforms import STTransform
+from vispy import scene #type: ignore
+from vispy.visuals.transforms import STTransform #type: ignore
 
 canvas = scene.SceneCanvas(keys='interactive', bgcolor='white',
                            size=(800, 600), show=True)
@@ -22,7 +22,7 @@ sphere3 = scene.visuals.Sphere(radius=1, rows=10, cols=10, depth=10,
 sphere1.transform = STTransform(translate=[-2.5, 0, 0])
 sphere3.transform = STTransform(translate=[2.5, 0, 0])
 
-view.camera.set_range(x=[-3, 3])
+view.camera.set_range(x=[-3, 3]) #type: ignore
 
 if __name__ == '__main__' and sys.flags.interactive == 0:
     canvas.app.run(True)

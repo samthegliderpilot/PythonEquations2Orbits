@@ -9,8 +9,9 @@ from pyeq2orb.ForceModels.TwoBodyForce import CreateTwoBodyMotionMatrix, CreateT
 from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
 from pyeq2orb.Coordinates.KeplerianModule import KeplerianElements
 import pyeq2orb.Coordinates.KeplerianModule as KepModule
+import pyeq2orb.Coordinates.OrbitFunctions as orb
 from pyeq2orb.Coordinates.ModifiedEquinoctialElementsModule import CreateSymbolicElements, ConvertKeplerianToEquinoctial, EquinoctialElementsHalfI
-import scipyPaperPrinter as jh
+import scipyPaperPrinter as jh #type: ignore
 jh.printMarkdown("# Modified Equinoctial Elements Summary")
 jh.printMarkdown("While working with optimal control problems for satellite maneuvers, I needed a reference for working with Equinoctial and Modifeid Equinoctial Elements. This will pull together several sources and show the equations and some of the derivations of these equations that are encoded in the library I'm writing.")
 
@@ -109,7 +110,7 @@ jh.printMarkdown("For the perturbation matrix, the cartesian acceleration is def
 jh.printMarkdown("## To and from the RIC axes")
 jh.printMarkdown("Although there is room for significant simplication, taking the basic defintions of the radial/in-tract/cross-track axes and the cartesian conversion, we get the following matrix converting an RIC axes to Inertial")
 
-jh.showEquation("R_{RIC-ECI}", equiElements.CreateComplicatedRicToInertialMatrix())
+jh.showEquation("R_{RIC-ECI}", orb.CreateComplicatedRicToInertialMatrix(equiElements.ToMotionCartesian()))
 jh.printMarkdown('### Sources')
 
 

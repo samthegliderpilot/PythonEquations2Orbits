@@ -307,7 +307,7 @@ class ScopeIfFileDoesNotExist :
     """
     # however, with the need to know the exact file location, this is less useful than 
     # it was
-    scopedFiles = []
+    scopedFiles = [] #type: List[str]
 
     def __init__(self, directory, fileName = None) :
         self.directory = directory

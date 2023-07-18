@@ -1,4 +1,8 @@
+# type: ignore
+from __future__ import annotations
 import sympy as sy
+from typing import NoReturn
+# due to monkey patching with this type, the typehint situation is difficult
 
 class Vector(sy.Matrix) :
     """
@@ -32,7 +36,7 @@ class Vector(sy.Matrix) :
         return arr
 
     @staticmethod
-    def addVectorPropertiesToMatrix(mat : sy.Matrix, n : int) :
+    def addVectorPropertiesToMatrix(mat : sy.Matrix, n : int) -> Vector:
         """Adds members to the matrix to make it easier to work with as a single column Vector
 
         Args:
@@ -44,7 +48,7 @@ class Vector(sy.Matrix) :
         mat.Magnitude = lambda: Vector.Magnitude(mat)
 
     @staticmethod
-    def zeros(n : int) :
+    def zeros(n : int) -> Vector:
         """Creates a Vector of length n with each element equal to 0
 
         Args:
@@ -58,7 +62,7 @@ class Vector(sy.Matrix) :
         return mat
 
     @staticmethod
-    def fromArray(arr : list)  :
+    def fromArray(arr : list) ->Vector :
         """Static function to take a list and return a Vector.
 
         Args:

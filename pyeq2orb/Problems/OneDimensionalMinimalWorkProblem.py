@@ -1,7 +1,7 @@
-from typing import List, Dict
+from typing import List, Dict, Collection, Any, NoReturn
 import sympy as sy
-import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
+import matplotlib.pyplot as plt # type: ignore
+from matplotlib.figure import Figure # type: ignore
 import numpy as np
 from collections import OrderedDict
 from pyeq2orb.NumericalOptimizerProblem import NumericalOptimizerProblemBase
@@ -28,7 +28,7 @@ class OneDWorkSymbolicProblem(SymbolicProblem) :
     def ConstantSymbols(self) -> List[sy.Symbol] :
         return self._constantSymbols
 
-    def AddStandardResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[object, List[float]], label : str) -> None :
+    def AddStandardResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[sy.Expr, List[float]], label : str) :
         """Adds the contents of dictionaryOfValueArraysKeyedOffState to the plot.
 
         Args:
@@ -37,9 +37,9 @@ class OneDWorkSymbolicProblem(SymbolicProblem) :
             dictionaryOfValueArraysKeyedOffState (Dict[object, List[float]]): The x, v, and u to be plotted.
             label (str): A label for the data to use in the plot legend.
         """
-        xAct = dictionaryOfValueArraysKeyedOffState[self.State[0]] #TODO: I don't like how this line knows that the 0th element is X (and the next two too)
-        vAct = dictionaryOfValueArraysKeyedOffState[self.State[1]]
-        uAct = dictionaryOfValueArraysKeyedOffState[self.Control[0]]
+        xAct = dictionaryOfValueArraysKeyedOffState[self._stateVariables[0]] #TODO: I don't like how this line knows that the 0th element is X (and the next two too)
+        vAct = dictionaryOfValueArraysKeyedOffState[self._stateVariables[1]]
+        uAct = dictionaryOfValueArraysKeyedOffState[self._controlVariables[0]]
         plt.subplot(311)
         plt.title("1D Work Problem")
         plt.plot(t, xAct, label=label)
@@ -139,14 +139,14 @@ class OneDWorkProblem(NumericalOptimizerProblemBase) :
         """        
         return [stateAndControlAtT[1], stateAndControlAtT[2]] #xDot = v, vDot = u
     
-    def UnIntegratedPathCost(self, t : float, stateAndControl : List[float]) :
+    def UnIntegratedPathCost(self, t : float, stateAndControl : tuple[float, ...]) :
         return stateAndControl[2]**2  #u**2
 
     def TerminalCost(self, tf : float, finalStateAndControl : Dict[object, float]) ->float :
         # I am only including this to make the problem exercise more of the system
         return 0.0#abs(1.0-finalStateAndControl[self.State[0]]) # and min final x
 
-    def AddResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[object, List[float]], label : str) -> None :
+    def AddResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[Any, List[float]], label : str) -> None :
         """Adds the contents of dictionaryOfValueArraysKeyedOffState to the plot.
 
         Args:
@@ -220,7 +220,7 @@ class AnalyticalAnswerToProblem :
         """           
         return 6.0-12.0*time
 
-    def EvaluateAnswer(self, oneDWorkProblem : OneDWorkProblem, t : List[float]) -> Dict[object, List[float]]:
+    def EvaluateAnswer(self, oneDWorkProblem : OneDWorkProblem, t : Collection[float]) -> Dict[object, List[float]]:
         """Evaluates the optimal solution for this problem.
 
         Args:

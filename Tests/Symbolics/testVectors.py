@@ -1,5 +1,5 @@
 import sympy as sy
-from pyeq2orb.Symbolics.Vectors import Vector
+from pyeq2orb.Symbolics.Vectors import Vector # type: ignore
 import unittest
 
 class testVectors(unittest.TestCase) :

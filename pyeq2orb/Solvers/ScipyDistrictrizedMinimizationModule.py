@@ -1,5 +1,5 @@
-from scipy.optimize import minimize, OptimizeResult
-from typing import List,Dict,Callable
+from scipy.optimize import minimize, OptimizeResult # type: ignore
+from typing import List,Dict,Callable, Any, Collection, Optional, cast, Any
 
 from pyeq2orb.NumericalOptimizerProblem import NumericalOptimizerProblemBase
 
@@ -19,7 +19,7 @@ class ScipyDistrictrizedMinimizeWrapper:
         self.Problem = problem
         self.NumberOfVariables = problem.NumberOfOptimizerStateVariables
 
-    def ScipyOptimize(self, n : int, tArray: List[float] = None, zGuess : List[float] = None, optMethod : str ="SLSQP") -> OptimizeResult: 
+    def ScipyOptimize(self, n : int, tArray: Optional[List[float]] = None, zGuess : Optional[List[float]] = None, optMethod : str ="SLSQP") -> OptimizeResult: 
         """A default implementation of calling scipy.optimize.minimize
 
         Args:
@@ -34,7 +34,7 @@ class ScipyDistrictrizedMinimizeWrapper:
         # handle default case of no time range specified
         if(tArray == None) :
             tArray = self.Problem.CreateTimeRange(n)
-
+        tArray = cast(List[float], tArray)
         # and create the initial guess if none was given
         if zGuess == None :
             zGuess = self.CreateDiscretizedInitialGuess(tArray)
@@ -117,12 +117,12 @@ class ScipyDistrictrizedMinimizeWrapper:
     #         finalValues.append(z[int(everyN*(i+1))-1])
     #     return finalValues
 
-    def CreateIndividualBoundaryValueConstraintCallbacks(self) -> List[Callable[[List[float]], float]]:
+    def CreateIndividualBoundaryValueConstraintCallbacks(self) -> list[Callable[[list[float]], float]] :
         """Creates callbacks for the difference between the boundary conditions of each state variable in the optimizer state and 
         the desired value of each of boundary conditions as defined by the problem.
 
         Returns:
-            List[Callable[[List[float]], float]]: The evaluate'able boundary condition callbacks in a list.
+            Collection[Callable[[List[float]], float]]: The evaluate'able boundary condition callbacks in a list.
         """
         cons = []
         nMultiplier = 0
@@ -131,7 +131,7 @@ class ScipyDistrictrizedMinimizeWrapper:
                 return thisOtherBc(0.0, self.GetOptimizerStateAtIndex(z, 0), 1.0, self.GetOptimizerStateAtIndex(z, -1))
             cons.append({'type': 'eq', 'fun': moreVerboseCallback})
             nMultiplier=nMultiplier+1
-        return cons
+        return cons #type: ignore
     
     def CreateInitialStateConstraintCallbacks(self) -> List[Callable[[List[float]], float]]:
         cons = []
@@ -141,7 +141,7 @@ class ScipyDistrictrizedMinimizeWrapper:
                 return ic - self.GetOptimizerStateAtIndex(z, 0)[self.Problem.State.index(sv)]
             cons.append({'type': 'eq', 'fun': moreVerboseCallback})
             nMultiplier=nMultiplier+1
-        return cons        
+        return cons #type: ignore        
 
     def CreateFinalStateConstraintCallbacks(self) -> List[Callable[[List[float]], float]]:
         cons = []
@@ -151,7 +151,7 @@ class ScipyDistrictrizedMinimizeWrapper:
                 return fc - self.GetOptimizerStateAtIndex(z, -1)[self.Problem.State.index(sv)]
             cons.append({'type': 'eq', 'fun': moreVerboseCallback})
             nMultiplier=nMultiplier+1
-        return cons   
+        return cons #type: ignore  
 
     def CollocationConstraintIntegrationRule(self, t : List[float], z : List[float], timeIndex :int, stateIndex : int) -> float:
         """This is the trapizod rule implimented as a colocation constraint.  Derived types should 
@@ -180,7 +180,7 @@ class ScipyDistrictrizedMinimizeWrapper:
         
         return 0.5*step*(eom(t[timeIndex+1], optimizerStateAtIPlus1)[stateIndex]+eom(t[timeIndex], optimizerStateAtI)[stateIndex]) - (optimizerStateAtIPlus1[stateIndex]-optimizerStateAtI[stateIndex])
 
-    def CreateIndividualCollocationConstraints(self, t : List[float]) -> List[Dict]:
+    def CreateIndividualCollocationConstraints(self, t : Collection[float]) -> list[Callable[[list[float]], float]]:
         """Creates the collocation constraints for the function.  This will call self.CollocationConstraintIntegrationRule, and 
         to try different districtrization schemes, override that function.
 
@@ -190,15 +190,15 @@ class ScipyDistrictrizedMinimizeWrapper:
         Returns:
             List[Dict]: A list dictionaries that can immediately be used by the scipy optimizer. 
         """
-        cons = []
+        cons = [] #type: list[Callable[[list[float]], float]]
         n = len(t)-1      
         for stateStep in range(0, self.Problem.NumberOfStateVariables) :
             for i in range(0, n) :
                 def makeCallback(i, stateStep) :
-                    # jumpting through this extra callback function to handle the closure over 1 correctly
+                    # jumping through this extra callback function to handle the closure over 1 correctly
                     cb = lambda z : self.CollocationConstraintIntegrationRule(t, z, i, stateStep)   
                     return cb
-                cons.append({'type': 'eq', 'fun': makeCallback(i, stateStep)})
+                cons.append({'type': 'eq', 'fun': makeCallback(i, stateStep)}) #type: ignore
         return cons
 
     def GetOptimizerStateAtIndex(self, z : List[float], i : int)->List[float]  :

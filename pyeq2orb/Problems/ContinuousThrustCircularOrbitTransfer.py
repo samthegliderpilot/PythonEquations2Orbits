@@ -1,14 +1,15 @@
-from matplotlib.figure import Figure
+from matplotlib.figure import Figure # type: ignore
 import sympy as sy
-from typing import List, Dict
+from typing import List, Dict, Any
 from pyeq2orb.Numerical import ScipyCallbackCreators
 from pyeq2orb.Numerical.LambdifyModule import LambdifyHelper
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 import math
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt # type: ignore
 import numpy as np
-from scipy.integrate import solve_ivp
+from scipy.integrate import solve_ivp # type: ignore
 from pyeq2orb.Utilities.inherit import inherit_docstrings
+import numpy.typing as npt
 
 @inherit_docstrings
 class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
@@ -66,7 +67,7 @@ class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
         self._equationsOfMotion[vs] = -vs*us/rs + thrust*sy.cos(control)/self.MassEquation
         self._equationsOfMotion[longS] = vs/rs
    
-    def AppendConstantsToSubsDict(self, existingDict : dict, muVal : float, gVal : float, thrustVal : float, m0Val : float, ispVal : float) :
+    def AppendConstantsToSubsDict(self, existingDict : dict[sy.Expr, float], muVal : float, gVal : float, thrustVal : float, m0Val : float, ispVal : float) :
         """Helper function to make the substitution dictionary that is often needed when lambdifying 
         the symbolic equations.
 
@@ -78,11 +79,11 @@ class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
             m0Val (float): The initial mass of the spacecraft
             ispVal (float): The isp of the engines
         """
-        existingDict[self.ConstantSymbols[0]] = muVal
-        existingDict[self.ConstantSymbols[1]] = thrustVal
-        existingDict[self.ConstantSymbols[2]] = m0Val
-        existingDict[self.ConstantSymbols[3]] = gVal
-        existingDict[self.ConstantSymbols[4]] = ispVal
+        existingDict[self.Mu] = muVal
+        existingDict[self.Thrust] = thrustVal
+        existingDict[self.MassInitial] = m0Val
+        existingDict[self.Gravity] = gVal
+        existingDict[self.Isp] = ispVal
 
     @staticmethod
     def createSolveIvpSingleShootingCallbackForFSolve(problem : SymbolicProblem, integrationStateVariableArray, nonLambdaEomStateInitialValues, timeArray, solveIvpCallback, boundaryConditionExpressions, fSolveParametersToAppendToEom, fSolveOnlyParameters) :
@@ -126,13 +127,13 @@ class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
             return finalAnswers    
         return callbackForFsolve
 
-    def PlotSolution(self, tUnscaled : List[float], orderedDictOfUnScaledValues : Dict[object, List[float]], label : str) :
-        
-        solsLists = []
+    def PlotSolution(self, tUnscaled : npt.NDArray, orderedDictOfUnScaledValues : Dict[sy.Symbol, List[float]], label : str) :        
+        solsLists = [] #type: List[List[float]]
         for key, val in orderedDictOfUnScaledValues.items() :
             solsLists.append(val)
         plt.title("Longitude (rad)")
-        plt.plot(tUnscaled/86400, solsLists[3]%(2*math.pi), label="longitude (deg)")
+        longitudeDegArray = [lonRad / (2*math.pi) for lonRad in solsLists[3]]
+        plt.plot(tUnscaled/86400, longitudeDegArray, label="longitude (deg)")
 
         plt.tight_layout()
         plt.grid(alpha=0.5)
@@ -212,7 +213,7 @@ class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
         initialFSolveStateGuess = [lambdaR0Value, float(ansForLmdu), 1.0]
         return initialFSolveStateGuess        
     
-    def AddStandardResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[object, List[float]], label : str) -> None:
+    def AddStandardResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[Any, List[float]], label : str) -> None:
         """Adds the contents of dictionaryOfValueArraysKeyedOffState to the plot.
 
         Args:

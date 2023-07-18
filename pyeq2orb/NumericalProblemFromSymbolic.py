@@ -1,12 +1,12 @@
 from abc import abstractmethod
 from typing import Callable, Dict, List
-from matplotlib.figure import Figure
+from matplotlib.figure import Figure # type: ignore
 from sympy import lambdify, Expr
 from pyeq2orb.NumericalOptimizerProblem import NumericalOptimizerProblemBase
 from pyeq2orb.ScaledSymbolicProblem import ScaledSymbolicProblem
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 from pyeq2orb.Utilities.inherit import inherit_docstrings
-
+import sympy as sy
 
 class NumericalProblemFromSymbolicProblem(NumericalOptimizerProblemBase) :
     def __init__(self, wrappedProblem : SymbolicProblem, functionMap : Dict) :
@@ -18,7 +18,7 @@ class NumericalProblemFromSymbolicProblem(NumericalOptimizerProblemBase) :
         self.State.extend(wrappedProblem.StateVariables)
         self.Control.extend(wrappedProblem.ControlVariables)
 
-        entireState = [wrappedProblem.TimeSymbol, *wrappedProblem.StateVariables, *wrappedProblem.ControlVariables]
+        entireState = [wrappedProblem.TimeSymbol, *wrappedProblem.StateVariables, *wrappedProblem.ControlVariables] #type: List[sy.Expr]
         
         if isinstance(wrappedProblem, ScaledSymbolicProblem) and wrappedProblem.ScaleTime :
             entireState.append(wrappedProblem.TimeFinalSymbolOriginal)
@@ -70,8 +70,9 @@ class NumericalProblemFromSymbolicProblem(NumericalOptimizerProblemBase) :
     #     self._controlCallback = callback
 
     @inherit_docstrings
+    #@abstractmethod
     def InitialGuessCallback(self, t : float) -> List[float] :
-        pass
+        return []
 
     @inherit_docstrings
     def EquationOfMotion(self, t : float, stateAndControlAtT : List[float]) -> List[float] :
@@ -98,6 +99,6 @@ class NumericalProblemFromSymbolicProblem(NumericalOptimizerProblemBase) :
         return self._terminalCost([*finalStateAndControl, tf])
 
     @inherit_docstrings
-    def AddResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[object, List[float]], label : str) -> None:
+    def AddResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[Expr, List[float]], label : str) -> None:
         self._wrappedProblem.AddStandardResultsToFigure(figure, t, dictionaryOfValueArraysKeyedOffState, label)
 

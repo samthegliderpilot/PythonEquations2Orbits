@@ -3,7 +3,7 @@ import unittest
 from pytest import approx
 from pyeq2orb.Solvers.ScipyDistrictrizedMinimizationModule import ScipyDistrictrizedMinimizeWrapper
 from pyeq2orb.Problems.OneDimensionalMinimalWorkProblem import OneDWorkProblem, AnalyticalAnswerToProblem
-from scipy.interpolate import interp1d
+from scipy.interpolate import interp1d # type: ignore
 import numpy as np
 
 class testScipyWrapper(unittest.TestCase) :
