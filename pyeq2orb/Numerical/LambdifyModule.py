@@ -101,7 +101,7 @@ class LambdifyHelper :
         function on your instances when it makes sense to.  Often the shape and order and structure 
         of the state is unique to your problem.  Often similar to but not exactly the same and hard to 
         generalize.  And there are times when you just want to do something manually and not with all 
-        of the ceremony and cruff of a system like this overall module getting in the way.
+        of the ceremony and cruft of a system like this overall module getting in the way.
 
         Returns:
             List[sy.Expr]: _description_
@@ -145,7 +145,7 @@ class LambdifyHelper :
             return eomCallback(t, y, args)
         return callbackFunc        
 
-    def CreateSimpleCallbackForOdeint(self, odeState : Optional[List[sy.Expr]]) -> Callable : 
+    def CreateSimpleCallbackForOdeint(self, odeState : Optional[List[sy.Expr]]=None) -> Callable : 
         """Creates a lambdified expression of the (assumed) equations of motion in ExpressionsToLambdify.
 
         Args:
@@ -153,7 +153,7 @@ class LambdifyHelper :
             ExpressionsToLambdify. Defaults to None which will use the CreateDefaultState function.
 
         Returns:
-            Callable: A callback to use in scipy.ode.odeint functions where time comes after y.
+            Callable: A callback to use in scipy.integrate.odeint functions where time comes after y.
         """        
         originalCallback = self.CreateSimpleCallbackForSolveIvp(odeState)
         # don't need the next wrapper if there are no other args
@@ -165,7 +165,7 @@ class LambdifyHelper :
         def switchTimeOrderCallback2(y, t, *args) :
             return originalCallback(t, y, *args)
         return switchTimeOrderCallback2   
-
+    
     @staticmethod
     def CreateLambdifiedExpressions(stateExpressionList : List[sy.Expr], expressionsToLambdify : List[sy.Expr], constantsSubstitutionDictionary : Dict[sy.Expr, float]) ->sy.Expr :
         """ A helper function to create a lambdified callback of some expressions while also substituting in constant values into the expressions. One common problem that 
@@ -175,7 +175,7 @@ class LambdifyHelper :
 
         Args:
             boundaryConditionState (List[sy.Expr]): The state (independent variables) for the returned lambdified expressions.
-            expressionsToLambdify (List[sy.Expr]): The expressions to labmdify
+            expressionsToLambdify (List[sy.Expr]): The expressions to lambdify
             constantsSubstitutionDictionary (Dict[sy.Expr, float]): Constant values to bake into the expressionsToLambdify ahead of time
 
         Returns:

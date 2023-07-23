@@ -9,7 +9,8 @@ from pyeq2orb.Coordinates.KeplerianModule import KeplerianElements
 from pyeq2orb.Coordinates.ModifiedEquinoctialElementsModule import ModifiedEquinoctialElements, CreateSymbolicElements
 from pyeq2orb.Numerical.LambdifyModule import LambdifyHelper
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
-from typing import List, Dict
+from pyeq2orb.Utilities.Typing import SymbolOrNumber
+from typing import List, Dict, cast
 from matplotlib.figure import Figure #type: ignore
 import scipyPaperPrinter as jh#type: ignore
 import pyomo.environ as poenv#type: ignore
@@ -69,13 +70,13 @@ class HowManyImpulses(SymbolicProblem) :
         throttle = sy.Function('\delta', real=True)(t)
         #overallThrust = B*alp
         overallThrust = thrust*B*alp*(throttle)/(m) 
-        eoms = f + overallThrust
+        equationsOfMotion = f + overallThrust
         isp = sy.Symbol("I_{sp}")
         c = isp * g
 
         elementsList = elements.ToArray()
         for i in range(0, len(elementsList)) :
-            self.EquationsOfMotion[elementsList[i]] = eoms[i]
+            self.EquationsOfMotion[elementsList[i]] = equationsOfMotion[i]
             self.StateVariables.append(elementsList[i])
         self.EquationsOfMotion[m]=-1*thrust*throttle/(isp*g)
         self.StateVariables.append(m)
@@ -147,7 +148,7 @@ class HowManyImpulses(SymbolicProblem) :
         self.BoundaryConditions.append(elementsAtF[4] - kF)
         self.BoundaryConditions.append(elementsAtF[5] - lF)
 
-    def flattenEoms(self) :
+    def flattenEquationsOfMotion(self) :
         auxValues = self.modifiedEquinoctialElements.AuxiliarySymbolsDict()
         for sym, eom in self.EquationsOfMotion.items() :
             self.EquationsOfMotion[sym] = SafeSubs(eom, auxValues)
@@ -193,7 +194,7 @@ def GetEquiElementsOutOfIvpResults(ivpResults) :
 t = sy.Symbol('t', real=True)
 symbolicElements = CreateSymbolicElements(t)
 
-def makesphere(x, y, z, radius, resolution=10):
+def makeSphere(x, y, z, radius, resolution=10):
     """Return the coordinates for plotting a sphere centered at (x,y,z)"""
     u, v = np.mgrid[0:2*np.pi:resolution*2j, 0:np.pi:resolution*1j]
     X = radius * np.cos(u)*np.sin(v) + x
@@ -202,7 +203,7 @@ def makesphere(x, y, z, radius, resolution=10):
     #colors = ['#00ff00']*len(X)
     #size = [2]*len(X)
     return (X, Y, Z)#, colors, size)
-Xs, Ys, Zs = makesphere(0.0, 0.0, 0.0, 6378137.0)
+Xs, Ys, Zs = makeSphere(0.0, 0.0, 0.0, 6378137.0)
 sphereThing = Mesh3d({
                 'x': Xs.flatten(),
                 'y': Ys.flatten(),
@@ -217,7 +218,7 @@ def scaleEquinoctialElements(equiElements : ModifiedEquinoctialElements, distanc
 #initialElements = scaleEquinoctialElements(initialElements, Au, tfVal)
 #finalElements = scaleEquinoctialElements(finalElements, Au, tfVal)
 
-muVal = initialElements.GravitationalParameter
+muVal = cast(float, initialElements.GravitationalParameter)
 per0 = initialElements.SemiParameter
 f0 = initialElements.EccentricityCosTermF
 g0 = initialElements.EccentricitySinTermG
@@ -227,7 +228,7 @@ lon0 = initialElements.TrueLongitude
 print("making base base problem")
 baseProblem = HowManyImpulses()
 newSvs = ScaledSymbolicProblem.CreateBarVariables(baseProblem.StateVariables, baseProblem.TimeSymbol)
-baseProblem.SubstitutionDictionary[baseProblem.Mu] = initialElements.GravitationalParameter
+baseProblem.SubstitutionDictionary[baseProblem.Mu] = cast(float, initialElements.GravitationalParameter)
 baseProblem.SubstitutionDictionary[baseProblem.Isp] = isp
 baseProblem.SubstitutionDictionary[baseProblem.Mass] = m0Val
 baseProblem.SubstitutionDictionary[baseProblem.Thrust] = thrustVal
@@ -242,9 +243,9 @@ arguments = [baseProblem.Azimuth, baseProblem.Elevation, baseProblem.Throttle, b
 # for emK, emV in baseProblem.EquationsOfMotion.items() :
 #     jh.showEquation(sy.diff(emK, t), emV)
 
-lambdiafyFunctionMap = {'sqrt': poenv.sqrt, 'sin': poenv.sin, 'cos':poenv.cos} #TODO: MOOOORE!!!!
+lambdifyFunctionMap = {'sqrt': poenv.sqrt, 'sin': poenv.sin, 'cos':poenv.cos} #TODO: MORE!!!!
 
-trivialScalingDic = {} # type: Dict[sy.Symbol, float]
+trivialScalingDic = {} # type: Dict[sy.Expr, SymbolOrNumber]
 for sv in baseProblem.StateVariables :
     trivialScalingDic[sv]=1
 trivialScalingDic[baseProblem.StateVariables[0]] = Au/10.0
@@ -252,12 +253,12 @@ trivialScalingDic[baseProblem.StateVariables[5]] = 1.0
 print("making scaled problem")
 for sv, eom in baseProblem.EquationsOfMotion.items() :
     jh.showEquation(sy.diff(sv, baseProblem.TimeSymbol), eom)
-baseProblem.flattenEoms()
+baseProblem.flattenEquationsOfMotion()
 scaledProblem = ScaledSymbolicProblem(baseProblem, baseProblem.StateVariables, trivialScalingDic, True)
-asNumericalProblem = NumericalProblemFromSymbolicProblem(scaledProblem, lambdiafyFunctionMap)
+asNumericalProblem = NumericalProblemFromSymbolicProblem(scaledProblem, lambdifyFunctionMap)
 print("scaled and numerical problems made")
 
-def PlotAndAnimatePlanetsWithPlotly(title : str, wanderers : List[prim.PathPrimitive], tArray : List[float], thrustVect : List[go.Scatter3d]) :
+def PlotAndAnimatePlanetsWithPlotly(title : str, wanderers : List[prim.PathPrimitive], tArray : List[float], thrustVector : List[go.Scatter3d]) :
     lines = []
     maxValue = -1
 
@@ -316,8 +317,8 @@ def PlotAndAnimatePlanetsWithPlotly(title : str, wanderers : List[prim.PathPrimi
     fig.add_trace(scalingMarker)
     for item in lines :
         fig.add_trace(item)
-    if thrustVect != None :
-        for thrust in thrustVect :
+    if thrustVector != None :
+        for thrust in thrustVector :
             fig.add_trace(thrust)
     fig.update_layout(autosize=False, width=800, height=600)
     fig.show()
@@ -351,7 +352,7 @@ def addFixedAzElMagToDataDict(problem : SymbolicProblem, dataDict, initialAz, in
         dataDict[problem.ControlVariables[1]].append(initialEl)
         dataDict[problem.ControlVariables[2]].append(initialMag)
 
-def createScattersForThrustVecters(ephemeris : prim.EphemerisArrays, inertialThrustVectors : List[Cartesian], color : str, scale : float) -> List[px.scatter_3d] :
+def createScattersForThrustVectors(ephemeris : prim.EphemerisArrays, inertialThrustVectors : List[Cartesian], color : str, scale : float) -> List[px.scatter_3d] :
     scats = []
     for i in range(0, len(ephemeris.T)) :
         hereX = ephemeris.X[i]
@@ -371,8 +372,8 @@ def createScattersForThrustVecters(ephemeris : prim.EphemerisArrays, inertialThr
 
 
 twoBodyMatrix = CreateTwoBodyListForModifiedEquinoctialElements(symbolicElements)
-simpleTwoBodyLambidfyCreator = LambdifyHelper(t, symbolicElements.ToArray(), twoBodyMatrix, [], {symbolicElements.GravitationalParameter: muVal})
-odeCallback =simpleTwoBodyLambidfyCreator.CreateSimpleCallbackForSolveIvp()
+simpleTwoBodyLambdifyCreator = LambdifyHelper(t, cast(List[sy.Expr], symbolicElements.ToArray()), twoBodyMatrix, [], {symbolicElements.GravitationalParameter: muVal})
+odeCallback =simpleTwoBodyLambdifyCreator.CreateSimpleCallbackForSolveIvp()
 print("propagating earth and mars")
 earthSolution = solve_ivp(odeCallback, [0.0, tfVal], initialElements.ToArray(), args=tuple(), t_eval=np.linspace(0.0, tfVal,n), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
 marsSolution = solve_ivp(odeCallback, [tfVal, 0.0], finalElements.ToArray(), args=tuple(), t_eval=np.linspace(tfVal, 0.0, n*2), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
@@ -403,10 +404,10 @@ odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[3], problem
 odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[4], problemForOneOffPropagation.EquationsOfMotion[problemForOneOffPropagation.StateVariables[4]], initialStateSymbols[4])
 odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[5], problemForOneOffPropagation.EquationsOfMotion[problemForOneOffPropagation.StateVariables[5]], initialStateSymbols[5])
 odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[6], problemForOneOffPropagation.EquationsOfMotion[problemForOneOffPropagation.StateVariables[6]], initialStateSymbols[6])
-odeHelper.lamdifyParameterSymbols.append(baseProblem.Azimuth)
-odeHelper.lamdifyParameterSymbols.append(baseProblem.Elevation)
-odeHelper.lamdifyParameterSymbols.append(baseProblem.Throttle)
-odeHelper.lamdifyParameterSymbols.append(baseProblem.TimeFinalSymbol)
+odeHelper.lambdifyParameterSymbols.append(baseProblem.Azimuth)
+odeHelper.lambdifyParameterSymbols.append(baseProblem.Elevation)
+odeHelper.lambdifyParameterSymbols.append(baseProblem.Throttle)
+odeHelper.lambdifyParameterSymbols.append(baseProblem.TimeFinalSymbol)
 odeHelper.constants = problemForOneOffPropagation.SubstitutionDictionary
 
 callback = odeHelper.createLambdifiedCallback()
@@ -422,15 +423,15 @@ for i in range(0, len(yFromIntegrator[0])):
     temp = ModifiedEquinoctialElements(yFromIntegrator[0][i], yFromIntegrator[1][i], yFromIntegrator[2][i], yFromIntegrator[3][i], yFromIntegrator[4][i], yFromIntegrator[5][i], muVal)
     equiElements.append(temp)
 guessMotions = ModifiedEquinoctialElements.CreateEphemeris(equiElements)
-simEphem = prim.EphemerisArrays()
-simEphem.InitFromMotions(tSpace, guessMotions)
-simPath = prim.PathPrimitive(simEphem)
+simEphemeris = prim.EphemerisArrays()
+simEphemeris.InitFromMotions(tSpace, guessMotions)
+simPath = prim.PathPrimitive(simEphemeris)
 simPath.color = "#00ff00"
 
 simDataDict = convertIvpResultsToDataDict(baseProblem, testSolution)
 addFixedAzElMagToDataDict(baseProblem, simDataDict, fixedAz, fixedEl, fixedMag)
 thrustCartesians = getInertialThrustVectorFromDataDict(baseProblem, simDataDict, muVal)
-sampleThrustLines = createScattersForThrustVecters(simEphem, thrustCartesians, "#ff0000", Au/05.0)
+sampleThrustLines = createScattersForThrustVectors(simEphemeris, thrustCartesians, "#ff0000", Au/05.0)
 #PlotAndAnimatePlanetsWithPlotly("Integration sample", [earthPath, marsPath, simPath], testSolution.t, sampleThrustLines)
 #%%
 print("making pyomo model")
@@ -458,7 +459,7 @@ model.mass[0].fix(float(m0Val))
 model.tf = poenv.Var(bounds=(tfVal, tfVal), initialize=float(tfVal))
 model.tf.fix(tfVal)
 model.controlAzimuth = poenv.Var(model.t, bounds=(-1*math.pi, math.pi))
-model.controlElevation = poenv.Var(model.t, bounds=(-0.6, 0.6))  # although this can go from -90 to 90 deg, common sense suggests that a lower bounds would be approprate for this problem.  If the optimizer stays at these limits, then increase them
+model.controlElevation = poenv.Var(model.t, bounds=(-0.6, 0.6))  # although this can go from -90 to 90 deg, common sense suggests that a lower bounds would be appropriate for this problem.  If the optimizer stays at these limits, then increase them
 model.throttle = poenv.Var(model.t, bounds=(0.0, 1.0))
 
 model.perDot = podae.DerivativeVar(model.perRad, wrt=model.t)
@@ -482,12 +483,12 @@ indexToStateMap = {
 def finalConditionsCallback(m, t, i) :
     return indexToStateMap[i](m, t)
 
-simming = False
+simulating = False
 lastState = [] #type: List
-def mapPyomoStateToProblemState(m, t, expre) :
+def mapPyomoStateToProblemState(m, t, expression) :
     global lastState
-    global simming
-    # if(simming):
+    global simulating
+    # if(simulating):
     #     m.controlAzimuth.value = math.pi/2.0
     #     m.throttle.value = 1.0
     #     m.controlAzimuth[t].value = math.pi/2.0
@@ -496,7 +497,7 @@ def mapPyomoStateToProblemState(m, t, expre) :
 
     #state = [t, m.perRad[t], m.f[t], m.g[t],m.h[t], m.k[t], m.lon[t], m.mass[t], m.ux[t], m.uy[t], m.uz[t], m.throttle[t], m.tf]
     lastState = state
-    return expre(state)
+    return expression(state)
 
 model.perEom = poenv.Constraint(model.t, rule =lambda m, t2: m.perDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 0)))
 model.fEom = poenv.Constraint(model.t, rule =lambda m, t2: m.fDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 1)))
@@ -517,7 +518,7 @@ model.bc7 = poenv.Constraint(rule = lambda mod1 : 0 == poenv.cos(indexToStateMap
 finalMassCallback = lambda m : m.mass[1.0]/100.0
 model.massObjective = poenv.Objective(expr = finalMassCallback, sense=poenv.maximize)
 
-print("siming the pyomo model")
+print("simulating the pyomo model")
 
 sim = podae.Simulator(model, package='scipy')
 model.var_input = poenv.Suffix(direction=poenv.Suffix.IMPORT)
@@ -525,15 +526,15 @@ model.var_input[model.controlAzimuth] = {0.0: math.pi/2.0}
 model.var_input[model.controlElevation] = {0.0: 0.0}
 model.var_input[model.throttle] = {0.0: 0.7}
 #model.var_input[model.tf] = {0.0: tfVal}
-simming=True
-tsim, profiles = sim.simulate(numpoints=n, varying_inputs=model.var_input, integrator='dop853')
-simming=False
+simulating=True
+tSim, profiles = sim.simulate(numpoints=n, varying_inputs=model.var_input, integrator='dop853')
+simulating=False
 
 #poenv.TransformationFactory('dae.finite_difference').apply_to(model, wrt=model.t, nfe=n, scheme='BACKWARD')
 print("transforming pyomo")
 poenv.TransformationFactory('dae.collocation').apply_to(model, wrt=model.t, nfe=n, ncp=5, scheme='LAGRANGE-LEGENDRE')
 #['LAGRANGE-RADAU', 'LAGRANGE-LEGENDRE']
-print("initing the pyomo model")
+print("initializing the pyomo model")
 sim.initialize_model()
 
 print("running the pyomo model")
@@ -589,7 +590,7 @@ simOtherValues[stateSymbols[6]] = []
 # simOtherValues[stateSymbols[7]] = []
 # simOtherValues[stateSymbols[8]] = []
 # simOtherValues[stateSymbols[9]] = []
-for i in range(0, len(tsim)) :
+for i in range(0, len(tSim)) :
     temp = ModifiedEquinoctialElements(profiles[i][0]*trivialScalingDic[baseProblem.StateVariables[0]], profiles[i][1], profiles[i][2], profiles[i][3], profiles[i][4], profiles[i][5], muVal)
     simOtherValues[stateSymbols[6]].append(profiles[i][6])
     # simOtherValues[stateSymbols[7]].append(profiles[i][7])
@@ -599,16 +600,16 @@ for i in range(0, len(tsim)) :
     
 
 guessMotions = ModifiedEquinoctialElements.CreateEphemeris(simEqui)
-simEphem = prim.EphemerisArrays()
-simEphem.InitFromMotions(tsim*tfVal, guessMotions)
-simPath = prim.PathPrimitive(simEphem)
+simEphemeris = prim.EphemerisArrays()
+simEphemeris.InitFromMotions(tSim*tfVal, guessMotions)
+simPath = prim.PathPrimitive(simEphemeris)
 simPath.color = "#00ff00"
 
 try :
     motions = ModifiedEquinoctialElements.CreateEphemeris(equiElements)
-    satEphem = prim.EphemerisArrays()
-    satEphem.InitFromMotions(time, motions)
-    satPath = prim.PathPrimitive(satEphem)
+    satEphemeris = prim.EphemerisArrays()
+    satEphemeris.InitFromMotions(time, motions)
+    satPath = prim.PathPrimitive(satEphemeris)
     satPath.color = "#ff00ff"
 except :
     print("Couldn't plot optimized path")
@@ -616,8 +617,8 @@ except :
 
 
 #%%
-thrustVectRun = getInertialThrustVectorFromDataDict(baseProblem, dictSolution, muVal)
-thrustPlotlyItemsRun = createScattersForThrustVecters(satPath.ephemeris, thrustVectRun, "#ff0000", Au/10.0)
+thrustVectorRun = getInertialThrustVectorFromDataDict(baseProblem, dictSolution, muVal)
+thrustPlotlyItemsRun = createScattersForThrustVectors(satPath.ephemeris, thrustVectorRun, "#ff0000", Au/10.0)
 PlotAndAnimatePlanetsWithPlotly("some title", [earthPath, marsPath, simPath, satPath], time, thrustPlotlyItemsRun)
 
 azimuthPlotData = prim.XAndYPlottableLineData(time, dictSolution[stateSymbols[7]]*180.0/math.pi, "azimuth", '#0000ff', 2, 0)

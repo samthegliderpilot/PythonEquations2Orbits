@@ -5,11 +5,11 @@ sys.path.append("../pyeq2orb") # and this line is needed for running like a norm
 # these two appends do not conflict with eachother
 import matplotlib.pyplot as plt #type: ignore
 import pyeq2orb.Problems.OneDimensionalMinimalWorkProblem as OneDWorkProblemModule
-from pyeq2orb.Solvers.ScipyDistrictrizedMinimizationModule import ScipyDistrictrizedMinimizeWrapper
+from pyeq2orb.Solvers.ScipyDiscretizationMinimizeWrapper import ScipyDiscretizationMinimizeWrapper
 
 n = 9 # coarse enough to see a small difference from the analytical solution
 oneDWorkProblem = OneDWorkProblemModule.OneDWorkProblem()
-scipySolver = ScipyDistrictrizedMinimizeWrapper(oneDWorkProblem)
+scipySolver = ScipyDiscretizationMinimizeWrapper(oneDWorkProblem)
 ans = scipySolver.ScipyOptimize(n)
 plotableNumericalAnswer = scipySolver.ConvertScipyOptimizerOutputToDictionary(ans)
 

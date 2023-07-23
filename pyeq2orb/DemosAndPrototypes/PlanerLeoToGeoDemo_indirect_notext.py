@@ -89,7 +89,7 @@ lambdaDotExpressions = problem.CreateLambdaDotCondition(hamiltonian)
 dHdu = problem.CreateHamiltonianControlExpressions(hamiltonian)[0]
 controlSolved = sy.solve(dHdu, problem.ControlVariables[0])[0] # something that may be different for other problems is when there are multiple control variables
 
-# you are in control of the order of integration variables and what EOM's get evaluated, start updating the problem
+# you are in control of the order of integration variables and what equations of motion get evaluated, start updating the problem
 # NOTE that this call adds the lambdas to the integration state
 problem.EquationsOfMotion.update(zip(lambdas, lambdaDotExpressions))
 SymbolicProblem.SafeSubs(problem.EquationsOfMotion, {problem.ControlVariables[0]: controlSolved})
@@ -134,83 +134,83 @@ stateAndLambdas.extend(problem.StateVariables)
 stateAndLambdas.extend(lambdas)
 odeState = [problem.TimeSymbol, stateAndLambdas, otherArgs]
 
-def safeSubs(exprs, toBeSubsed):
+def safeSubs(exprs, toBeSubbed):
     tbr = []
     for eom in exprs :
         if hasattr(eom, "subs"):
-            tbr.append(eom.subs(toBeSubsed))
+            tbr.append(eom.subs(toBeSubbed))
         else :
             tbr.append(eom)    
     return tbr
 
 class OdeHelper :
-    lambidfyStateFlattenOption = "flatten"
-    lambidfyStateGroupedAllOption = "group"
-    lambidfyStateGroupedAllButParametersOption = "groupFlattenParamerts"
+    lambdifyStateFlattenOption = "flatten"
+    lambdifyStateGroupedAllOption = "group"
+    lambdifyStateGroupedAllButParametersOption = "groupFlattenParameters"
 
-    lambidfyStateOrderOptionTimeFirst = "Time,StateVariables,MissingInitialValues,Parameters"
-    lambidfyStateOrderOptionTimeMiddle = "StateVariables,Time,MissingInitialValues,Parameters"
+    lambdifyStateOrderOptionTimeFirst = "Time,StateVariables,MissingInitialValues,Parameters"
+    lambdifyStateOrderOptionTimeMiddle = "StateVariables,Time,MissingInitialValues,Parameters"
     def __init__(self, t) :
         self.equationsOfMotion = []
         self.initialSymbols = []
         self.stateFunctionSymbols = []
         self.t = t
         self.constants = {}
-        self.lamdifyParameterSymbols = []
+        self.lambdifyParameterSymbols = []
 
     def setStateElement(self, sympyFunctionSymbol, symbolicEom, initialSymbol) :
         self.equationsOfMotion.append(symbolicEom)
         self.stateFunctionSymbols.append(sympyFunctionSymbol)
         self.initialSymbols.append(initialSymbol)
 
-    def makeStateForLambdififedFunction(self, groupOrFlatten=lambidfyStateGroupedAllButParametersOption, orderOption=lambidfyStateOrderOptionTimeFirst):
+    def makeStateForLambdifiedFunction(self, groupOrFlatten=lambdifyStateGroupedAllButParametersOption, orderOption=lambdifyStateOrderOptionTimeFirst):
         arrayForLmd = []
-        if orderOption == OdeHelper.lambidfyStateOrderOptionTimeFirst :
+        if orderOption == OdeHelper.lambdifyStateOrderOptionTimeFirst :
             arrayForLmd.append(self.t)
         stateArray = []    
         for svf in self.stateFunctionSymbols :
             stateArray.append(svf)
-        if groupOrFlatten != OdeHelper.lambidfyStateFlattenOption :
+        if groupOrFlatten != OdeHelper.lambdifyStateFlattenOption :
             arrayForLmd.append(stateArray)    
         else :
             arrayForLmd.extend(stateArray)
-        if orderOption == OdeHelper.lambidfyStateOrderOptionTimeMiddle :
+        if orderOption == OdeHelper.lambdifyStateOrderOptionTimeMiddle :
             arrayForLmd.append(self.t)
 
-        if len(self.lamdifyParameterSymbols) != 0 :
-            if groupOrFlatten == OdeHelper.lambidfyStateGroupedAllButParametersOption or groupOrFlatten == OdeHelper.lambidfyStateFlattenOption:
-                arrayForLmd.extend(self.lamdifyParameterSymbols)
-            elif groupOrFlatten == OdeHelper.lambidfyStateGroupedAllOption :
-                arrayForLmd.append(self.lamdifyParameterSymbols)
+        if len(self.lambdifyParameterSymbols) != 0 :
+            if groupOrFlatten == OdeHelper.lambdifyStateGroupedAllButParametersOption or groupOrFlatten == OdeHelper.lambdifyStateFlattenOption:
+                arrayForLmd.extend(self.lambdifyParameterSymbols)
+            elif groupOrFlatten == OdeHelper.lambdifyStateGroupedAllOption :
+                arrayForLmd.append(self.lambdifyParameterSymbols)
         return arrayForLmd
 
-    def _createParameterOptionalWrapperOfLambdifyCallback(self, baseLambidfyCallback) :
-        def callbackWraper(a, b, *args) :
-            if len(self.lamdifyParameterSymbols) == 0 :
-                return baseLambidfyCallback(a, b)
+    def _createParameterOptionalWrapperOfLambdifyCallback(self, baseLambdifyCallback) :
+        def callbackWrapper(a, b, *args) :
+            if len(self.lambdifyParameterSymbols) == 0 :
+                return baseLambdifyCallback(a, b)
             else :
-                return baseLambidfyCallback(a, b, *args)
-        return callbackWraper
+                return baseLambdifyCallback(a, b, *args)
+        return callbackWrapper
 
-    def createLambdifiedCallback(self, groupOrFlatten=lambidfyStateGroupedAllButParametersOption, orderOption=lambidfyStateOrderOptionTimeFirst) :
-        arrayForLmd=self.makeStateForLambdififedFunction(groupOrFlatten, orderOption)
-        subsedEom = safeSubs(self.equationsOfMotion, self.constants)
-        baseLambidfyCallback = sy.lambdify(arrayForLmd, subsedEom, 'numpy')
-        return self._createParameterOptionalWrapperOfLambdifyCallback(baseLambidfyCallback)
+    def createLambdifiedCallback(self, groupOrFlatten=lambdifyStateGroupedAllButParametersOption, orderOption=lambdifyStateOrderOptionTimeFirst) :
+        arrayForLmd=self.makeStateForLambdifiedFunction(groupOrFlatten, orderOption)
+        subbedEom = safeSubs(self.equationsOfMotion, self.constants)
+        baseLambdifyCallback = sy.lambdify(arrayForLmd, subbedEom, 'numpy')
+        return self._createParameterOptionalWrapperOfLambdifyCallback(baseLambdifyCallback)
 
 thisOdeHelper = OdeHelper(problem.TimeSymbol)
 for key, value in problem.EquationsOfMotion.items() :
     thisOdeHelper.setStateElement(key, value, key.subs(problem.TimeSymbol, problem.TimeInitialSymbol) )
 
 if scaleTime:
-    thisOdeHelper.lamdifyParameterSymbols.append(baseProblem.TimeFinalSymbol)
+    thisOdeHelper.lambdifyParameterSymbols.append(baseProblem.TimeFinalSymbol)
 
 if len(nus) != 0:
-    thisOdeHelper.lamdifyParameterSymbols.append(problem.CostateSymbols[1])
-    thisOdeHelper.lamdifyParameterSymbols.append(problem.CostateSymbols[2])
+    thisOdeHelper.lambdifyParameterSymbols.append(problem.CostateSymbols[1])
+    thisOdeHelper.lambdifyParameterSymbols.append(problem.CostateSymbols[2])
 
 thisOdeHelper.constants = problem.SubstitutionDictionary
-display(thisOdeHelper.makeStateForLambdififedFunction())
+display(thisOdeHelper.makeStateForLambdifiedFunction())
 odeIntEomCallback = thisOdeHelper.createLambdifiedCallback()
 
 if len(nus) > 0 :
@@ -223,7 +223,7 @@ if len(nus) > 0 :
         argsForOde.append(tfOrg)
     argsForOde.append(initialFSolveStateGuess[1])
     argsForOde.append(initialFSolveStateGuess[2])  
-    print("solving ivp for final ajoined variable guess")
+    print("solving ivp for final adjoined variable guess")
     testSolution = solve_ivp(odeIntEomCallback, [tArray[0], tArray[-1]], [r0, u0, v0, lon0, *initialFSolveStateGuess[0:3]], args=tuple(argsForOde), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)  
     #testSolution = odeint(odeIntEomCallback, [r0, u0, v0, lon0, *initialFSolveStateGuess[0:3]], tArray, args=tuple(argsForOde))
     finalValues = ScipyCallbackCreators.GetFinalStateFromIntegratorResults(testSolution)
@@ -267,11 +267,11 @@ jh.showEquation(baseProblem.StateVariables[1].subs(problem.TimeSymbol, problem.T
 jh.showEquation(baseProblem.StateVariables[2].subs(problem.TimeSymbol, problem.TimeFinalSymbol), unscaledResults[baseProblem.StateVariables[2]][-1])
 jh.showEquation(baseProblem.StateVariables[3].subs(problem.TimeSymbol, problem.TimeFinalSymbol), (unscaledResults[baseProblem.StateVariables[3]][-1]%(2*math.pi))*180.0/(2*math.pi))
 
-[hamltVals, dhduValus, d2hdu2Valus] = problem.EvaluateHamiltonianAndItsFirstTwoDerivatives(solutionDictionary, tArray, hamiltonian, {problem.ControlVariables[0]: controlSolved}, {baseProblem.TimeFinalSymbol: tfOrg})
-plt.title("Hamlitonion and its derivatives")
-plt.plot(tArray/86400, hamltVals, label="Hamiltonian")
-plt.plot(tArray/86400, dhduValus, label=r'$\frac{dH}{du}$')
-plt.plot(tArray/86400, d2hdu2Valus, label=r'$\frac{d^2H}{du^2}$')
+[hamiltonVals, dhduValues, d2hdu2Values] = problem.EvaluateHamiltonianAndItsFirstTwoDerivatives(solutionDictionary, tArray, hamiltonian, {problem.ControlVariables[0]: controlSolved}, {baseProblem.TimeFinalSymbol: tfOrg})
+plt.title("Hamiltonian and its derivatives")
+plt.plot(tArray/86400, hamiltonVals, label="Hamiltonian")
+plt.plot(tArray/86400, dhduValues, label=r'$\frac{dH}{du}$')
+plt.plot(tArray/86400, d2hdu2Values, label=r'$\frac{d^2H}{du^2}$')
 
 plt.tight_layout()
 plt.grid(alpha=0.5)

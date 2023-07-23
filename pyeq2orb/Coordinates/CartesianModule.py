@@ -1,5 +1,7 @@
 from __future__ import annotations
 import sympy as sy
+from pyeq2orb.Utilities.Typing import SymbolOrNumber
+from typing import Any
 
 class Cartesian(sy.Matrix) :
 
@@ -16,7 +18,7 @@ class Cartesian(sy.Matrix) :
 
     Often X, Y and Z are floats, or symbols, but this is python so...
     """
-    def __new__(cls, x, y, z) :
+    def __new__(cls, x :SymbolOrNumber, y:SymbolOrNumber, z:SymbolOrNumber) :
         self = super().__new__(cls, [[x],[y],[z]])
         """Initialize a new instance.  
 
@@ -62,34 +64,33 @@ class Cartesian(sy.Matrix) :
         return newOne
 
     @property
-    def X(self) :
+    def X(self) ->SymbolOrNumber:
         """Gets the X component.
 
         Returns:
             The X Component.
         """
-        return self._x
+        return self._x #type: ignore
 
     @property
-    def Y(self) :
+    def Y(self) ->SymbolOrNumber:
         """Gets the Y component.
 
         Returns:
             The Y Component.
         """        
-        return self._y
+        return self._y#type: ignore
 
     @property
-    def Z(self) :
+    def Z(self) ->SymbolOrNumber:
         """Gets the Z component.
 
         Returns:
             The Z Component.
         """        
-        return self._z
-
-
-    def __add__(self, other) :
+        return self._z#type: ignore
+    
+    def __add__(self, other : Cartesian) ->Cartesian :
         """Returns a new cartesian which is the other one added to this one.
 
         Args:
@@ -102,7 +103,7 @@ class Cartesian(sy.Matrix) :
         Cartesian._addXYZ(newOne)
         return newOne
 
-    def __sub__(self, other) :
+    def __sub__(self, other :Cartesian) ->Cartesian:
         """Returns a new cartesian which is this one minus the.
 
         Args:
@@ -115,7 +116,7 @@ class Cartesian(sy.Matrix) :
         Cartesian._addXYZ(newOne)
         return newOne
 
-    def __mul__(self, value) :
+    def __mul__(self, value: SymbolOrNumber)->Cartesian :
         """Returns a new cartesian multiplied by the supplied value.
 
         Args:
@@ -129,17 +130,17 @@ class Cartesian(sy.Matrix) :
             Cartesian._addXYZ(newOne)
         return newOne
 
-    def __rmul__(self, other) :
+    def __rmul__(self, other: SymbolOrNumber) ->Cartesian:
         newOne = super().__rmul__(other)
         Cartesian._addXYZ(newOne)
         return newOne
 
-    def __truediv__(self, value) :
+    def __truediv__(self, value: SymbolOrNumber) ->Cartesian:
         newOne = super().__truediv__(value)
         Cartesian._addXYZ(newOne)
         return newOne
 
-    def EqualsWithinTolerance(self, other : Cartesian, tolerance: float) -> bool :
+    def EqualsWithinTolerance(self, other : Cartesian, tolerance: SymbolOrNumber) -> bool :
         """ Returns if this cartesian is equal to the other cartesian to within the passed in tolerance
 
         Args: 
@@ -151,7 +152,7 @@ class Cartesian(sy.Matrix) :
         """        
         return other.shape == self.shape and abs(self[0]-other[0]) <= tolerance and abs(self[1]-other[1]) <= tolerance and abs(self[2]-other[2]) <= tolerance
 
-    def Magnitude(self) :
+    def Magnitude(self)-> SymbolOrNumber :
         """Evaluates the magnitude of this cartesian.
 
         Returns:
@@ -159,7 +160,7 @@ class Cartesian(sy.Matrix) :
         """
         return self.norm()
 
-    def Normalize(self) :
+    def Normalize(self)->Cartesian :
         """Returns a new Cartesian normalized to 1 (or as close as numerical precision will allow).
 
         Returns:
@@ -209,7 +210,7 @@ class MotionCartesian :
             return 0
         return 1
 
-    def __eq__(self, other) ->bool:
+    def __eq__(self, other : Any) ->bool:
         """Returns true if the included Cartesian's equal the other's Cartesian's
 
         Args:
@@ -241,7 +242,7 @@ class MotionCartesian :
             return self.Velocity # return the None, it is ok.
         raise Exception("Motions does not support indexes outside the range of 0 to 1 inclusive, but was passed " +str(i))
 
-    def EqualsWithinTolerance(self, other : MotionCartesian, positionTolerance : float, velocityTolerance : float) -> bool :
+    def EqualsWithinTolerance(self, other : MotionCartesian, positionTolerance : SymbolOrNumber, velocityTolerance : SymbolOrNumber) -> bool :
         """ Returns if this motion is equal to the other motion to within the passed in tolerances
 
         Args: 

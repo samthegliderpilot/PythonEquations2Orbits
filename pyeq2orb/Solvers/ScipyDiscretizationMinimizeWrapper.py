@@ -1,14 +1,14 @@
 from scipy.optimize import minimize, OptimizeResult # type: ignore
-from typing import List,Dict,Callable, Any, Collection, Optional, cast, Any
-
+from typing import List,Dict,Callable, Collection, Optional, cast, Any
 from pyeq2orb.NumericalOptimizerProblem import NumericalOptimizerProblemBase
+import sympy as sy
 
 #TODO: Consider making a base solver type that takes some of the load off of this type
 
-class ScipyDistrictrizedMinimizeWrapper:
+class ScipyDiscretizationMinimizeWrapper:
     """Provides wrapper functions to work with scipy.optimize functions.  This base type solves 
     for a optimal value by creating a discretized optimizer state (z) from the state and control 
-    of a problem using a trapizod rule.
+    of a problem using a trapezoid rule.
     """
     def __init__(self, problem : NumericalOptimizerProblemBase) : 
         """ Initialize a new instance.
@@ -23,7 +23,7 @@ class ScipyDistrictrizedMinimizeWrapper:
         """A default implementation of calling scipy.optimize.minimize
 
         Args:
-            n (int): The number of segments to districtrize the solution into
+            n (int): The number of segments to discretize the solution into
             tArray (List[float], optional): The time array. Defaults to None which will trigger calling CreateTimeRange on the problem.
             zGuess (List[float], optional): An initial guess at the optimizer state (fully discretized). Defaults to None which will trigger calling CreateInitialGuess on the problem.
             optMethod (str, optional): The "method" parameter for scipy.optimize.minimize. Defaults to "SLSQP", and be sure to pick something that can handle constraints.
@@ -54,10 +54,10 @@ class ScipyDistrictrizedMinimizeWrapper:
         """Creates the discretized initial guess for the scipy minimizer to start with.
 
         Args:
-            timeArray (List[float]): The optimal time array to use for the districtrization points.
+            timeArray (List[float]): The optimal time array to use for the discretization points.
 
         Returns:
-            List[float]: A vector of the districtrized points, starting with the state[0] from t0 to tf, followed by state[1] from t0 to tf...
+            List[float]: A vector of the discretized points, starting with the state[0] from t0 to tf, followed by state[1] from t0 to tf...
         """
         n = len(timeArray)-1
         z = [0.0] * (n+1) * self.NumberOfVariables
@@ -73,7 +73,7 @@ class ScipyDistrictrizedMinimizeWrapper:
         return z
 
     
-    def ConvertScipyOptimizerOutputToDictionary(self, optStruct: OptimizeResult) ->Dict[object, List[float]]:
+    def ConvertScipyOptimizerOutputToDictionary(self, optStruct: OptimizeResult) ->Dict[sy.Expr, List[float]]:
         """After evaluating a set of results, this will take those results and put them into a form that NumericalOptimizerProblemBase.AddResultsToFigure 
         expects."
 
@@ -81,19 +81,19 @@ class ScipyDistrictrizedMinimizeWrapper:
             optStruct (OptimizeResult): The results from a scipy.optimize.minimize call.
 
         Returns:
-            Dict[object, List[float]]: The state variable and control variables in a dictionary key'ed off of the State and Control array in the problem.
+            Dict[sy.Expr, List[float]]: The state variable and control variables in a dictionary key'ed off of the State and Control array in the problem.
         """
         return self.ConvertDiscretizedStateToDict(optStruct.x)
 
-    def ConvertDiscretizedStateToDict(self, z :List[float]) ->Dict[object, List[float]]: 
-        """With a districtrized optimizer state, this will that state and put them into a form that NumericalOptimizerProblemBase.AddResultsToFigure 
+    def ConvertDiscretizedStateToDict(self, z :List[float]) ->Dict[sy.Expr, List[float]]: 
+        """With a discretized optimizer state, this will that state and put them into a form that NumericalOptimizerProblemBase.AddResultsToFigure 
         expects."
 
         Args:
             z (List[float]): The optimizer state.
 
         Returns:
-            Dict[object, List[float]]: The state variable and control variables in a dictionary key'ed off of the State and Control array in the problem.
+            Dict[sy.Expr, List[float]]: The state variable and control variables in a dictionary key'ed off of the State and Control array in the problem.
         """
         tempList = [] 
         tempList.extend(self.Problem.State)
@@ -110,7 +110,7 @@ class ScipyDistrictrizedMinimizeWrapper:
         return finalDict
 
     # @staticmethod
-    # def ExtractFinalValuesFromDisctictrizedState(problem : NumericalOptimizerProblemBase, z : List[float]) -> List[float]:
+    # def ExtractFinalValuesFromDiscretizedState(problem : NumericalOptimizerProblemBase, z : List[float]) -> List[float]:
     #     finalValues = []
     #     everyN = len(z) / problem.NumberOfOptimizerStateVariables
     #     for i in range(0, problem.NumberOfOptimizerStateVariables) :
@@ -154,7 +154,7 @@ class ScipyDistrictrizedMinimizeWrapper:
         return cons #type: ignore  
 
     def CollocationConstraintIntegrationRule(self, t : List[float], z : List[float], timeIndex :int, stateIndex : int) -> float:
-        """This is the trapizod rule implimented as a colocation constraint.  Derived types should 
+        """This is the trapezoid rule implemented as a colocation constraint.  Derived types should 
         override this function to implement other rules. scipy's minimize function is a little
         frustrating in that it wants to call this for each colocation constraint instead of taking 
         a vector.
@@ -182,10 +182,10 @@ class ScipyDistrictrizedMinimizeWrapper:
 
     def CreateIndividualCollocationConstraints(self, t : Collection[float]) -> list[Callable[[list[float]], float]]:
         """Creates the collocation constraints for the function.  This will call self.CollocationConstraintIntegrationRule, and 
-        to try different districtrization schemes, override that function.
+        to try different discretization schemes, override that function.
 
         Args:
-            t (List[float]): The time array to districtrize the equations of motion over.
+            t (List[float]): The time array to discretize the equations of motion over.
 
         Returns:
             List[Dict]: A list dictionaries that can immediately be used by the scipy optimizer. 
@@ -239,7 +239,7 @@ class ScipyDistrictrizedMinimizeWrapper:
 
 
     def CostFunctionInTermsOfZ(self, time : List[float], z : List[float]) -> float:
-        """Evalutes the cost of the function from the optimizer state z.
+        """Evaluates the cost of the function from the optimizer state z.
 
         Args:
             time (List[float]): The time array that the function is evaluated over.

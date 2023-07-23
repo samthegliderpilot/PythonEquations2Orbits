@@ -68,7 +68,7 @@ class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
         self._equationsOfMotion[longS] = vs/rs
    
     def AppendConstantsToSubsDict(self, existingDict : dict[sy.Expr, float], muVal : float, gVal : float, thrustVal : float, m0Val : float, ispVal : float) :
-        """Helper function to make the substitution dictionary that is often needed when lambdifying 
+        """Helper function to make the substitution dictionary that is often needed when lapidifying 
         the symbolic equations.
 
         Args:
@@ -127,7 +127,7 @@ class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
             return finalAnswers    
         return callbackForFsolve
 
-    def PlotSolution(self, tUnscaled : npt.NDArray, orderedDictOfUnScaledValues : Dict[sy.Symbol, List[float]], label : str) :        
+    def PlotSolution(self, tUnscaled : npt.NDArray, orderedDictOfUnScaledValues : Dict[sy.Expr, List[float]], label : str) :        
         solsLists = [] #type: List[List[float]]
         for key, val in orderedDictOfUnScaledValues.items() :
             solsLists.append(val)
@@ -189,37 +189,37 @@ class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
         # We want initial alpha to be 0 (or really close to it) per intuition
         # We can choose lmdv and solve for lmdu.  Start with lmdv to be 1
         # solve for lmdu with those assumptions        
-        lmdsAtT0 = problem.CreateVariablesAtTime0(problem.CostateSymbols)    
+        lambdasAtT0 = problem.CreateVariablesAtTime0(problem.CostateSymbols)    
         constantsForLmdGuesses = problem.SubstitutionDictionary.copy()
-        constantsForLmdGuesses[lmdsAtT0[2]] = 1.0 
+        constantsForLmdGuesses[lambdasAtT0[2]] = 1.0 
 
         controlAtT0 = problem.CreateVariablesAtTime0(controlSolved)
         sinOfControlAtT0 = sy.sin(controlAtT0).trigsimp(deep=True).expand().simplify()
-        alphEq = sinOfControlAtT0.subs(lmdsAtT0[2], constantsForLmdGuesses[lmdsAtT0[2]])
-        ans1 = sy.solveset(sy.Eq(0.00,alphEq), lmdsAtT0[1])
+        alphaEq = sinOfControlAtT0.subs(lambdasAtT0[2], constantsForLmdGuesses[lambdasAtT0[2]])
+        ans1 = sy.solveset(sy.Eq(0.00,alphaEq), lambdasAtT0[1])
         # doesn't like 0, so let's make it small
-        ans1 = sy.solveset(sy.Eq(0.0001,alphEq), lmdsAtT0[1])
+        ans1 = sy.solveset(sy.Eq(0.0001,alphaEq), lambdasAtT0[1])
 
         for thing in ans1 :
-            ansForLmdu = thing
-        constantsForLmdGuesses[lmdsAtT0[1]] = float(ansForLmdu)
+            ansForLambdaU = thing
+        constantsForLmdGuesses[lambdasAtT0[1]] = float(ansForLambdaU)
 
         # if we assume that we always want to keep alpha small (0), we can solve dlmd_u/dt=0 for lmdr_0
         lmdUDotAtT0 = problem.CreateVariablesAtTime0(problem.EquationsOfMotion[problem.CostateSymbols[1]])
         lmdUDotAtT0 = lmdUDotAtT0.subs(constantsForLmdGuesses)
-        inter=sy.solve(sy.Eq(lmdUDotAtT0, 0), lmdsAtT0[0])
+        inter=sy.solve(sy.Eq(lmdUDotAtT0, 0), lambdasAtT0[0])
         lambdaR0Value = float(inter[0].subs(constantsForLmdGuesses)) # we know there is just 1
-        constantsForLmdGuesses[lmdsAtT0[0]] = lambdaR0Value # later on, arrays will care that this MUST be a float
-        initialFSolveStateGuess = [lambdaR0Value, float(ansForLmdu), 1.0]
+        constantsForLmdGuesses[lambdasAtT0[0]] = lambdaR0Value # later on, arrays will care that this MUST be a float
+        initialFSolveStateGuess = [lambdaR0Value, float(ansForLambdaU), 1.0]
         return initialFSolveStateGuess        
     
-    def AddStandardResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[Any, List[float]], label : str) -> None:
+    def AddStandardResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[sy.Expr, List[float]], label : str) -> None:
         """Adds the contents of dictionaryOfValueArraysKeyedOffState to the plot.
 
         Args:
             figure (matplotlib.figure.Figure): The figure the data is getting added to.
             t (List[float]): The time corresponding to the data in dictionaryOfValueArraysKeyedOffState.
-            dictionaryOfValueArraysKeyedOffState (Dict[object, List[float]]): The data to get added.  The keys must match the values in self.State and self.Control.
+            dictionaryOfValueArraysKeyedOffState (Dict[sy.Expr, List[float]]): The data to get added.  The keys must match the values in self.State and self.Control.
             label (str): A label for the data to use in the plot legend.
         """
         pass        

@@ -1,4 +1,4 @@
-from typing import List, Dict, Collection, Any, NoReturn
+from typing import List, Dict, Collection, NoReturn
 import sympy as sy
 import matplotlib.pyplot as plt # type: ignore
 from matplotlib.figure import Figure # type: ignore
@@ -34,7 +34,7 @@ class OneDWorkSymbolicProblem(SymbolicProblem) :
         Args:
             figure (matplotlib.figure.Figure): The figure the data is getting added to.
             t (List[float]): The time corresponding to the data in dictionaryOfValueArraysKeyedOffState.
-            dictionaryOfValueArraysKeyedOffState (Dict[object, List[float]]): The x, v, and u to be plotted.
+            dictionaryOfValueArraysKeyedOffState (Dict[sy.Expr, List[float]]): The x, v, and u to be plotted.
             label (str): A label for the data to use in the plot legend.
         """
         xAct = dictionaryOfValueArraysKeyedOffState[self._stateVariables[0]] #TODO: I don't like how this line knows that the 0th element is X (and the next two too)
@@ -142,17 +142,17 @@ class OneDWorkProblem(NumericalOptimizerProblemBase) :
     def UnIntegratedPathCost(self, t : float, stateAndControl : tuple[float, ...]) :
         return stateAndControl[2]**2  #u**2
 
-    def TerminalCost(self, tf : float, finalStateAndControl : Dict[object, float]) ->float :
+    def TerminalCost(self, tf : float, finalStateAndControl : Dict[sy.Expr, float]) ->float :
         # I am only including this to make the problem exercise more of the system
         return 0.0#abs(1.0-finalStateAndControl[self.State[0]]) # and min final x
 
-    def AddResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[Any, List[float]], label : str) -> None :
+    def AddResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[sy.Expr, List[float]], label : str) -> None :
         """Adds the contents of dictionaryOfValueArraysKeyedOffState to the plot.
 
         Args:
             figure (matplotlib.figure.Figure): The figure the data is getting added to.
             t (List[float]): The time corresponding to the data in dictionaryOfValueArraysKeyedOffState.
-            dictionaryOfValueArraysKeyedOffState (Dict[object, List[float]]): The x, v, and u to be plotted.
+            dictionaryOfValueArraysKeyedOffState (Dict[sy.Expr, List[float]]): The x, v, and u to be plotted.
             label (str): A label for the data to use in the plot legend.
         """
         xAct = dictionaryOfValueArraysKeyedOffState[self.State[0]] #TODO: I don't like how this line knows that the 0th element is X (and the next two too)
@@ -220,7 +220,7 @@ class AnalyticalAnswerToProblem :
         """           
         return 6.0-12.0*time
 
-    def EvaluateAnswer(self, oneDWorkProblem : OneDWorkProblem, t : Collection[float]) -> Dict[object, List[float]]:
+    def EvaluateAnswer(self, oneDWorkProblem : OneDWorkProblem, t : Collection[float]) -> Dict[sy.Expr, List[float]]:
         """Evaluates the optimal solution for this problem.
 
         Args:
@@ -229,7 +229,7 @@ class AnalyticalAnswerToProblem :
             oneDWorkProblem.
 
         Returns:
-            Dict[object, List[float]]: The analytical solution to this problem evaluated analytically, in a form 
+            Dict[sy.Expr, List[float]]: The analytical solution to this problem evaluated analytically, in a form 
             that is ready to plot with the plotting function in the oneDWorkProblem.
         """
         n = len(t)

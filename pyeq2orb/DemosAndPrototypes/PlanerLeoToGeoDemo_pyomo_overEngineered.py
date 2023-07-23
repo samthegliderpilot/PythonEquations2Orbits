@@ -6,7 +6,7 @@ import sys
 import os
 thisFile = os.path.abspath(__file__)
 sys.path.append(os.path.abspath(thisFile + '..\\..\\..\\'))
-# these two appends do not conflict with eachother
+# these two appends do not conflict with each other
 import math
 import sympy as sy
 from scipy.integrate import solve_ivp, solve_bvp, odeint
@@ -66,7 +66,7 @@ if scale :
 rs = problem.StateVariables[0]
 us = problem.StateVariables[1]
 vs = problem.StateVariables[2]
-lons = problem.StateVariables[3]
+longitudes = problem.StateVariables[3]
 # make the time array
 tArray = np.linspace(0.0, tfOrg, 1200)
 if scaleTime:
@@ -97,10 +97,10 @@ if scale :
     initialScaledStateValues = problem.CreateVariablesAtTime0(problem.StateVariables)
     constantsSubsDict.update(zip(initialScaledStateValues, [r0, u0, v0, lon0])) 
     
-lambdiafyFunctionMap = {'sqrt': poenv.sqrt, 'sin': poenv.sin, 'cos':poenv.cos} #TODO: MORE!!!!
+lambdifyFunctionMap = {'sqrt': poenv.sqrt, 'sin': poenv.sin, 'cos':poenv.cos} #TODO: MORE!!!!
 
 
-asNumericalProblem = NumericalProblemFromSymbolicProblem(problem, lambdiafyFunctionMap)
+asNumericalProblem = NumericalProblemFromSymbolicProblem(problem, lambdifyFunctionMap)
 
 n=200
 tSpace = np.linspace(0.0, 1.0, n)
@@ -131,8 +131,8 @@ setEverythingOnPyomoModel(model, "theta", model.t, [lon0, 29.0*2.0*math.pi], flo
 setEverythingOnPyomoModel(model, "control", model.t, [-1.0*math.pi/2.0, math.pi/2.0], None)
 setEverythingOnPyomoModel(model, "Tf", None, [tfOrg-2, tfOrg+2], tfOrg)
 
-def mapping(m, t, expre) :
-    return expre([t, m.r[t], m.u[t], m.v[t], m.theta[t], m.control[t], m.Tf])
+def mapping(m, t, expression) :
+    return expression([t, m.r[t], m.u[t], m.v[t], m.theta[t], m.control[t], m.Tf])
 
 setEom(model, "r",     model.t, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 0))
 setEom(model, "u",     model.t, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 1))
@@ -160,9 +160,9 @@ sim = podae.Simulator(model, package='scipy')
 #model.var_input[model.control] = {0: 0.05}
 model.var_input[model.control] = {0: 0.00}
 model.var_input[model.Tf] = {0: tfOrg}
-tsim, profiles = sim.simulate(numpoints=n, varying_inputs=model.var_input, integrator='dop853', initcon=np.array([r0,u0, v0, lon0], dtype=float))
+tSim, profiles = sim.simulate(numpoints=n, varying_inputs=model.var_input, integrator='dop853', initcon=np.array([r0,u0, v0, lon0], dtype=float))
 debugMessage = True
-#plotOdeIntSolution(tsim*tfOrg, profiles[:,0], profiles[:,1], profiles[:,2], profiles[:,3], numScaleVector, 0.05)
+#plotOdeIntSolution(tSim*tfOrg, profiles[:,0], profiles[:,1], profiles[:,2], profiles[:,3], numScaleVector, 0.05)
 
 #poenv.TransformationFactory('dae.finite_difference').apply_to(model, wrt=model.t, nfe=n, scheme='BACKWARD')
 poenv.TransformationFactory('dae.collocation').apply_to(model, wrt=model.t, nfe=n,ncp=3, scheme='LAGRANGE-RADAU')

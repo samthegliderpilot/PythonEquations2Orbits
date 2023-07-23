@@ -17,7 +17,7 @@ class OdeHelper :
         self.stateSymbolsOfT = []
         self.t = t
         self.constants = {}
-        self.lamdifyParameterSymbols = []
+        self.lambdifyParameterSymbols = []
 
     def setStateElement(self, sympyFunctionSymbol, symbolicEom, initialSymbol) :
         self.equationsOfMotion.append(symbolicEom)
@@ -38,16 +38,16 @@ class OdeHelper :
         if orderOption == OdeHelper.lambidfyStateOrderOptionTimeMiddle :
             arrayForLmd.append(self.t)
 
-        if len(self.lamdifyParameterSymbols) != 0 :
+        if len(self.lambdifyParameterSymbols) != 0 :
             if groupOrFlatten == OdeHelper.lambidfyStateGroupedAllButParametersOption or groupOrFlatten == OdeHelper.lambidfyStateFlattenOption:
-                arrayForLmd.extend(self.lamdifyParameterSymbols)
+                arrayForLmd.extend(self.lambdifyParameterSymbols)
             elif groupOrFlatten == OdeHelper.lambidfyStateGroupedAllOption :
-                arrayForLmd.append(self.lamdifyParameterSymbols)
+                arrayForLmd.append(self.lambdifyParameterSymbols)
         return arrayForLmd
 
     def _createParameterOptionalWrapperOfLambdifyCallback(self, baseLambidfyCallback) :
         def callbackWraper(a, b, *args) :
-            if len(self.lamdifyParameterSymbols) == 0 :
+            if len(self.lambdifyParameterSymbols) == 0 :
                 return baseLambidfyCallback(a, b)
             else :
                 return baseLambidfyCallback(a, b, *args)

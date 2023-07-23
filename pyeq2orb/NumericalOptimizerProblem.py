@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict, Callable, Any, Collection
+from typing import List, Dict, Callable, Collection
 import numpy as np
 import sympy as sy
 from matplotlib.figure import Figure # type: ignore
@@ -12,21 +12,21 @@ class NumericalOptimizerProblemBase(ABC) :
     Args:
         ABC (abc.ABC): This class a abstract base class.  Several functions are intended to be implemented by derived types.
     """
-    def __init__(self, t : object) :
+    def __init__(self, t : sy.Expr) :
         """Initializes a new instance
 
         Args:
             t (object): Some identifier for the independent variable (often time).  This is generally a sympy Symbol or a string.
             n (int): The count of segments that the trajectory will be broken up by.
         """
-        self.State = [] #type: List[Any]
+        self.State = [] #type: List[sy.Expr]
         self._boundaryConditionCallbacks = []#type: List[Callable[[float, List[float], float, List[float]], float]]
         self.Time = t
         self.T0 = 0
         self.Tf = 0
-        self.Control = [] #type: List[Any]       
-        self._knownFinalConditions = {} #type: Dict[Any, float]
-        self._knownInitialConditions = {}#type: Dict[Any, float]
+        self.Control = [] #type: List[sy.Expr]       
+        self._knownFinalConditions = {} #type: Dict[sy.Expr, float]
+        self._knownInitialConditions = {}#type: Dict[sy.Expr, float]
 
     #TODO: Rework the problem types to use this format of state everywhere
     # def CreateState(self, time : object, states : List, controls : List, otherParameters :object = None) -> List :
@@ -91,7 +91,7 @@ class NumericalOptimizerProblemBase(ABC) :
         t.append(self.Tf)
         return t
     
-    def InitialTrajectoryGuess(self,n :int, t0:float, stateAndControlAtT0 : List[float], tf : float, stateAndControlAtTf : List[float]) -> Dict[Any, List[float]] :
+    def InitialTrajectoryGuess(self,n :int, t0:float, stateAndControlAtT0 : List[float], tf : float, stateAndControlAtTf : List[float]) -> Dict[sy.Expr, List[float]] :
         """Provides an initial guess for the overall trajectory.  By default this does a linear interpolation from the initial 
         to final conditions, but you are encouraged to override this method with something more refined (maybe integrate the 
         equations of motion making some reasonable guess to the control variables). 
@@ -104,10 +104,10 @@ class NumericalOptimizerProblemBase(ABC) :
             stateAndControlAtTf (List[float]: Final state and control
 
         Returns:
-            Dict[Any, List[float]]: A guess for the initial trajectory that better be good enough for a solver of some sort. This will 
+            Dict[sy.Expr, List[float]]: A guess for the initial trajectory that better be good enough for a solver of some sort. This will 
             include the time and control histories as well.
         """
-        solution = {} #type: Dict[Any, List[float]]
+        solution = {} #type: Dict[sy.Expr, List[float]]
         
         for i in range(0, self.NumberOfStateVariables) :
             solution[self.State[i]]= [stateAndControlAtT0[i] + x*(stateAndControlAtTf[i]-stateAndControlAtT0[i])/n for x in range(n+1)]
@@ -162,7 +162,7 @@ class NumericalOptimizerProblemBase(ABC) :
             callbacks.append(callback)
         return callbacks
 
-    def CostFunction(self, t : List[float], stateAndControl : Dict[object, List[float]]) -> float:
+    def CostFunction(self, t : List[float], stateAndControl : Dict[sy.Expr, List[float]]) -> float:
         """The cost of the problem.  
 
         Args:
@@ -216,14 +216,14 @@ class NumericalOptimizerProblemBase(ABC) :
         
         return value
 
-    def ConvertStateAndControlDictionaryToArray(self, stateAndControlDict : Dict[object, float]) -> List[float] :
+    def ConvertStateAndControlDictionaryToArray(self, stateAndControlDict : Dict[sy.Expr, float]) -> List[float] :
         """Provides a way to convert a dictionary to an array that other types may
         prefer (such as integrators where the order of values getting integrated need to align with 
         the order of the equations of motion).  This is a function that should often be overridden 
         if there are additional items getting integrated (such as a path cost or an auxiliary variable).
 
         Args:
-            stateAndControlDict (Dict[object, object]): The dictionary mapping state and controls (and 
+            stateAndControlDict (Dict[sy.Expr, object]): The dictionary mapping state and controls (and 
             potentially other things) that are related to function evaluations.
 
         Returns:
@@ -237,12 +237,12 @@ class NumericalOptimizerProblemBase(ABC) :
         return z
 
     @abstractmethod 
-    def TerminalCost(self, tf : float, finalStateAndControl : Dict[object, float]) -> float:
+    def TerminalCost(self, tf : float, finalStateAndControl : Dict[sy.Expr, float]) -> float:
         """Evaluates the terminal cost from the final values of the function.
 
         Args:
             tf (float): The final time
-            finalStateAndControl (Dict[object, float]): The final state.
+            finalStateAndControl (Dict[sy.Expr, float]): The final state.
 
         Returns:
             float: The terminal cost.
@@ -250,36 +250,36 @@ class NumericalOptimizerProblemBase(ABC) :
         pass # technically, we don't need to pass the final control into the terminal cost function, but it is more trouble to not include it and on the off chance it helps in some specific problem
 
     @abstractmethod    
-    def AddResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[object, List[float]], label : str) -> None:
+    def AddResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[sy.Expr, List[float]], label : str) -> None:
         """Adds the contents of dictionaryOfValueArraysKeyedOffState to the plot.
 
         Args:
             figure (matplotlib.figure.Figure): The figure the data is getting added to.
             t (List[float]): The time corresponding to the data in dictionaryOfValueArraysKeyedOffState.
-            dictionaryOfValueArraysKeyedOffState (Dict[object, List[float]]): The data to get added.  The keys must match the values in self.State and self.Control.
+            dictionaryOfValueArraysKeyedOffState (Dict[sy.Expr, List[float]]): The data to get added.  The keys must match the values in self.State and self.Control.
             label (str): A label for the data to use in the plot legend.
         """
         pass
 
     @property
-    def KnownInitialConditions(self) ->Dict[Any, float] :
+    def KnownInitialConditions(self) ->Dict[sy.Expr, float] :
         """A dictionary of the known initial conditions. Solvers need to take these into account (either 
         by making boundary conditions) or some other way when solving problems.  This may not be a complete 
         set of conditions, however it is assumed it is enough for the problem to be solvable.
 
         Returns:
-            Dict[object, float]: Known initial conditions, the keys of which are the objects in the State.
+            Dict[sy.Expr, float]: Known initial conditions, the keys of which are the objects in the State.
         """
         return self._knownInitialConditions
 
     @property
-    def KnownFinalConditions(self) ->Dict[Any, float] :
+    def KnownFinalConditions(self) ->Dict[sy.Expr, float] :
         """A dictionary of the known final conditions. Solvers need to take these into account (either 
         by making boundary conditions) or some other way when solving problems.  This may not be a complete 
         set of conditions, however it is assumed it is enough for the problem to be solvable.
 
         Returns:
-            Dict[object, float]: Known final conditions, the keys of which are the objects in the State.
+            Dict[sy.Expr, float]: Known final conditions, the keys of which are the objects in the State.
         """        
         return self._knownFinalConditions
 

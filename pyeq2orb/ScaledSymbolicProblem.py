@@ -1,7 +1,8 @@
 from matplotlib.figure import Figure # type: ignore
 import sympy as sy
-from typing import List, Dict, Optional, Any, cast
+from typing import List, Dict, Optional, cast
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
+from pyeq2orb.Utilities.Typing import SymbolOrNumber
 import numpy as np
 
 """A Symbolic problem that has scaling factors over another problem.  Those 
@@ -9,7 +10,7 @@ factors can be constants, or symbols themselves that are in the substitution
 dictionary that get used by various solvers.
 """
 class ScaledSymbolicProblem(SymbolicProblem) :
-    def __init__(self, wrappedProblem : SymbolicProblem, newStateVariableSymbols : List[sy.Symbol], valuesToDivideStateVariablesWith : Dict[sy.Symbol, Any], scaleTime : bool) :        
+    def __init__(self, wrappedProblem : SymbolicProblem, newStateVariableSymbols : List[sy.Expr], valuesToDivideStateVariablesWith : Dict[sy.Expr, SymbolOrNumber], scaleTime : bool) :        
         """Initializes a new instance.
 
         Args:
@@ -55,15 +56,15 @@ class ScaledSymbolicProblem(SymbolicProblem) :
 
 
         self._controlVariables = wrappedProblem.ControlVariables
-        scaledEoms = {}
+        scaledEquationsOfMotion = {}
         counter = 0
         for sv in wrappedProblem.StateVariables :
             if hasattr(wrappedProblem.EquationsOfMotion[sv], "subs") :
-                scaledEoms[self._stateVariables[counter]] = wrappedProblem.EquationsOfMotion[sv].subs(fullSubsDict)*newSvsInTermsOfOldSvs[counter].diff(sv)
+                scaledEquationsOfMotion[self._stateVariables[counter]] = wrappedProblem.EquationsOfMotion[sv].subs(fullSubsDict)*newSvsInTermsOfOldSvs[counter].diff(sv)
             else :
-                scaledEoms[self._stateVariables[counter]] = wrappedProblem.EquationsOfMotion[sv]*newSvsInTermsOfOldSvs[counter].diff(sv)
+                scaledEquationsOfMotion[self._stateVariables[counter]] = wrappedProblem.EquationsOfMotion[sv]*newSvsInTermsOfOldSvs[counter].diff(sv)
             counter=counter+1
-        self._equationsOfMotion = scaledEoms
+        self._equationsOfMotion = scaledEquationsOfMotion
         
         counter = 0
         bcSubsDict = {}
@@ -80,7 +81,7 @@ class ScaledSymbolicProblem(SymbolicProblem) :
         
         # should the path cost get scaled?  I think so, but if you know better, or if it doesn't work...
         self._unIntegratedPathCost = SymbolicProblem.SafeSubs(wrappedProblem.UnIntegratedPathCost, fullSubsDict)
-        #TODO: Scale the costs!  the way we are doing the xversality conditions are fine with them scaled here (I think)
+        #TODO: Scale the costs!  the way we are doing the transversality conditions are fine with them scaled here (I think)
         self._terminalCost = SymbolicProblem.SafeSubs(wrappedProblem.TerminalCost, svAtTfSubsDict)
         if scaleTime :
             tf = wrappedProblem.TimeFinalSymbol
@@ -104,7 +105,9 @@ class ScaledSymbolicProblem(SymbolicProblem) :
             fromSimple = {}
             for sv in self._stateVariables :
                 adjustedSv = sv.subs(tau, self._wrappedProblem.TimeSymbol)
-                toSimple[adjustedSv] = sy.Symbol(sv.name)
+                if not hasattr(sv, "name") :
+                    raise Exception('State variable ' + str(sv) + " needs to have a name attribute")
+                toSimple[adjustedSv] = sy.Symbol(sv.name) #type: ignore
                 fromSimple[toSimple[adjustedSv]] = sv
                 
             for cv in self._controlVariables :
@@ -165,17 +168,17 @@ class ScaledSymbolicProblem(SymbolicProblem) :
         """
         return self._wrappedProblem
 
-    def DescaleResults(self, resultsDictionary : Dict[sy.Symbol, List[float]]) -> Dict[sy.Symbol, List[float]] :
+    def DescaleResults(self, resultsDictionary : Dict[sy.Expr, List[float]]) -> Dict[sy.Expr, List[float]] :
         """After evaluating the problem numerically, descale the results to be back in terms of the original units.
 
         Args:
-            resultsDictionary (Dict[sy.Symbol, List[float]]): The results dictionary.
+            resultsDictionary (Dict[sy.Expr, List[float]]): The results dictionary.
 
         Returns:
-            Dict[sy.Symbol, List[float]]: A new dictionary where the values are descaled AND the keys are the wrappedProblems's 
+            Dict[sy.Expr, List[float]]: A new dictionary where the values are descaled AND the keys are the wrappedProblems's 
             state variables.
         """
-        returnDict = {} #type: Dict[sy.Symbol, List[float]]
+        returnDict = {} #type: Dict[sy.Expr, List[float]]
         counter = 0
         for key, value in resultsDictionary.items() :
             sv = key
@@ -198,7 +201,7 @@ class ScaledSymbolicProblem(SymbolicProblem) :
         return self.WrappedProblem.TimeFinalSymbol
 
     @staticmethod
-    def CreateBarVariables(orgVariables : List[sy.Symbol], timeSymbol :sy.Symbol) ->List[sy.Symbol] :
+    def CreateBarVariables(orgVariables : List[sy.Expr], timeSymbol :sy.Symbol) ->List[sy.Expr] :
         """A helper function to make a 
 
         Args:
@@ -283,7 +286,7 @@ class ScaledSymbolicProblem(SymbolicProblem) :
         Args:
             figure (matplotlib.figure.Figure): The figure the data is getting added to.
             t (List[float]): The time corresponding to the data in dictionaryOfValueArraysKeyedOffState.
-            dictionaryOfValueArraysKeyedOffState (Dict[object, List[float]]): The data to get added.  The keys must match the values in self.State and self.Control.
+            dictionaryOfValueArraysKeyedOffState (Dict[sy.Expr, List[float]]): The data to get added.  The keys must match the values in self.State and self.Control.
             label (str): A label for the data to use in the plot legend.
         """
         self._wrappedProblem.AddStandardResultsToFigure(figure, t, dictionaryOfValueArraysKeyedOffState, label)       

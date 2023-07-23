@@ -3,13 +3,13 @@ from .CartesianModule import Cartesian, MotionCartesian
 import sympy as sy
 import math as math
 from .RotationMatrix import RotAboutXValladoConvention, RotAboutY, RotAboutX, RotAboutZ, RotAboutZValladoConvention
-from typing import Optional, Any
-
+from typing import Optional, Union
+from pyeq2orb.Utilities.Typing import SymbolOrNumber
 class KeplerianElements() :
     """Represents a set of Keplerian Elements with true anomaly as the fast variable. Note that 
     Keplerian Elements do not represent parabolic or circular orbits well.
     """
-    def __init__(self, sma, ecc, inc, aop, raan, ta, mu) :
+    def __init__(self, sma :SymbolOrNumber, ecc:SymbolOrNumber, inc:SymbolOrNumber, aop:SymbolOrNumber, raan:SymbolOrNumber, ta:SymbolOrNumber, mu:SymbolOrNumber) :
         """Initializes a new instance.  The values passed in are often numbers or symbols.
 
         Args:
@@ -30,7 +30,7 @@ class KeplerianElements() :
         self.GravitationalParameter=mu
 
     @staticmethod
-    def FromCartesian(x, y, z, vx, vy, vz, mu) -> KeplerianElements:
+    def FromCartesian(x:SymbolOrNumber, y:SymbolOrNumber, z:SymbolOrNumber, vx:SymbolOrNumber, vy:SymbolOrNumber, vz:SymbolOrNumber, mu:SymbolOrNumber) -> KeplerianElements:
         """Creates a set of Keplerian Elements from the provided position and velocity elements. 
         The passed in values are often numbers or symbols.
 
@@ -65,7 +65,7 @@ class KeplerianElements() :
         if(e != 1) :
             a = -mu/(2*energy)
         else :
-            raise Exception("Eccentricity is parabolic, Keplerianl elements do not work")
+            raise Exception("Eccentricity is parabolic, Keplerian elements do not work")
         i = sy.acos(h.Z/hMag)
         raan = sy.acos(n.X/n.norm())
         if(isinstance(raan, sy.Float) and n.Y < 0) :
@@ -82,7 +82,7 @@ class KeplerianElements() :
         return KeplerianElements(a, e, i, aop, raan, ta, mu)
     
     @staticmethod
-    def FromMotionCartesian(motion : MotionCartesian, mu) -> KeplerianElements:
+    def FromMotionCartesian(motion : MotionCartesian, mu:SymbolOrNumber) -> KeplerianElements:
         """Creates a set of Keplerian Elements from the provided motion.
         The values in the motion and mu are often numbers or symbols.
 
@@ -105,7 +105,7 @@ class KeplerianElements() :
         sy.Matrix([[self.SemiMajorAxis, self.Eccentricity, self.Inclination, self.ArgumentOfPeriapsis, self.RightAscensionOfAscendingNode, self.TrueAnomaly]]).transpose()
 
     @property
-    def SemiMinorAxis(self) :        
+    def SemiMinorAxis(self) ->SymbolOrNumber:        
         """Gets the semi-minor axis
 
         Returns:
@@ -114,7 +114,7 @@ class KeplerianElements() :
         return self.SemiMajorAxis * sy.sqrt(1.0-self.Eccentricity**2)
     
     @property
-    def MeanMotion(self) :
+    def MeanMotion(self)->SymbolOrNumber :
         """Gets the mean motion.
 
         Returns:
@@ -123,7 +123,7 @@ class KeplerianElements() :
         return sy.sqrt(self.GravitationalParameter/(self.SemiMajorAxis**3))
     
     @property
-    def Parameter(self) :
+    def Parameter(self)->SymbolOrNumber :
         """Gets the parameter (semilatus rectum)
 
         Returns:
@@ -132,7 +132,7 @@ class KeplerianElements() :
         return self.SemiMajorAxis*(1.0-self.Eccentricity**2)
 
     @property
-    def ArgumentOfLatitude(self) :
+    def ArgumentOfLatitude(self) ->SymbolOrNumber:
         """Gets the argument of latitude.
 
         Returns:
@@ -141,9 +141,9 @@ class KeplerianElements() :
         return self.ArgumentOfPeriapsis+self.RightAscensionOfAscendingNode
 
     @property
-    def BattinH(self) -> sy.Expr:
-        """Gets an expression of the magnitude of the angular momentum in terms of the mean motion, semimajor axis 
-        and semiminor axis.  This is from Battin's textbook (in the 400's).
+    def BattinH(self) -> SymbolOrNumber:
+        """Gets an expression of the magnitude of the angular momentum in terms of the mean motion, semi-major axis 
+        and semi-minor axis.  This is from Battin's textbook (in the 400's).
 
         Returns:
             float or sy.Ex: The magnitude of the angular momentum.
@@ -151,7 +151,7 @@ class KeplerianElements() :
         return self.MeanMotion*self.SemiMinorAxis*self.SemiMajorAxis
 
     @property
-    def Radius(self) :
+    def Radius(self) ->SymbolOrNumber:
         """Gets an expression for the radius of the orbit.
 
         Returns:
@@ -165,27 +165,28 @@ class KeplerianElements() :
         Returns:
             sy.Matrix: The rotation matrix from perifocal to inertial coordinates.
         """
-        return RotAboutZValladoConvention(-1*self.RightAscensionOfAscendingNode) * RotAboutXValladoConvention(-1*self.Inclination) * RotAboutZValladoConvention(-1*self.ArgumentOfPeriapsis)
+        return RotAboutZValladoConvention(-1.0*self.RightAscensionOfAscendingNode) * RotAboutXValladoConvention(-1.0*self.Inclination) * RotAboutZValladoConvention(-1*self.ArgumentOfPeriapsis)
 
-    def ToPerifocalCartesian(self, theParameter = None) -> MotionCartesian :
+    def ToPerifocalCartesian(self, theParameter : Optional[SymbolOrNumber] = None) -> MotionCartesian :
         """Converts these elements to cartesian elements in perifocal Cartesian values.
 
         Args:
-            theParameter (obj, optional): The semi-latus rectum.  If None then it will be evaluated. Defaults to None.
+            theParameter (obj, optional): The semilatus rectum.  If None then it will be evaluated. Defaults to None.
 
         Returns:
             MotionCartesian: The perifocal coordinates.
         """
-        p=theParameter
-        if(p == None) :
-            p = self.Parameter
+        
+        if(theParameter == None) :
+            theParameter = self.Parameter
+        p=theParameter 
         ta = self.TrueAnomaly
         rDenom = 1+self.Eccentricity*sy.cos(ta)
         
         mu = self.GravitationalParameter
         r = Cartesian(p*sy.cos(ta)/rDenom, p*sy.sin(ta)/rDenom, 0)
         e = self.Eccentricity
-        firstPart = sy.sqrt(mu/p)
+        firstPart = sy.sqrt(mu/p)#type:ignore
         v = Cartesian(-1*firstPart *sy.sin(ta), firstPart*(e+sy.cos(ta)),0)
         return MotionCartesian(r, v)
 
@@ -246,7 +247,7 @@ class GaussianEquationsOfMotion :
         return sy.Eq(lhs, rhs)
 
 
-def CreateSymbolicElements(elementsFunctionOf : Optional[sy.Symbol] = None) -> KeplerianElements :
+def CreateSymbolicElements(elementsFunctionOf : Optional[sy.Expr] = None) -> KeplerianElements :
     """Creates a KeplerianElements structure made of symbols.
 
     Args:

@@ -4,6 +4,7 @@ import __init__ #type: ignore
 import sympy as sy
 import os
 import sys
+from pyeq2orb.Utilities.Typing import SymbolOrNumber
 sys.path.insert(1, os.path.dirname(os.path.dirname(sys.path[0]))) # need to import 2 directories up (so pyeq2orb is a subfolder)
 sy.init_printing()
 
@@ -34,7 +35,7 @@ x2DotSy = sy.Symbol(r'\dot{X_2}')
 
 xSuperSimple = Cartesian(x1Sy, x2Sy, 0)
 xDotSuperSimple = Cartesian(x1DotSy, x2DotSy, 0)
-fullSubsDictionary = {} #type: Dict[sy.Expr, float]
+fullSubsDictionary = {} #type: Dict[sy.Expr, SymbolOrNumber]
 [x1SimpleEqui, x2SimpleEqui] = simpleBoringEquiElements.RadiusInFgw(eccentricLongitude, fullSubsDictionary)
 [x1DotSimpleEqui, x2DotSimpleEqui] = simpleBoringEquiElements.VelocityInFgw(eccentricLongitude, fullSubsDictionary)
 normalEquiElementsInTermsOfKep = mee.EquinoctialElementsHalfI.FromModifiedEquinoctialElements(equiInTermsOfKep)

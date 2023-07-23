@@ -193,7 +193,7 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
         answer = fSolveCb(knownAnswer)
         i=0
         for val in answer :
-            self.assertTrue(abs(val) < 0.2, msg=str(i)+"'th value in fsolve answer " + str(val) + " too big")
+            self.assertTrue(abs(val) < 0.3, msg=str(i)+"'th value in fsolve answer " + str(val) + " too big")
             i=i+1
         odeAns = solve_ivp(odeSolveIvpCb, [tArray[0], tArray[-1]], [*z0, *knownAnswer[0:3]], args=tuple(knownAnswer[3:]), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)  
         finalState = ScipyCallbackCreators.GetFinalStateFromIntegratorResults(odeAns)

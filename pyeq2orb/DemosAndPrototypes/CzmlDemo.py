@@ -9,6 +9,8 @@ import pyeq2orb.Graphics.Primitives as prim
 import sympy as sy
 from pyeq2orb.ForceModels.TwoBodyForce import CreateTwoBodyMotionMatrix, CreateTwoBodyListForModifiedEquinoctialElements
 from pyeq2orb.Coordinates.ModifiedEquinoctialElementsModule import ModifiedEquinoctialElements, CreateSymbolicElements
+from typing import cast,List
+
 tfVal = 3*86400.0
 m0Val = 2000.0
 isp = 3000.0
@@ -42,8 +44,8 @@ def GetEquiElementsOutOfIvpResults(ivpResults) :
     return (t, equi)
 
 twoBodyMatrix = CreateTwoBodyListForModifiedEquinoctialElements(symbolicElements)
-simpleTwoBodyLambidfyCreator = LambdifyHelper(t, symbolicElements.ToArray(), twoBodyMatrix, [], {symbolicElements.GravitationalParameter: muVal})
-odeCallback =simpleTwoBodyLambidfyCreator.CreateSimpleCallbackForSolveIvp()
+simpleTwoBodyLambdifyCreator = LambdifyHelper(t, cast(List[sy.Expr], symbolicElements.ToArray()), twoBodyMatrix, [], {symbolicElements.GravitationalParameter: muVal})
+odeCallback =simpleTwoBodyLambdifyCreator.CreateSimpleCallbackForSolveIvp()
 earthSolution = solve_ivp(odeCallback, [0.0, tfVal], initialElements.ToArray(), args=tuple(), t_eval=np.linspace(0.0, tfVal,n), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
 
 (tArray, equiElements) = GetEquiElementsOutOfIvpResults(earthSolution)

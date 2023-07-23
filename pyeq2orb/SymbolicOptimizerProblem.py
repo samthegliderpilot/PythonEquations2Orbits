@@ -133,7 +133,7 @@ class SymbolicProblem(ABC) :
         return -1*sy.Derivative(hamiltonian, x).doit()
 
     @property
-    def IntegrationSymbols(self) -> List[sy.Symbol]:
+    def IntegrationSymbols(self) -> List[sy.Expr]:
         """Gets the list of values that values that are going to be integrated by the equations of motion. 
         Calling code needs to manage the order of the EquationsOfMotion.
 
@@ -253,31 +253,31 @@ class SymbolicProblem(ABC) :
             if found :
                 continue
 
-        xversConds = []
+        transversalityConditions = []
         for dx in variationVector :
             coef = overallCond.coeff(dx)
             if(coef != 0.0) :
-                xversConds.append(coef)    
+                transversalityConditions.append(coef)    
 
-        return xversConds  
+        return transversalityConditions  
 
     @property
-    def StateVariables(self) -> List[sy.Symbol]:
+    def StateVariables(self) -> List[sy.Expr]:
         """Gets the state variables for this problem.  These should be in terms of TimeSymbol. 
-        This must be implimented by the derived type.
+        This must be implemented by the derived type.
 
         Returns:
-            List[sy.Symbol]: The list of symbols in terms of TimeSymbol
+            List[sy.Expr]: The list of symbols in terms of TimeSymbol
         """
         return self._stateVariables
     
     @property
-    def ControlVariables(self) -> List[sy.Symbol]:
+    def ControlVariables(self) -> List[sy.Expr]:
         """Gets a list of the control variables.  These should be in terms of TimeSymbol. 
-        This must be implimented by the derived type.
+        This must be implemented by the derived type.
 
         Returns:
-            List[sy.Symbol]: The list of the control variables.
+            List[sy.Expr]: The list of the control variables.
         """
         return self._controlVariables
 
@@ -328,12 +328,12 @@ class SymbolicProblem(ABC) :
         self._unIntegratedPathCost = value
 
     @property
-    def EquationsOfMotion(self) -> Dict[sy.Symbol, sy.Expr]:
+    def EquationsOfMotion(self) -> Dict[sy.Expr, sy.Expr]:
         """Gets the equations of motion for each of the state variables.  This is an ordered dictionary,
         and the integration state is the keys of this ordered dict.
 
         Returns:
-            Dict[sy.Symbol, sy.Expr]: The ordered dictionary equations of motion for each of the state variables.
+            Dict[sy.Expr, sy.Expr]: The ordered dictionary equations of motion for each of the state variables.
         """
         return self._equationsOfMotion
     
@@ -425,7 +425,7 @@ class SymbolicProblem(ABC) :
             eqs.append(sy.Eq(sy.diff(sv, self.TimeSymbol).doit(), self.EquationsOfMotion[sv]))
         return eqs
 
-    def CreateCostFunctionAsEquation(self, lhs : Optional[sy.Expr]) -> sy.Eq :
+    def CreateCostFunctionAsEquation(self, lhs : Optional[sy.Expr]=None) -> sy.Eq :
         """Creates a sympy Eq of the cost function.
 
         Args:
@@ -465,7 +465,7 @@ class SymbolicProblem(ABC) :
         """
         return Vector.fromArray(self.ControlVariables)        
 
-    def AddInitialValuesToDictionary(self, subsDict : Dict, initialValuesArray : List, lambdas : Optional[List[sy.Expr]]):
+    def AddInitialValuesToDictionary(self, subsDict : Dict, initialValuesArray : List, lambdas : Optional[List[sy.Expr]]=None):
         """Adds the initial values to the provided dictionary.
 
         Args:
@@ -550,7 +550,7 @@ class SymbolicProblem(ABC) :
             return tbr
         raise Exception("Don't know how to do the subs")
 
-    def DescaleResults(self, resultsDictionary : Dict[sy.Symbol, List[float]]) -> Dict[sy.Symbol, List[float]] :
+    def DescaleResults(self, resultsDictionary : Dict[sy.Expr, List[float]]) -> Dict[sy.Expr, List[float]] :
         """Returns the resultsDictionary.  Although there is a derived type that has scaling factors that can be applied, making 
         this function on the base type helps switching back and forth between the scaled and unscaled problem.
 
@@ -563,13 +563,13 @@ class SymbolicProblem(ABC) :
         """
         return resultsDictionary # the subsDict is included because the substitution factors might be symbols themselves.  By the time we have results those values ought to be in the substitution dictionary already
 
-    def EvaluateHamiltonianAndItsFirstTwoDerivatives(self, solution : Dict[sy.Symbol, List[float]], tArray: Collection[float], hamiltonian : sy.Expr, controlSolved :Dict[sy.Symbol, sy.Expr], moreSubs :Dict[sy.Symbol, float]) ->List[List[float]]:
+    def EvaluateHamiltonianAndItsFirstTwoDerivatives(self, solution : Dict[sy.Expr, List[float]], tArray: Collection[float], hamiltonian : sy.Expr, controlSolved :Dict[sy.Expr, sy.Expr], moreSubs :Dict[sy.Symbol, float]) ->List[List[float]]:
         """Evaluates the Hamiltonian and its first 2 derivatives.  This is useful to 
         see if the related conditions are truly satisfied.
 
         Args:
             solution (Dict[sy.Expr, List[float]]): The solution of the optimal control problem.
-            tArray (List[float]): The time coorsiponding to the solution.
+            tArray (List[float]): The time corresponding to the solution.
             hamiltonian (sy.Expr): The Hamiltonian expression.
             controlSolved ([sy.Expr, sy.Expr]): The Hamiltonian is likely in terms of the original control variable instead of the costate values.  If that is the case, this should be the expression of the control variables in terms of the costate variables.
             moreSubs (Dict[sy.Expr, float]): Any additional values to substitute into the expressions (if the final time was solved for, or if there were other parameters not included in the problems SubstitutionDictionary).
@@ -586,20 +586,20 @@ class SymbolicProblem(ABC) :
         d2Hdu2 = sy.diff(hamiltonian, self.ControlVariables[0], 2)
         #d2Hdu2 =  self.CreateHamiltonianControlExpressions(dHdu).doit()[0] # another way to calculate it, but doesn't seem to be as good
         toEval = hamiltonian.subs(controlSolved).subs(moreSubs).trigsimp(deep=True).subs(constantsSubsDict)
-        hamltEpx = sy.lambdify(stateForEom, toEval)
+        hamiltonianExpression = sy.lambdify(stateForEom, toEval)
         solArray = []
         for sv in self.IntegrationSymbols :
             solArray.append(np.array(solution[sv]))
 
-        hamltVals = hamltEpx(tArray, *solArray)
+        hamiltonianValues = hamiltonianExpression(tArray, *solArray)
         dhduExp = sy.lambdify(stateForEom, dHdu.subs(controlSolved).subs(moreSubs).trigsimp(deep=True).subs(constantsSubsDict))
         
-        dhduValus = dhduExp(tArray, *solArray)       
-        if not hasattr(dhduValus, "__len__") or len(dhduValus) != len(hamltVals) :
-            dhduValus = [dhduValus] * len(hamltVals)
+        dhduValues = dhduExp(tArray, *solArray)       
+        if not hasattr(dhduValues, "__len__") or len(dhduValues) != len(hamiltonianValues) :
+            dhduValues = [dhduValues] * len(hamiltonianValues)
         d2hdu2Exp = sy.lambdify(stateForEom, d2Hdu2.subs(controlSolved).subs(moreSubs).trigsimp(deep=True).subs(constantsSubsDict))
-        d2hdu2Valus = d2hdu2Exp(tArray, *solArray)
-        return [hamltVals, dhduValus, d2hdu2Valus]
+        d2hdu2Values = d2hdu2Exp(tArray, *solArray)
+        return [hamiltonianValues, dhduValues, d2hdu2Values]
 
     @abstractmethod
     def AddStandardResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[sy.Expr, List[float]], label : str) -> None:
@@ -608,7 +608,7 @@ class SymbolicProblem(ABC) :
         Args:
             figure (matplotlib.figure.Figure): The figure the data is getting added to.
             t (List[float]): The time corresponding to the data in dictionaryOfValueArraysKeyedOffState.
-            dictionaryOfValueArraysKeyedOffState (Dict[object, List[float]]): The data to get added.  The keys must match the values in self.State and self.Control.
+            dictionaryOfValueArraysKeyedOffState (Dict[sy.Expr, List[float]]): The data to get added.  The keys must match the values in self.State and self.Control.
             label (str): A label for the data to use in the plot legend.
         """
         pass

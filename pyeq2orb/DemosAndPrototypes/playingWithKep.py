@@ -24,25 +24,25 @@ kepElements.TrueAnomaly = sy.Symbol('ta')
 kot =KepModule.CreateSymbolicElements(t)
 kot.TrueAnomaly = sy.Function('ta')(t)
 accel = Cartesian(sy.Symbol('F_r'), sy.Symbol('F_t'), sy.Symbol('F_c'))
-kepEoms =  KepModule.GaussianEquationsOfMotion(kepElements, accel)
-# jh.showEquation("dadt", kepEoms.SemiMajorAxisDot)
-# jh.showEquation("dedt", kepEoms.EccentricityDot)
-# jh.showEquation("dvdt", kepEoms.TrueAnomalyDot)
+keplerianEquationsOfMotion =  KepModule.GaussianEquationsOfMotion(kepElements, accel)
+# jh.showEquation("dadt", keplerianEquationsOfMotion.SemiMajorAxisDot)
+# jh.showEquation("dedt", keplerianEquationsOfMotion.EccentricityDot)
+# jh.showEquation("dvdt", keplerianEquationsOfMotion.TrueAnomalyDot)
 
 muVal = 3.986004418e5
 subsDict = {accel.X: 0.001/3600, accel.Y:0, accel.Z:0, kepElements.GravitationalParameter:muVal}
 
-aDotMaybeSolvable = kepEoms.SemiMajorAxisDot
+aDotMaybeSolvable = keplerianEquationsOfMotion.SemiMajorAxisDot
 aDotMaybeSolvable = aDotMaybeSolvable.subs(subsDict)
-eDot = kepEoms.EccentricityDot.subs(subsDict)
-taDot = kepEoms.TrueAnomalyDot.subs(subsDict)
+eDot = keplerianEquationsOfMotion.EccentricityDot.subs(subsDict)
+taDot = keplerianEquationsOfMotion.TrueAnomalyDot.subs(subsDict)
 
 jh.showEquation("\dot{ta}", taDot)
 jh.showEquation("\dot{e}", eDot)
 jh.showEquation("\dot{a}", aDotMaybeSolvable)
 
-
-lhs = [kot.SemiMajorAxis.diff(t).doit(), kot.Eccentricity.diff(t).doit(), kot.TrueAnomaly.diff(t).doit()]
+# since this is a top level script that knows what it is doing, don't do the casts on the symbols
+lhs = [kot.SemiMajorAxis.diff(t).doit(), kot.Eccentricity.diff(t).doit(), kot.TrueAnomaly.diff(t).doit()]#type: ignore
 rhs = sy.Matrix([[aDotMaybeSolvable], [eDot], [taDot]])
 display(rhs)
 
@@ -81,8 +81,8 @@ root = root(toSolve, [42170, 0.36, 10*math.pi/180.0], method='hybr', tol=1e-5)
 print(root)
 
 # this might not seem like much, but I finally answered a huge question I've had, how do I 
-# approximate a system of ODE's using some kind of districtrization scheme. In this case, 
-# the trapizoidal rule.  
+# approximate a system of ODE's using some kind of discretization scheme. In this case, 
+# the trapezoidal rule.  
 
 #https://math.stackexchange.com/questions/2338477/trapezoidal-rule-for-system-of-ode
 
