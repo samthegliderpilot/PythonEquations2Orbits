@@ -5,12 +5,12 @@ from pyeq2orb import SafeSubs
 from..DemosAndPrototypes import scipyPaperPrinter as jh
 
 class OdeHelper :
-    lambidfyStateFlattenOption = "flatten"
-    lambidfyStateGroupedAllOption = "group"
-    lambidfyStateGroupedAllButParametersOption = "groupFlattenParamerts"
+    lambdifyStateFlattenOption = "flatten"
+    lambdifyStateGroupedAllOption = "group"
+    lambdifyStateGroupedAllButParametersOption = "groupFlattenParamerts"
 
-    lambidfyStateOrderOptionTimeFirst = "Time,StateVariables,MissingInitialValues,Parameters"
-    lambidfyStateOrderOptionTimeMiddle = "StateVariables,Time,MissingInitialValues,Parameters"
+    lambdifyStateOrderOptionTimeFirst = "Time,StateVariables,MissingInitialValues,Parameters"
+    lambdifyStateOrderOptionTimeMiddle = "StateVariables,Time,MissingInitialValues,Parameters"
     def __init__(self, t) :
         self.equationsOfMotion = []
         self.initialSymbols = []
@@ -24,56 +24,56 @@ class OdeHelper :
         self.stateSymbolsOfT.append(sympyFunctionSymbol)
         self.initialSymbols.append(initialSymbol)
 
-    def makeStateForLambdififedFunction(self, groupOrFlatten=lambidfyStateGroupedAllButParametersOption, orderOption=lambidfyStateOrderOptionTimeFirst):
+    def makeStateForLambdifiedFunction(self, groupOrFlatten=lambdifyStateGroupedAllButParametersOption, orderOption=lambdifyStateOrderOptionTimeFirst):
         arrayForLmd = []
-        if orderOption == OdeHelper.lambidfyStateOrderOptionTimeFirst :
+        if orderOption == OdeHelper.lambdifyStateOrderOptionTimeFirst :
             arrayForLmd.append(self.t)
         stateArray = []    
         for svf in self.stateSymbolsOfT :
             stateArray.append(svf)
-        if groupOrFlatten != OdeHelper.lambidfyStateFlattenOption :
+        if groupOrFlatten != OdeHelper.lambdifyStateFlattenOption :
             arrayForLmd.append(stateArray)    
         else :
             arrayForLmd.extend(stateArray)
-        if orderOption == OdeHelper.lambidfyStateOrderOptionTimeMiddle :
+        if orderOption == OdeHelper.lambdifyStateOrderOptionTimeMiddle :
             arrayForLmd.append(self.t)
 
         if len(self.lambdifyParameterSymbols) != 0 :
-            if groupOrFlatten == OdeHelper.lambidfyStateGroupedAllButParametersOption or groupOrFlatten == OdeHelper.lambidfyStateFlattenOption:
+            if groupOrFlatten == OdeHelper.lambdifyStateGroupedAllButParametersOption or groupOrFlatten == OdeHelper.lambdifyStateFlattenOption:
                 arrayForLmd.extend(self.lambdifyParameterSymbols)
-            elif groupOrFlatten == OdeHelper.lambidfyStateGroupedAllOption :
+            elif groupOrFlatten == OdeHelper.lambdifyStateGroupedAllOption :
                 arrayForLmd.append(self.lambdifyParameterSymbols)
         return arrayForLmd
 
-    def _createParameterOptionalWrapperOfLambdifyCallback(self, baseLambidfyCallback) :
-        def callbackWraper(a, b, *args) :
+    def _createParameterOptionalWrapperOfLambdifyCallback(self, baseLambdifyCallback) :
+        def callbackWrapper(a, b, *args) :
             if len(self.lambdifyParameterSymbols) == 0 :
-                return baseLambidfyCallback(a, b)
+                return baseLambdifyCallback(a, b)
             else :
-                return baseLambidfyCallback(a, b, *args)
-        return callbackWraper
+                return baseLambdifyCallback(a, b, *args)
+        return callbackWrapper
 
-    def createLambdifiedCallback(self, groupOrFlatten=lambidfyStateGroupedAllButParametersOption, orderOption=lambidfyStateOrderOptionTimeFirst) :
-        arrayForLmd=self.makeStateForLambdififedFunction(groupOrFlatten, orderOption)
-        subsedEom = SafeSubs(self.equationsOfMotion, self.constants)
-        baseLambidfyCallback = sy.lambdify(arrayForLmd, subsedEom, 'numpy')
-        return self._createParameterOptionalWrapperOfLambdifyCallback(baseLambidfyCallback)
+    def createLambdifiedCallback(self, groupOrFlatten=lambdifyStateGroupedAllButParametersOption, orderOption=lambdifyStateOrderOptionTimeFirst) :
+        arrayForLmd=self.makeStateForLambdifiedFunction(groupOrFlatten, orderOption)
+        subbedEom = SafeSubs(self.equationsOfMotion, self.constants)
+        baseLambdifyCallback = sy.lambdify(arrayForLmd, subbedEom, 'numpy')
+        return self._createParameterOptionalWrapperOfLambdifyCallback(baseLambdifyCallback)
 
-    def tryDeSolve(self):
+    def attemptDeSolve(self):
         icSymbols = {}
         for i in range(0, len(self.initialSymbols)) :
             icSymbols[self.initialSymbols[i]] = self.initialSymbols[i]
         
         firstOrderSystem = []
-        subsedEom = SafeSubs(self.equationsOfMotion, self.constants)
+        subbedEom = SafeSubs(self.equationsOfMotion, self.constants)
         for i in range(0, len(self.equationsOfMotion)) :
-            firstOrderSystem.append(sy.Eq(sy.Derivative(self.stateSymbolsOfT[i]), subsedEom[i]))  
+            firstOrderSystem.append(sy.Eq(sy.Derivative(self.stateSymbolsOfT[i]), subbedEom[i]))  
         deSolveAns = dsolve_system(firstOrderSystem, ics=icSymbols)  
         return deSolveAns
 
-    def deSolveResultsToCallback(self, deSolveResults, initialStateValues : List[float], groupOrFlatten=lambidfyStateGroupedAllButParametersOption, orderOption=lambidfyStateOrderOptionTimeFirst) :
+    def deSolveResultsToCallback(self, deSolveResults, initialStateValues : List[float], groupOrFlatten=lambdifyStateGroupedAllButParametersOption, orderOption=lambdifyStateOrderOptionTimeFirst) :
         if deSolveResults == None :
-            deSolveResults = self.tryDeSolve()
+            deSolveResults = self.attemptDeSolve()
         rhss = []
         icsSubs = {}
         for i in range(0, len(self.initialSymbols)):
@@ -82,6 +82,6 @@ class OdeHelper :
         for i in range(0, len(deSolveResults[0])):
             rhss.append(deSolveResults[0][i].rhs.subs(icsSubs).doit().simplify())
          
-        arrayForLmd=self.makeStateForLambdififedFunction(groupOrFlatten, orderOption)
-        lmdified = sy.lambdify(arrayForLmd, rhss)
-        return self._createParameterOptionalWrapperOfLambdifyCallback(lmdified)
+        arrayForLmd=self.makeStateForLambdifiedFunction(groupOrFlatten, orderOption)
+        lambdified = sy.lambdify(arrayForLmd, rhss)
+        return self._createParameterOptionalWrapperOfLambdifyCallback(lambdified)

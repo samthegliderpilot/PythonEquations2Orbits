@@ -3,7 +3,7 @@ import sympy as sy
 
 def CreateComplicatedRicToInertialMatrix(asCart : MotionCartesian) -> sy.Matrix :
     def simp(item : sy.Expr) :
-        return item.expand().simplify().trigsimp(deep=True)
+        return item.simplify()
     r = asCart.Position
     v = asCart.Velocity
     i_r = r.Normalize().applyfunc(simp)

@@ -5,7 +5,6 @@ from pyeq2orb.Symbolics.Vectors import Vector # type: ignore
 from abc import ABC, abstractmethod
 import numpy as np
 from matplotlib.figure import Figure # type: ignore
-import numpy.typing as npt
 from collections import OrderedDict
 # it is likely that this class will get split up into a problem definition and an 
 # indirect solver in the near future
@@ -51,7 +50,7 @@ class SymbolicProblem(ABC) :
         return self._substitutionDictionary
 
     @staticmethod
-    def CreateCoVector(y, name : str, t : Optional[sy.Symbol]) -> Vector:
+    def CreateCoVector(y, name : Optional[str] = None, t : Optional[sy.Symbol]=None) -> Vector:
         """Creates a co-vector for the entered y.
 
         Args:
@@ -66,7 +65,7 @@ class SymbolicProblem(ABC) :
         # this function is less ugly...
         if name == None :
             name = r'\lambda'
-        
+        name = cast(str, name) #TODO: shouldn't be necessary...
         if((y is sy.Symbol or y is sy.Function or (hasattr(y, "is_Function") and y.is_Symbol) or (hasattr(y, "is_Symbol") and y.is_Function)) and (not isinstance(y, sy.Matrix) and not isinstance(y, sy.ImmutableDenseMatrix))):
             if(t is None) :
                 return sy.Symbol(name + '_{'+y.name+'}', real=True)
@@ -84,7 +83,8 @@ class SymbolicProblem(ABC) :
             coVector[i] = SymbolicProblem.CreateCoVector(y[i], name, t)
         return coVector
 
-    def CreateHamiltonian(self, lambdas = None) -> sy.Expr:
+    @staticmethod
+    def CreateHamiltonianStatic(stateVariables, t, eomsMatrix, unIntegratedPathCost, lambdas = None) -> sy.Expr:
         """Creates an expression for the Hamiltonian.
 
         Args:
@@ -95,13 +95,29 @@ class SymbolicProblem(ABC) :
             sy.Expr: The Hamiltonian.
         """
         if(lambdas == None) :
-            lambdas = SymbolicProblem.CreateCoVector(self.StateVariables, r'\lambda', self._timeSymbol)
+            lambdas = SymbolicProblem.CreateCoVector(stateVariables, r'\lambda', t)
 
         if isinstance(lambdas, list) :
             lambdas = Vector.fromArray(lambdas)
 
-        secTerm =  (lambdas.transpose()*self.EquationsOfMotionInMatrixForm())[0,0]
-        return secTerm+self.UnIntegratedPathCost     
+        secTerm =  (lambdas.transpose()*eomsMatrix)[0,0]
+        return secTerm+unIntegratedPathCost    
+
+    def CreateHamiltonian(self, lambdas = None) -> sy.Expr:
+        """Creates an expression for the Hamiltonian.
+
+        Args:
+            lambdas (optional): The costate variables. Defaults to None in which case 
+            they will be created.
+
+        Returns:
+            sy.Expr: The Hamiltonian.
+        """
+        return SymbolicProblem.CreateHamiltonianStatic(self.StateVariables, self.TimeSymbol, self.EquationsOfMotionInMatrixForm(), self.UnIntegratedPathCost, lambdas)
+
+    @staticmethod
+    def CreateHamiltonianControlExpressionsStatic( hamiltonian : sy.Expr, controlVariables) -> sy.Matrix:
+        return sy.Derivative(hamiltonian, controlVariables).doit()  
 
     def CreateHamiltonianControlExpressions(self, hamiltonian : sy.Expr) -> sy.Matrix:
         """Creates the an expression that can be used to solve for values of the control scalars 
@@ -116,7 +132,19 @@ class SymbolicProblem(ABC) :
             sy.Expr: An expression that can be used to solve for the control variables.
         """
         u = self.ControlVariablesInMatrixForm()
-        return sy.Derivative(hamiltonian, u).doit()  
+        return SymbolicProblem.CreateHamiltonianControlExpressionsStatic(hamiltonian, u)
+        
+    @staticmethod
+    def CreateLambdaDotConditionStatic(hamiltonian, stateVariables) :
+        return -1*sy.Derivative(hamiltonian, stateVariables).doit()
+    
+    @staticmethod
+    def CreateLambdaDotEquationsStatic(hamiltonian : sy.Expr, t : sy.Symbol, stateVariables, lambdaSymbols) :
+        rightHandSides = -1*sy.Derivative(hamiltonian, stateVariables).doit()
+        eqs = []
+        for i in range(0, len(lambdaSymbols)) :
+            eqs.append(sy.Eq(lambdaSymbols[i].diff(t), rightHandSides[i]))
+        return eqs
 
     def CreateLambdaDotCondition(self, hamiltonian) :
         """For optimal control problems, create the differential equations for the 
@@ -130,26 +158,20 @@ class SymbolicProblem(ABC) :
             variables.
         """
         x = self.StateVariablesInMatrixForm()
-        return -1*sy.Derivative(hamiltonian, x).doit()
+        return SymbolicProblem.CreateLambdaDotConditionStatic(hamiltonian, x)
 
-    @property
-    def IntegrationSymbols(self) -> List[sy.Expr]:
-        """Gets the list of values that values that are going to be integrated by the equations of motion. 
-        Calling code needs to manage the order of the EquationsOfMotion.
+    @staticmethod
+    def TransversalityConditionsByAugmentationStatic(xf, terminalCost, boundaryConditions, nus : List[sy.Symbol], lambdasFinal : List[sy.Expr]) -> List[sy.Expr]:
+        termFunc = terminalCost + (Vector.fromArray(nus).transpose()*Vector.fromArray(boundaryConditions))[0,0]
+        transversalityConditions = []
+        i=0
+        for lmd in lambdasFinal :
+            cond = termFunc.diff(xf[i])
+            transversalityConditions.append(lmd-cond)
+            i=i+1
 
-        Returns:
-            List[sy.Symbol]: The values that will be integrated by the equations of motion.
-        """
-        return list(self.EquationsOfMotion.keys() )
-
-    @property
-    def CostateSymbols(self) :
-        return self._costateSymbols
-
-    @property
-    def Lambdas(self) :
-        return self.CostateSymbols
-
+        return transversalityConditions
+    
     def TransversalityConditionsByAugmentation(self, nus : List[sy.Symbol], lambdasFinal : Optional[List[sy.Expr]] = None) -> List[sy.Expr]:
         """Creates the transversality conditions by augmenting the terminal constraints to the terminal cost.
 
@@ -260,6 +282,28 @@ class SymbolicProblem(ABC) :
                 transversalityConditions.append(coef)    
 
         return transversalityConditions  
+
+
+
+
+    @property
+    def IntegrationSymbols(self) -> List[sy.Expr]:
+        """Gets the list of values that values that are going to be integrated by the equations of motion. 
+        Calling code needs to manage the order of the EquationsOfMotion.
+
+        Returns:
+            List[sy.Symbol]: The values that will be integrated by the equations of motion.
+        """
+        return list(self.EquationsOfMotion.keys() )
+
+    @property
+    def CostateSymbols(self) :
+        return self._costateSymbols
+
+    @property
+    def Lambdas(self) :
+        return self.CostateSymbols
+
 
     @property
     def StateVariables(self) -> List[sy.Expr]:

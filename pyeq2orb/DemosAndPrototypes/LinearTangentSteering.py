@@ -65,7 +65,7 @@ cs = [c1, c2, c3, c4]
 
 
 
-def createTrapizodalEquations(steps) :
+def createTrapezoidalEquations(steps) :
     eqs = []
     tfV = xS[0]
     for step in range(0, (steps-1)) :
@@ -79,21 +79,21 @@ def createTrapizodalEquations(steps) :
             eqs.append(eq1)
     return eqs
 
-display(createTrapizodalEquations(n))
+display(createTrapezoidalEquations(n))
 
-def trapizodalMatrixCreation(x, steps) :
+def trapezoidalMatrixCreation(x, steps) :
     lenx = len(x)
     colCount = lenx
     rowCount = (steps-1)*4
     theMatrix = sy.Matrix.zeros(rowCount, colCount)
-    districtrizedEquations = createTrapizodalEquations(steps) 
+    districtizedEquations = createTrapezoidalEquations(steps) 
     for r in range(0, 4*(steps-1)) :
         for c in range(0, lenx) : 
             try :
-                theMatrix[r, c] = districtrizedEquations[r].diff(x[c]).doit()
+                theMatrix[r, c] = districtizedEquations[r].diff(x[c]).doit()
             except:
                 display(theMatrix)
                 raise
     return theMatrix
 
-display(trapizodalMatrixCreation(xS, n))
+display(trapezoidalMatrixCreation(xS, n))

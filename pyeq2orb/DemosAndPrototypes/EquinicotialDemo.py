@@ -433,7 +433,7 @@ addFixedAzElMagToDataDict(baseProblem, simDataDict, fixedAz, fixedEl, fixedMag)
 thrustCartesians = getInertialThrustVectorFromDataDict(baseProblem, simDataDict, muVal)
 sampleThrustLines = createScattersForThrustVectors(simEphemeris, thrustCartesians, "#ff0000", Au/05.0)
 #PlotAndAnimatePlanetsWithPlotly("Integration sample", [earthPath, marsPath, simPath], testSolution.t, sampleThrustLines)
-#%%
+
 print("making pyomo model")
 
 model = poenv.ConcreteModel()
@@ -532,7 +532,7 @@ simulating=False
 
 #poenv.TransformationFactory('dae.finite_difference').apply_to(model, wrt=model.t, nfe=n, scheme='BACKWARD')
 print("transforming pyomo")
-poenv.TransformationFactory('dae.collocation').apply_to(model, wrt=model.t, nfe=n, ncp=5, scheme='LAGRANGE-LEGENDRE')
+poenv.TransformationFactory('dae.collocation').apply_to(model, wrt=model.t, nfe=n, ncp=3, scheme='LAGRANGE-LEGENDRE')
 #['LAGRANGE-RADAU', 'LAGRANGE-LEGENDRE']
 print("initializing the pyomo model")
 sim.initialize_model()
@@ -616,7 +616,7 @@ except :
 
 
 
-#%%
+
 thrustVectorRun = getInertialThrustVectorFromDataDict(baseProblem, dictSolution, muVal)
 thrustPlotlyItemsRun = createScattersForThrustVectors(satPath.ephemeris, thrustVectorRun, "#ff0000", Au/10.0)
 PlotAndAnimatePlanetsWithPlotly("some title", [earthPath, marsPath, simPath, satPath], time, thrustPlotlyItemsRun)

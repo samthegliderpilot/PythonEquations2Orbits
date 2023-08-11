@@ -1,6 +1,7 @@
 import sympy as sy
 from typing import List, Dict, Callable, Optional, Any
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
+from pyeq2orb.Utilities.Typing import SymbolOrNumber
 # NOTE, that if EVER the source for the overall project is not available, the source 
 # for this MUST be published.
 
@@ -115,7 +116,7 @@ class LambdifyHelper :
             stateArray.append(self.OtherArguments)
         return stateArray
 
-    def CreateSimpleCallbackForSolveIvp(self, odeState :Optional[List[sy.Expr]]=None) -> Callable : 
+    def CreateSimpleCallbackForSolveIvp(self, odeState :Optional[List[sy.Expr]]=None, useDummies=True) -> Callable : 
         """Creates a lambdified expression of the (assumed) equations of motion in ExpressionsToLambdify.
 
         Args:
@@ -130,11 +131,11 @@ class LambdifyHelper :
         equationsOfMotion = self.ExpressionsToLambdify
         eomList = []
         for thisEom in equationsOfMotion :
-            # eom's could be constant equations.  Check, add if it doesn't
+            # eom's could be constant equations.  Check, add if it doesn't have subs
             if(hasattr(thisEom, "subs")) :
                 thisEom = thisEom.subs(self.SubstitutionDictionary) 
             eomList.append(thisEom)   
-        eomCallback = sy.lambdify(odeState, eomList)
+        eomCallback = sy.lambdify(odeState, eomList, dummify=useDummies, modules=['scipy'])
 
         # don't need the next wrapper if there are no other args
         if self.OtherArguments == None or len(self.OtherArguments) == 0 :            
@@ -144,6 +145,8 @@ class LambdifyHelper :
         def callbackFunc(t, y, *args) :
             return eomCallback(t, y, args)
         return callbackFunc        
+
+
 
     def CreateSimpleCallbackForOdeint(self, odeState : Optional[List[sy.Expr]]=None) -> Callable : 
         """Creates a lambdified expression of the (assumed) equations of motion in ExpressionsToLambdify.
@@ -186,3 +189,17 @@ class LambdifyHelper :
             bc = SymbolicProblem.SafeSubs(exp, constantsSubstitutionDictionary)
             bcs.append(bc)
         return sy.lambdify(stateExpressionList, bcs)    
+    
+    def GetExpressionToLambdifyInMatrixForm(self) -> sy.Matrix:
+        return sy.Matrix(self.ExpressionsToLambdify)
+       
+    def AddMoreEquations(self, newSvs, newExpressions):
+        for i in range(0, len(newSvs)) :
+            self.StateVariableListOrdered.append(newSvs[i])
+            self.ExpressionsToLambdify.append(newExpressions[i])
+
+    def StateVariableInMatrixForm(self) -> sy.Matrix :
+        return sy.Matrix(self.StateVariableListOrdered)
+
+    def SafeSubsExpressionsToLambdify(self, subsDict : Dict[sy.Expr, SymbolOrNumber]) :
+        self._expressionsToGetLambdified = SymbolicProblem.SafeSubs(self._expressionsToGetLambdified, subsDict)
