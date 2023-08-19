@@ -1,5 +1,6 @@
 from typing import List
 import numpy as np 
+from pyeq2orb.Coordinates.CartesianModule import Cartesian
 
 class EphemerisArrays :
     def __init__(self) :
@@ -38,6 +39,15 @@ class EphemerisArrays :
     @property
     def Z(self) -> np.ndarray :
         return self._z     
+
+    def AddMotion(self, t : float, position : Cartesian) :
+        self.AppendValues(t, position.X, position.Y, position.Z)
+
+    def AppendValues(self, t : float, x : float, y : float, z : float) :
+        self.T.append(t)
+        self.X.append(x)
+        self.Y.append(y)
+        self.Z.append(z)
 
     def GetMaximumValue(self) :
         return max([max(self.X, key=abs), max(self.Y, key=abs), max(self.Z, key=abs)])

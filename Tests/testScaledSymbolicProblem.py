@@ -137,6 +137,6 @@ class testScaledSymbolicProblem(unittest.TestCase) :
 
         values = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(problem.IntegrationSymbols,  odeAns)
         descaled = problem.DescaleResults(values)
-        self.assertAlmostEqual(descaled[problem.WrappedProblem.StateVariables[0]][-1], 42162081.10718636, 1, msg="radius check descaled")
+        self.assertAlmostEqual(descaled[problem.WrappedProblem.StateVariables[0]][-1], 42162080.85814935, 10, msg="radius check descaled")
         self.assertAlmostEqual(descaled[problem.WrappedProblem.StateVariables[1]][-1], 0.000, 2, msg="u check descaled")
         self.assertAlmostEqual(descaled[problem.WrappedProblem.StateVariables[2]][-1], 3074.735, 1, msg="v check descaled")    

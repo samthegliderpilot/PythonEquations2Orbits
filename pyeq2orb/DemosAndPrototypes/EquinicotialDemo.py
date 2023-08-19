@@ -40,6 +40,12 @@ from pyeq2orb import SafeSubs
 #import plotly.io as pio
 #pio.renderers.default = "vscode"
 
+
+########
+# model.add_component('abc', Var(idx, domain=pmo.Boolean))
+# model.component('abc').pprint()
+########
+
 # order in paper is perRad, f,g,h,k,l
 class HowManyImpulses(SymbolicProblem) :
     def __init__(self):

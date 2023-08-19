@@ -144,7 +144,7 @@ class OneDWorkProblem(NumericalOptimizerProblemBase) :
 
     def TerminalCost(self, tf : float, finalStateAndControl : Dict[sy.Expr, float]) ->float :
         # I am only including this to make the problem exercise more of the system
-        return 0.0#abs(1.0-finalStateAndControl[self.State[0]]) # and min final x
+        return abs(1.0-finalStateAndControl[self.State[0]]) # and min final x
 
     def AddResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[sy.Expr, List[float]], label : str) -> None :
         """Adds the contents of dictionaryOfValueArraysKeyedOffState to the plot.

@@ -42,7 +42,7 @@ class NumericalProblemFromSymbolicProblem(NumericalOptimizerProblemBase) :
         for bc in wrappedProblem.BoundaryConditions :
             numericaBc=SymbolicProblem.SafeSubs(bc, wrappedProblem.SubstitutionDictionary)
             if isinstance(numericaBc, Expr)  :
-                numericaBc=numericaEom.simplify().expand().simplify()
+                numericaBc=numericaBc.simplify().expand().simplify()
             bcCallback = lambdify([finalState], numericaBc, functionMap)
             self.BoundaryConditionCallbacks.append(bcCallback)        
         self._controlCallback = None

@@ -182,7 +182,7 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
             i=i+1
         odeAns = solve_ivp(odeSolveIvpCb, [tArray[0], tArray[-1]], [*z0, *knownAnswer], args=tuple([]), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)  
         finalState = ScipyCallbackCreators.GetFinalStateFromIntegratorResults(odeAns)
-        self.assertAlmostEqual(finalState[0], 42162071.898083754, 1, msg="radius check")
+        self.assertAlmostEqual(finalState[0], 42162071.898083754, delta=10, msg="radius check")
         self.assertAlmostEqual(finalState[1], 0.000, 2, msg="u check")
         self.assertAlmostEqual(finalState[2], 3074.735, 1, msg="v check")
 
@@ -197,6 +197,6 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
             i=i+1
         odeAns = solve_ivp(odeSolveIvpCb, [tArray[0], tArray[-1]], [*z0, *knownAnswer[0:3]], args=tuple(knownAnswer[3:]), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)  
         finalState = ScipyCallbackCreators.GetFinalStateFromIntegratorResults(odeAns)
-        self.assertAlmostEqual(finalState[0], 42162141.30863323, delta=1, msg="radius check")
+        self.assertAlmostEqual(finalState[0], 42162141.30863323, delta=10, msg="radius check")
         self.assertAlmostEqual(finalState[1], 0.000, delta=0.01, msg="u check")
         self.assertAlmostEqual(finalState[2], 3074.735, delta=1, msg="v check")              

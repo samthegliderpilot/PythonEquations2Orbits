@@ -3,8 +3,9 @@ from .CartesianModule import Cartesian, MotionCartesian
 import sympy as sy
 import math as math
 from .RotationMatrix import RotAboutXValladoConvention, RotAboutY, RotAboutX, RotAboutZ, RotAboutZValladoConvention
-from typing import Optional, Union
+from typing import Optional, List
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
+
 class KeplerianElements() :
     """Represents a set of Keplerian Elements with true anomaly as the fast variable. Note that 
     Keplerian Elements do not represent parabolic or circular orbits well.
@@ -98,10 +99,10 @@ class KeplerianElements() :
         """
         return KeplerianElements.FromCartesian(motion.Position.X, motion.Position.Y, motion.Position.Z, motion.Velocity.X, motion.Velocity.Y, motion.Velocity.Z, mu)
 
-    def ToArrayOfElements(self) :
+    def ToArrayOfElements(self) ->List[SymbolOrNumber]:
         return [self.SemiMajorAxis, self.Eccentricity, self.Inclination, self.ArgumentOfPeriapsis, self.RightAscensionOfAscendingNode, self.TrueAnomaly]
     
-    def ToSympyMatrix(self) :
+    def ToSympyMatrix(self) -> sy.Matrix :
         sy.Matrix([[self.SemiMajorAxis, self.Eccentricity, self.Inclination, self.ArgumentOfPeriapsis, self.RightAscensionOfAscendingNode, self.TrueAnomaly]]).transpose()
 
     @property
@@ -241,7 +242,7 @@ class GaussianEquationsOfMotion :
         self.MeanAnomalyDot = n + b/(a*h*e)*((p*cTa-2*r*e)*ar - (p+r)*sTa*aTh)
         self.EccentricAnomalyDot = n*a/r + (1/(n*a*e))*((cTa-e)*ar-(1+r/a)*sTa*aTh)
 
-    def ToSympyMatrixEquation(self) :
+    def ToSympyMatrixEquation(self) -> sy.Eq:
         lhs = sy.Matrix([[self.Elements.SemiMajorAxis, self.Elements.Eccentricity, self.Elements.Inclination, self.Elements.ArgumentOfPeriapsis, self.Elements.RightAscensionOfAscendingNode, self.Elements.TrueAnomaly]]).transpose()
         rhs = sy.Matrix([[self.SemiMajorAxisDot, self.EccentricityDot, self.InclinationDot, self.ArgumentOfPeriapsisDot, self.RightAscensionOfAscendingNodeDot, self.TrueAnomalyDot]]).transpose()
         return sy.Eq(lhs, rhs)

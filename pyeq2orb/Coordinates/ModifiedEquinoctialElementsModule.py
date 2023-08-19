@@ -23,7 +23,7 @@ class ModifiedEquinoctialElements:
         self._rSymbol = sy.Symbol('r')
 
     @staticmethod
-    def FromCartesian(x, y, z, vx, vy, vz) :
+    def FromCartesian(x, y, z, vx, vy, vz) -> ModifiedEquinoctialElements :
         pass #TODO
     
     @property
@@ -296,7 +296,7 @@ class EquinoctialElementsHalfI :
         return EquinoctialElementsHalfI(a, h, k, p, q, l, mu)
     
     @staticmethod
-    def CreateFgwToInertialAxesStatic(p:SymbolOrNumber, q:SymbolOrNumber):
+    def CreateFgwToInertialAxesStatic(p:SymbolOrNumber, q:SymbolOrNumber) -> sy.Matrix:
         multiplier = 1/(1+p**2+q**2)
         fm = multiplier*sy.Matrix([[1-p**2+q**2], [2*p*q], [-2*p]]) # first point of aries
         gm = multiplier*sy.Matrix([[2*p*q], [1+p**2-q**2], [2*q]]) # completes triad
@@ -304,7 +304,7 @@ class EquinoctialElementsHalfI :
 
         return sy.Matrix([[fm[0,0], fm[1,0], fm[2,0]],[gm[0,0],gm[1,0],gm[2,0] ],[wm[0,0], wm[1,0], wm[2,0]]]).transpose()
     
-    def CreateFgwToInertialAxes(self):
+    def CreateFgwToInertialAxes(self) -> sy.Matrix:
         p = self.InclinationSinTermP
         q = self.InclinationCosTermQ
         return EquinoctialElementsHalfI.CreateFgwToInertialAxesStatic(p, q)

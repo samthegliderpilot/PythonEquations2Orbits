@@ -1,7 +1,7 @@
 from __future__ import annotations
 import sympy as sy
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
-from typing import Any
+from typing import Any, Optional, Union
 
 class Cartesian(sy.Matrix) :
 
@@ -29,7 +29,7 @@ class Cartesian(sy.Matrix) :
         """
         return self
 
-    def __init__(self, x, y, z) :
+    def __init__(self, x, y, z) : # note that the __new__ function will take care of hte x,y,z
         super().__init__()
         """Initialize a new instance.  
 
@@ -50,7 +50,7 @@ class Cartesian(sy.Matrix) :
         Cartesian._addXYZ(newOne)
         return newOne
 
-    def cross(self, other) -> Cartesian :
+    def cross(self, other : Cartesian) -> Cartesian :
         """Crosses this Cartesian with another.
 
         Args:
@@ -167,6 +167,17 @@ class Cartesian(sy.Matrix) :
             Cartesian: The normalized Cartesian.
         """
         return self / self.Magnitude()
+    
+    @staticmethod
+    def CreateSymbolic(t : Optional[sy.Symbol] = None, prefix : Optional[str] = None) -> Cartesian :
+        nameFormatingCb = lambda xyz : xyz
+        if prefix != None :
+            nameFormatingCb = lambda xyz: prefix + "{" + xyz + "}"
+        if t == None :
+            return Cartesian(sy.Symbol(nameFormatingCb("x")), sy.Symbol(nameFormatingCb("y")), sy.Symbol(nameFormatingCb("z")))
+        else :
+            return Cartesian(sy.Function(nameFormatingCb("x"))(t), sy.Function(nameFormatingCb("y"))(t), sy.Function(nameFormatingCb("z"))(t))
+
 
 class MotionCartesian :
     """Holds a position and velocity Cartesian.  Intended to be immutable.
@@ -263,3 +274,8 @@ class MotionCartesian :
         if other.Velocity == None :
             return False
         return posEqual and self.Velocity.EqualsWithinTolerance(other.Velocity, velocityTolerance)
+    
+
+    @staticmethod
+    def CreateSymbolicMotion(t : Optional[Cartesian] = None) -> MotionCartesian :
+        return MotionCartesian(Cartesian.CreateSymbolic(t), Cartesian.CreateSymbolic(t, r'\dot'))

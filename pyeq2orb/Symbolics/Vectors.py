@@ -2,6 +2,7 @@
 from __future__ import annotations
 import sympy as sy
 from typing import NoReturn
+from pyeq2orb.Utilities.Typing import SymbolOrNumber
 # due to monkey patching with this type, the typehint situation is difficult
 
 class Vector(sy.Matrix) :
@@ -79,7 +80,7 @@ class Vector(sy.Matrix) :
         return mat
 
     @staticmethod
-    def fromValues(*args) :
+    def fromValues(*args) -> Vector:
         """Static function to take the arguments and return a Vector.
 
         Args:
@@ -90,7 +91,7 @@ class Vector(sy.Matrix) :
         """
         return Vector.fromArray(args)
 
-    def Magnitude(self) :
+    def Magnitude(self) -> SymbolOrNumber:
         """Evaluates the magnitude (2 norm) of this Vector.
 
         Returns:

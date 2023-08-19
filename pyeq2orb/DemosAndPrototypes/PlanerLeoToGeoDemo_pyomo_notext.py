@@ -43,7 +43,7 @@ lon0 = 0.0
 tfVal  = 3600*3.97152*24
 tfOrg = tfVal
 
-# these are options to switch to try different things
+# these are options to switch to try different scaling options
 scale = True
 scaleTime = scale and True
 # your choice of the nu vector here controls which transversality condition we use
