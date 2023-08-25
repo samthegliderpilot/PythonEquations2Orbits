@@ -103,7 +103,7 @@ class KeplerianElements() :
         return [self.SemiMajorAxis, self.Eccentricity, self.Inclination, self.ArgumentOfPeriapsis, self.RightAscensionOfAscendingNode, self.TrueAnomaly]
     
     def ToSympyMatrix(self) -> sy.Matrix :
-        sy.Matrix([[self.SemiMajorAxis, self.Eccentricity, self.Inclination, self.ArgumentOfPeriapsis, self.RightAscensionOfAscendingNode, self.TrueAnomaly]]).transpose()
+        return sy.Matrix([[self.SemiMajorAxis, self.Eccentricity, self.Inclination, self.ArgumentOfPeriapsis, self.RightAscensionOfAscendingNode, self.TrueAnomaly]]).transpose()
 
     @property
     def SemiMinorAxis(self) ->SymbolOrNumber:        

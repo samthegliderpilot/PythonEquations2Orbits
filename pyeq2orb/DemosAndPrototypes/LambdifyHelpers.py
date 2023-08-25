@@ -5,7 +5,7 @@ from pyeq2orb.Numerical import ScipyCallbackCreators
 
 
 import sympy as sy
-from typing import List, Dict, Callable, Optional, Any
+from typing import List, Dict, Callable, cast, Any, Union
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
 
@@ -17,13 +17,13 @@ class LambdifyHelper :
 
     This (and derived) types are not meant to be that complicated.  When working with systems of equations, you would 
     need to keep track of the order of expressions, have lists of symbols and expressions... these types are mostly 
-    providing a consistant structure of that data without needing to learn the nuiances of this type in addition to 
+    providing a consistent structure of that data without needing to learn the nuisances of this type in addition to 
     whatever solver you are using.  Keep this and derived types simple.  The goal isn't to do things for the 
     script writer, it is to make it easy for the script writer to do things.
 
-    There are derived types to assist in more specialized lambdifying.
+    There are derived types to assist in more specialized lambdify'ing.
     """
-    def __init__(self, lambdifyArguments : List[sy.Expr], expressionsToLambdify : List[sy.Expr], substitutionDictionary : Dict) :
+    def __init__(self, lambdifyArguments : List[Union[sy.Symbol, List[sy.Symbol]]], expressionsToLambdify : List[sy.Expr], substitutionDictionary : Dict) :
         """Initialize a new instance.
 
         Args:
@@ -50,13 +50,13 @@ class LambdifyHelper :
         self._substitutionDictionary = substitutionDictionary
 
     @property
-    def LambdifyArguments(self) -> List[sy.Expr]:
+    def LambdifyArguments(self) -> List[Union[sy.Symbol, List[sy.Symbol]]]:
         """The list of state variables that are used to lambdify an expression.  This list is never 
         None.  It is likely the lambdified expressions will care about the order of the values in 
         this list.
 
         Returns:
-            List[sy.Expr]: The list of state variables, often sy.Symbol's or sy.Functions of the Time symbol.
+            List[Union[sy.Symbol, List[sy.Symbol]]]: The list of state variables, often sy.Symbol's or sy.Functions of the Time symbol.
         """
         return self._lambdifyArguments
 
@@ -122,7 +122,7 @@ class LambdifyHelper :
 
 class OdeLambdifyHelper(LambdifyHelper):
     def __init__(self, time, equationsOfMotion, otherArgsList : List[sy.Expr], substitutionDictionary : Dict) :
-        self._nonTimeStateVariables = [] 
+        self._nonTimeStateVariables = [] #type: List[sy.Symbol]
         self._equationsOfMotion = equationsOfMotion
         self._time = time
         expressionsOfMotion = []
@@ -137,7 +137,7 @@ class OdeLambdifyHelper(LambdifyHelper):
         LambdifyHelper.__init__(self, [time, self._nonTimeStateVariables], expressionsOfMotion, substitutionDictionary)
 
     @property
-    def Time(self) -> sy.Expr:
+    def Time(self) -> sy.Symbol:
         """Gets the time symbol.  This may be None if that makes sense for the expressions getting lambdified.
 
         Returns:
@@ -146,7 +146,7 @@ class OdeLambdifyHelper(LambdifyHelper):
         return self._time
     
     @Time.setter
-    def Time(self, timeValue : sy.Expr) :
+    def Time(self, timeValue : sy.Symbol) :
         """Sets the time symbol.  This may be None if that makes sense for the expressions getting lambdified.
 
         Args:
@@ -175,7 +175,7 @@ class OdeLambdifyHelper(LambdifyHelper):
             eomList.append(thisEom)   
         odeArgs = self.LambdifyArguments
         if odeArgs[0] != self.Time :   
-            odeArgs = [self.Time, odeArgs]
+            odeArgs = [self.Time, cast(Union[sy.Symbol, List[sy.Symbol]], odeArgs)]
         eomCallback = sy.lambdify(odeArgs, eomList, modules=['scipy'])
 
         # don't need the next wrapper if there are no other args
@@ -238,29 +238,29 @@ class OdeLambdifyHelper(LambdifyHelper):
 class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
     def __init__(self, time : sy.Symbol, t0: sy.Symbol, tf: sy.Symbol, equationsOfMotion : List[sy.Eq], boundaryConditionEquations : List[sy.Eq], otherArgsList : List[sy.Expr], substitutionDictionary : Dict) :
         OdeLambdifyHelper.__init__(self, time, equationsOfMotion, otherArgsList, substitutionDictionary)
-        self._t0 = t0
-        self._tf = tf
+        self._t0 = t0 #type: sy.Symbol
+        self._tf = tf #type: sy.Symbol
         self._boundaryConditions = boundaryConditionEquations
-        self._symbolsToSolveForWithBcs = []
+        self._symbolsToSolveForWithBcs = [] #type: List[sy.Symbol]
 
     @property
-    def t0(self) :
+    def t0(self) -> sy.Symbol :
         return self._t0
     
     @t0.setter
-    def setT0(self, value) :
+    def t0(self, value:sy.Symbol) :
         self._t0 = value
 
     @property
-    def tf(self) :
+    def tf(self) -> sy.Symbol:
         return self._tf
     
     @tf.setter
-    def setTf(self, value) :
+    def tf(self, value:sy.Symbol) :
         self._tf = value
 
     @property
-    def BoundaryConditionExpressions(self) -> List[sy.Expr] :
+    def BoundaryConditionExpressions(self) -> List[sy.Eq] :
         return self._boundaryConditions # must equal 0
     
     @property

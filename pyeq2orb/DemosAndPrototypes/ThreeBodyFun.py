@@ -1,7 +1,7 @@
 import numpy as np
-from pandas import DataFrame
+from pandas import DataFrame#type: ignore
 from scipy.integrate import solve_ivp #type: ignore
-from LambidfyHelpers import LambdifyHelper, OdeLambdifyHelper, OdeLambdifyHelperWithBoundaryConditions
+from pyeq2orb.DemosAndPrototypes.LambidfyHelpers import LambdifyHelper, OdeLambdifyHelper, OdeLambdifyHelperWithBoundaryConditions #type: ignore
 import sympy as sy
 from pyeq2orb import SymbolicOptimizerProblem
 from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
@@ -40,7 +40,7 @@ tArray = np.linspace(0.0, 1000.0, 100000)
 ipvResults = solve_ivp(integratorCallback, [tArray[0], tArray[-1]], [1.1, 0.0, 0.0, 0.0, 0.3, 0.0], t_eval=tArray)
 solutionDictionary = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(helper.NonTimeLambdifyArguments, ipvResults)
 satEphemeris = EphemerisArrays()
-satEphemeris.AppendValues(ipvResults.t, solutionDictionary[x], solutionDictionary[y], solutionDictionary[z])
+satEphemeris.AppendValues(ipvResults.t, solutionDictionary[x], solutionDictionary[y], solutionDictionary[z]) #type: ignore
 satDf = PlotlyDataAndFramesAccumulator.CreatePlotlyEphemerisDataFrame(satEphemeris)
 
 circleInertialEphemeris = EphemerisArrays()
@@ -62,4 +62,4 @@ fig2.show()
 from pyeq2orb.Graphics.Plotly2DModule import plot2DLines
 from pyeq2orb.Graphics.Primitives import XAndYPlottableLineData
 
-plot2DLines([XAndYPlottableLineData(solutionDictionary[x], solutionDictionary[y], "orbit", "#ff0000", 2, 1)], "Orbit")
+plot2DLines([XAndYPlottableLineData(solutionDictionary[x], solutionDictionary[y], "orbit", "#ff0000", 2, 1)], "Orbit") #type: ignore

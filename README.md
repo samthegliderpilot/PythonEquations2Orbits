@@ -8,7 +8,7 @@ The goal with this project is to create an easy-to-understand set of types to as
 
 This is clearly a work in progress, interfaces will almost certainly change and there is no real verification or validation.  Some of the tests are pretty weak and I have a list of things to refactor after rushing to get this good enough for a release by my personal deadline.
 
-The way I've been setting up my environments has been with these conda/pip commands.  Note that in all cases, I have a C++ compiler on my computer (Visual Studio 2022 Commuinty is installed on Windows, gcc on Linux).  Cmake can find it, and it is probably required for setting up pyomo all the way:
+The way I've been setting up my environments has been with these conda/pip commands.  Note that in all cases, I have a C++ compiler on my computer (Visual Studio 2022 Community is installed on Windows, gcc on Linux).  Cmake can find it, and it is probably required for setting up pyomo all the way:
 
 ```
 conda create --name Py39OptFun python=3.9
@@ -33,3 +33,12 @@ This is clearly a lot for me to learn about techniques for NLP techniques for op
 - More manual transcription of problems 
 - Supporting using pygmo optimizers and parallel routines
 - Sparse matrix implementations for problems
+
+But I want to do things that interest me, and I want to spend more time on research and aerospace stuff.  So my real TODO is:
+- Mean Element Propagation with low-thrust (or acceleration)
+- 6 element at time indirect optimization
+- Q-Law and other techniques like that
+- Guess costate values from Q-Law like solution
+- CisLunar Toolbox
+ - Derive analytical earth-and-moon 3BP equations
+

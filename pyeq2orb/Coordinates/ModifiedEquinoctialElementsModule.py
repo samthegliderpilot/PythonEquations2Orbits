@@ -24,7 +24,7 @@ class ModifiedEquinoctialElements:
 
     @staticmethod
     def FromCartesian(x, y, z, vx, vy, vz) -> ModifiedEquinoctialElements :
-        pass #TODO
+        raise Exception("Not implemented")
     
     @property
     def W(self) -> SymbolOrNumber:
@@ -200,7 +200,24 @@ class ModifiedEquinoctialElements:
                     [0.0,0.0,sqrtPOverMu*(s2*sy.sin(lEq)/(2*w))],
                     [0.0,0.0,sqrtPOverMu*(hEq*sy.sin(lEq)-kEq*sy.cos(lEq))/w]])
         return B        
+    def __getitem__(self, i) :
+        if i == 0 :
+            return self.SemiParameter
+        elif i == 1 :
+            return self.EccentricityCosTermF
+        elif i == 2:
+            return self.EccentricitySinTermG
+        elif i == 3 :
+            return self.InclinationCosTermH
+        elif i == 4:
+            return self.InclinationSinTermK
+        elif i == 5:
+            return self.TrueLongitude
+        raise Exception('Index of {i} is too high')
 
+    def __len__(self):
+        return 6
+    
 def ConvertKeplerianToEquinoctial(keplerianElements : KeplerianElements, nonModdedLongitude : Optional[bool]= True) ->ModifiedEquinoctialElements :
     a = keplerianElements.SemiMajorAxis
     e = keplerianElements.Eccentricity
@@ -242,6 +259,7 @@ def CreateSymbolicElements(elementOf :Optional[SymbolOrNumber]= None) -> Modifie
     mu = sy.Symbol(r'\mu', positive=True, real=True)
 
     return ModifiedEquinoctialElements(p, f, g, h, k, l, mu)
+
 
 
 # def TwoBodyGravityForceOnElements(elements : ModifiedEquinoctialElements, useSymbolsForAuxiliaryElements = False) ->sy.Matrix:

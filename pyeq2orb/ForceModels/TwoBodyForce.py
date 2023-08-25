@@ -19,12 +19,13 @@ def CreateTwoBodyMotionMatrix(eqElements : ModifiedEquinoctialElements, useSymbo
     f = sy.Matrix([[0],[0],[0],[0],[0],[sy.sqrt(mu*p)*((w/p)**2)]])
     return f
 
-def CreateTwoBodyListForModifiedEquinoctialElements(eqElements : ModifiedEquinoctialElements, useSymbolsForAuxVariables = False) -> List[sy.Expr] :
+def CreateTwoBodyListForModifiedEquinoctialElements(eqElements : ModifiedEquinoctialElements, useSymbolsForAuxVariables = False) -> List[sy.Eq] :
     mat = CreateTwoBodyMotionMatrix(eqElements, useSymbolsForAuxVariables)
     rows = []
     for i in range(0, 6) :
-        rows.append(mat.row(i))
+        rows.append(sy.Eq(eqElements[i].diff(eqElements[i].args[0]), mat.row(i)[0]))
     return rows
+
 
 # def CreateCartesianOdeAsArray(mu):
 #     def twoBodyLambda(t, x):

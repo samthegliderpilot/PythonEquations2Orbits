@@ -1,9 +1,6 @@
 from collections import OrderedDict
 from typing import List, Dict,Any
 import sympy as sy
-from scipy.integrate._ivp.ivp import OdeResult
-from pyeq2orb.Numerical.LambdifyModule import LambdifyHelper
-
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 
 def ConvertOdeIntResultsToDictionary(odeintSymbolicState : List[sy.Expr], odeintResults : List[Any]) ->Dict[sy.Expr, List[float]]:

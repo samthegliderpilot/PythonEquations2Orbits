@@ -1,13 +1,13 @@
-from typing import List
+from typing import List, cast
 import numpy as np 
 from pyeq2orb.Coordinates.CartesianModule import Cartesian
-
+from pyeq2orb.Utilities.Typing import SymbolOrNumber
 class EphemerisArrays :
     def __init__(self) :
-        self._t = []
-        self._x = []
-        self._y = []
-        self._z = []
+        self._t = [] #type: List[float]
+        self._x = [] #type: List[float]
+        self._y = [] #type: List[float]
+        self._z = [] #type: List[float]
 
     def InitFromMotions(self, timeArray, motionArray) :
         self.InitFromEphemeris(timeArray, [motion.Position for motion in motionArray])
@@ -25,23 +25,23 @@ class EphemerisArrays :
         self._z = np.array([float(pos.Z) for pos in cartesianArray])
 
     @property
-    def T(self) -> np.ndarray :
+    def T(self) -> List[float] :
         return self._t
 
     @property
-    def X(self) -> np.ndarray :
+    def X(self) -> List[float] :
         return self._x
 
     @property
-    def Y(self) -> np.ndarray :
+    def Y(self) -> List[float] :
         return self._y
 
     @property
-    def Z(self) -> np.ndarray :
+    def Z(self) -> List[float] :
         return self._z     
 
     def AddMotion(self, t : float, position : Cartesian) :
-        self.AppendValues(t, position.X, position.Y, position.Z)
+        self.AppendValues(t, cast(float, position.X), cast(float, position.Y), cast(float, position.Z))
 
     def AppendValues(self, t : float, x : float, y : float, z : float) :
         self.T.append(t)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 import sympy as sy
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
-from typing import Any, Optional, Union
+from typing import Any, Optional, cast
 
 class Cartesian(sy.Matrix) :
 
@@ -170,13 +170,14 @@ class Cartesian(sy.Matrix) :
     
     @staticmethod
     def CreateSymbolic(t : Optional[sy.Symbol] = None, prefix : Optional[str] = None) -> Cartesian :
-        nameFormatingCb = lambda xyz : xyz
+        nameFormattingCb = lambda xyz : xyz
         if prefix != None :
-            nameFormatingCb = lambda xyz: prefix + "{" + xyz + "}"
+            prefixStr = cast(str, prefix)
+            nameFormattingCb = lambda xyz: prefixStr + "{" + xyz + "}"
         if t == None :
-            return Cartesian(sy.Symbol(nameFormatingCb("x")), sy.Symbol(nameFormatingCb("y")), sy.Symbol(nameFormatingCb("z")))
+            return Cartesian(sy.Symbol(nameFormattingCb("x")), sy.Symbol(nameFormattingCb("y")), sy.Symbol(nameFormattingCb("z")))
         else :
-            return Cartesian(sy.Function(nameFormatingCb("x"))(t), sy.Function(nameFormatingCb("y"))(t), sy.Function(nameFormatingCb("z"))(t))
+            return Cartesian(sy.Function(nameFormattingCb("x"))(t), sy.Function(nameFormattingCb("y"))(t), sy.Function(nameFormattingCb("z"))(t))
 
 
 class MotionCartesian :
@@ -277,5 +278,5 @@ class MotionCartesian :
     
 
     @staticmethod
-    def CreateSymbolicMotion(t : Optional[Cartesian] = None) -> MotionCartesian :
+    def CreateSymbolicMotion(t : Optional[sy.Symbol] = None) -> MotionCartesian :
         return MotionCartesian(Cartesian.CreateSymbolic(t), Cartesian.CreateSymbolic(t, r'\dot'))

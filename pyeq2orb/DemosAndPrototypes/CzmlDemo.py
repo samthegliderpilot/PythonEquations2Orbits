@@ -1,9 +1,10 @@
+import __init__ #type: ignore
 from pyeq2orb.Graphics import CzmlUtilities
 from datetime import datetime
 from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
 from pyeq2orb.Coordinates.ModifiedEquinoctialElementsModule import EquinoctialElementsHalfI, ModifiedEquinoctialElements
 import numpy as np
-from pyeq2orb.Numerical.LambdifyModule import LambdifyHelper
+from pyeq2orb.DemosAndPrototypes.LambdifyHelpers import LambdifyHelper, OdeLambdifyHelper
 from scipy.integrate import solve_ivp #type: ignore
 import pyeq2orb.Graphics.Primitives as prim
 import sympy as sy
@@ -44,7 +45,7 @@ def GetEquiElementsOutOfIvpResults(ivpResults) :
     return (t, equi)
 
 twoBodyMatrix = CreateTwoBodyListForModifiedEquinoctialElements(symbolicElements)
-simpleTwoBodyLambdifyCreator = LambdifyHelper(t, cast(List[sy.Expr], symbolicElements.ToArray()), twoBodyMatrix, [], {symbolicElements.GravitationalParameter: muVal})
+simpleTwoBodyLambdifyCreator = OdeLambdifyHelper(t, twoBodyMatrix, [], {symbolicElements.GravitationalParameter: muVal})
 odeCallback =simpleTwoBodyLambdifyCreator.CreateSimpleCallbackForSolveIvp()
 earthSolution = solve_ivp(odeCallback, [0.0, tfVal], initialElements.ToArray(), args=tuple(), t_eval=np.linspace(0.0, tfVal,n), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
 

@@ -7,9 +7,9 @@ from pyeq2orb.ScaledSymbolicProblem import ScaledSymbolicProblem
 from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
 from pyeq2orb.Coordinates.KeplerianModule import KeplerianElements
 from pyeq2orb.Coordinates.ModifiedEquinoctialElementsModule import ModifiedEquinoctialElements, CreateSymbolicElements
-from pyeq2orb.Numerical.LambdifyModule import LambdifyHelper
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
+from pyeq2orb.DemosAndPrototypes.LambdifyHelpers import LambdifyHelper, OdeLambdifyHelper
 from typing import List, Dict, cast
 from matplotlib.figure import Figure #type: ignore
 import scipyPaperPrinter as jh#type: ignore
@@ -24,7 +24,6 @@ from plotly.offline import iplot, init_notebook_mode#type: ignore
 from plotly.graph_objs import Mesh3d#type: ignore
 from scipy.integrate import solve_ivp#type: ignore
 import plotly.graph_objects as go #type: ignore
-from pyeq2orb.Numerical.LambdifyModule import LambdifyHelper
 from scipy.integrate import solve_ivp
 import pyeq2orb.Graphics.Primitives as prim
 from pyeq2orb.Graphics.Plotly2DModule import plot2DLines
@@ -378,7 +377,7 @@ def createScattersForThrustVectors(ephemeris : prim.EphemerisArrays, inertialThr
 
 
 twoBodyMatrix = CreateTwoBodyListForModifiedEquinoctialElements(symbolicElements)
-simpleTwoBodyLambdifyCreator = LambdifyHelper(t, cast(List[sy.Expr], symbolicElements.ToArray()), twoBodyMatrix, [], {symbolicElements.GravitationalParameter: muVal})
+simpleTwoBodyLambdifyCreator = OdeLambdifyHelper(t, twoBodyMatrix, [], {symbolicElements.GravitationalParameter: muVal})
 odeCallback =simpleTwoBodyLambdifyCreator.CreateSimpleCallbackForSolveIvp()
 print("propagating earth and mars")
 earthSolution = solve_ivp(odeCallback, [0.0, tfVal], initialElements.ToArray(), args=tuple(), t_eval=np.linspace(0.0, tfVal,n), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)

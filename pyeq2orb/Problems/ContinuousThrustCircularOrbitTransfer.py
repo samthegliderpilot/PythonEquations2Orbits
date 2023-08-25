@@ -2,8 +2,8 @@ from matplotlib.figure import Figure # type: ignore
 import sympy as sy
 from typing import List, Dict, Any
 from pyeq2orb.Numerical import ScipyCallbackCreators
-from pyeq2orb.Numerical.LambdifyModule import LambdifyHelper
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
+from pyeq2orb.DemosAndPrototypes.LambdifyHelpers import LambdifyHelper
 import math
 import matplotlib.pyplot as plt # type: ignore
 import numpy as np
@@ -107,6 +107,8 @@ class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
         stateForBoundaryConditions.extend(SymbolicProblem.SafeSubs(integrationStateVariableArray, {problem.TimeSymbol: problem.TimeFinalSymbol}))
         #stateForBoundaryConditions.extend(fSolveParametersToAppendToEom)
         stateForBoundaryConditions.extend(fSolveOnlyParameters)
+        
+
         boundaryConditionEvaluationCallbacks = LambdifyHelper.CreateLambdifiedExpressions(stateForBoundaryConditions, boundaryConditionExpressions, problem.SubstitutionDictionary)
         numberOfLambdasToPassToOdeInt = len(fSolveParametersToAppendToEom)
         def callbackForFsolve(costateAndCostateVariableGuesses) :
