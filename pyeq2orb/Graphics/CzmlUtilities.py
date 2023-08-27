@@ -1,7 +1,7 @@
-import czml3 as czml
-import czml3.types as czmlTypes
-import czml3.properties as czmlProp
-import czml3.enums as czmlEnums
+import czml3 as czml #type: ignore
+import czml3.types as czmlTypes #type: ignore
+import czml3.properties as czmlProp #type: ignore
+import czml3.enums as czmlEnums #type: ignore
 import pyeq2orb.Graphics.Primitives as prim
 from typing import List
 from datetime import datetime, timedelta

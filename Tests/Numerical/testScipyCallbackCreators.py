@@ -2,6 +2,7 @@ import unittest
 import sympy as sy
 from scipy.integrate import odeint, solve_ivp # type: ignore
 import pyeq2orb.Numerical.ScipyCallbackCreators as scipyCreator
+from pyeq2orb.DemosAndPrototypes.LambdifyHelpers import OdeLambdifyHelper
 class testScipyCallbackCreators(unittest.TestCase) :
 
     def testOdeIntHelperFunctions(self) :
@@ -12,7 +13,7 @@ class testScipyCallbackCreators(unittest.TestCase) :
         b = sy.Symbol('b')
         xDot = 2*u*a
         uDot = 5*t*b
-        lambdifyHelper = LambdifyHelper(t, [x,u], [xDot, uDot], [b], {a:3})
+        lambdifyHelper = OdeLambdifyHelper(t, [sy.Eq(x.diff(t), xDot), sy.Eq(u.diff(t), uDot)], [b], {a:3})
         callback = lambdifyHelper.CreateSimpleCallbackForOdeint()
         tSpan = [0,1]
         answer = odeint(callback,[7,8], tSpan, args=(13,))
@@ -44,7 +45,7 @@ class testScipyCallbackCreators(unittest.TestCase) :
         b = sy.Symbol('b')
         xDot = 2*u*a
         uDot = 5*t*b
-        lambdifyHelper = LambdifyHelper(t, [x,u], [xDot, uDot], [b], {a:3})
+        lambdifyHelper = OdeLambdifyHelper(t, [sy.Eq(x.diff(t), xDot), sy.Eq(u.diff(t), uDot)], [b], {a:3})
         callback = lambdifyHelper.CreateSimpleCallbackForOdeint()
         tSpan = [0,1]
         answer = odeint(callback,[7,8], tSpan, args=(13,), full_output=True)
@@ -76,7 +77,7 @@ class testScipyCallbackCreators(unittest.TestCase) :
         b = sy.Symbol('b')
         xDot = 2*u*a
         uDot = 5*t*b
-        lambdifyHelper = LambdifyHelper(t, [x,u], [xDot, uDot], [b], {a:3})
+        lambdifyHelper = OdeLambdifyHelper(t, [sy.Eq(x.diff(t), xDot), sy.Eq(u.diff(t), uDot)], [b], {a:3})
         callback = lambdifyHelper.CreateSimpleCallbackForSolveIvp()
         answer = solve_ivp(callback, [0.0, 1.0], [7,8], args=(13,))
         toDict = scipyCreator.ConvertSolveIvpResultsToDictionary([x,u], answer)
@@ -107,7 +108,7 @@ class testScipyCallbackCreators(unittest.TestCase) :
         b = sy.Symbol('b')
         xDot = 2*u*a
         uDot = 5*t*b
-        lambdifyHelper = LambdifyHelper(t, [x,u], [xDot, uDot], [b], {a:3})
+        lambdifyHelper = OdeLambdifyHelper(t, [sy.Eq(x.diff(t), xDot), sy.Eq(u.diff(t), uDot)], [b], {a:3})
         callback = lambdifyHelper.CreateSimpleCallbackForSolveIvp()
         answer = solve_ivp(callback, [0.0, 1.0], [7,8], args=(13,), dense_output=True)
         toDict = scipyCreator.ConvertSolveIvpResultsToDictionary([x,u], answer)

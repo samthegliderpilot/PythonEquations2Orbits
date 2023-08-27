@@ -121,7 +121,7 @@ class LambdifyHelper :
         self._expressionsToGetLambdified = SymbolicProblem.SafeSubs(self._expressionsToGetLambdified, self.SubstitutionDictionary)
 
 class OdeLambdifyHelper(LambdifyHelper):
-    def __init__(self, time, equationsOfMotion, otherArgsList : List[sy.Expr], substitutionDictionary : Dict) :
+    def __init__(self, time, equationsOfMotion, otherArgsList : List[sy.Symbol], substitutionDictionary : Dict) :
         self._nonTimeStateVariables = [] #type: List[sy.Symbol]
         self._equationsOfMotion = equationsOfMotion
         self._time = time
@@ -176,7 +176,10 @@ class OdeLambdifyHelper(LambdifyHelper):
         odeArgs = self.LambdifyArguments
         if odeArgs[0] != self.Time :   
             odeArgs = [self.Time, cast(Union[sy.Symbol, List[sy.Symbol]], odeArgs)]
+        if self.OtherArguments != None and len(self.OtherArguments) >0 :
+            odeArgs.append(self.OtherArguments)
         eomCallback = sy.lambdify(odeArgs, eomList, modules=['scipy'])
+        
 
         # don't need the next wrapper if there are no other args
         if self.OtherArguments == None or len(self.OtherArguments) == 0 :            
@@ -184,7 +187,7 @@ class OdeLambdifyHelper(LambdifyHelper):
 
         # but if there are other arguments, handle that
         def callbackFunc(t, y, *args) :
-            return eomCallback(t, y, args)
+            return eomCallback(t, y,args)
         return callbackFunc        
 
     def CreateSimpleCallbackForOdeint(self) -> Callable : 
@@ -203,8 +206,8 @@ class OdeLambdifyHelper(LambdifyHelper):
                 return originalCallback(t, y)
             return switchTimeOrderCallback
         #else...        
-        def switchTimeOrderCallback2(y, t, *args) :
-            return originalCallback(t, y, *args)
+        def switchTimeOrderCallback2(y, t, args) :
+            return originalCallback(t, y, args)
         return switchTimeOrderCallback2   
     
     @property
@@ -221,12 +224,12 @@ class OdeLambdifyHelper(LambdifyHelper):
         return sy.Matrix(self.NonTimeLambdifyArguments)
     
     @property 
-    def OtherArguments(self) -> List[sy.Expr] :
+    def OtherArguments(self) -> List[sy.Symbol] :
         """If there are other arguments that need to be passed to the lambdified expression that are not 
         part of the state, those arguments are specified here.  This list is never None but may be empty.
 
         Returns:
-            List[sy.Expr]: The list of other arguments.
+            List[sy.Symbol]: The list of other arguments.
         """
         return self._otherArgs
 
@@ -236,7 +239,7 @@ class OdeLambdifyHelper(LambdifyHelper):
 
 
 class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
-    def __init__(self, time : sy.Symbol, t0: sy.Symbol, tf: sy.Symbol, equationsOfMotion : List[sy.Eq], boundaryConditionEquations : List[sy.Eq], otherArgsList : List[sy.Expr], substitutionDictionary : Dict) :
+    def __init__(self, time : sy.Symbol, t0: sy.Symbol, tf: sy.Symbol, equationsOfMotion : List[sy.Eq], boundaryConditionEquations : List[sy.Eq], otherArgsList : List[sy.Symbol], substitutionDictionary : Dict) :
         OdeLambdifyHelper.__init__(self, time, equationsOfMotion, otherArgsList, substitutionDictionary)
         self._t0 = t0 #type: sy.Symbol
         self._tf = tf #type: sy.Symbol

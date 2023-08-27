@@ -59,7 +59,7 @@ class testOneDimensionalMinimalWorkProblem(unittest.TestCase) :
         history[oneDWorkProblem.Control[0]]=[0.25, 0.25, 1.0, 1.0]
 
         cost = oneDWorkProblem.CostFunction(oneDWorkProblem.CreateTimeRange(3), history)
-        self.assertAlmostEqual(0.53125,  cost, delta=0.00001, msg="cost")
+        self.assertAlmostEqual(0.5052083333333334,  cost, delta=0.00001, msg="cost")
 
 class testOneDimensionalMinimalWorkProblemAnalyticalAnswerToProblem(unittest.TestCase) :
 

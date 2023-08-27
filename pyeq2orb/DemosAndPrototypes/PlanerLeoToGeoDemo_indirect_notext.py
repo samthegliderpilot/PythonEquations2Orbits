@@ -95,8 +95,6 @@ bc2 = vs.subs(ts, tfs)-sy.sqrt(mu/rs.subs(ts, tfs))
 
 terminalCost = rs.subs(ts, tfs) # maximization problem
 
-
-
 mFlowRate = -1*thrusts/(ispS*gs)
 mEq = m0s+ts*mFlowRate
 
@@ -110,8 +108,6 @@ rEquation = sy.Eq(rs.diff(ts), rEom)
 uEquation = sy.Eq(us.diff(ts), uEom)
 vEquation = sy.Eq(vs.diff(ts), vEom)
 lonEquation = sy.Eq(lonS.diff(ts), lonEom)
-
-
 
 helper = OdeLambdifyHelperWithBoundaryConditions(ts, t0s, tfs, [rEquation, uEquation, vEquation, lonEquation], [bc1, bc2], [], {gs:g, ispS:isp, m0s: m0, thrusts:thrust, mus:mu})
 
@@ -130,6 +126,9 @@ newBcs = [bc3, bc4]
 helper.BoundaryConditionExpressions.extend(newBcs)
 helper.SymbolsToSolveForWithBoundaryConditions.extend(SymbolicProblem.SafeSubs(lmds, {ts: t0s}))
 
+# From working the problem enough, we find that one of the costate variables is constant and 0. 
+# As such, the related BC can be removed, one of the costates can be made constant, an EOM removed, etc..
+# This needs to be improved, but for now, just do manually
 del helper.BoundaryConditionExpressions[-1]
 del helper.NonTimeLambdifyArguments[-1]
 del helper.EquationsOfMotion[-1]
@@ -149,22 +148,23 @@ def realIpvCallback(initialState) :
 
 
 
-
-initialaFSolveState = [0.0011569091762708, 0.00010000000130634948, 1.0]
+# In earlier iterations, I've found a way for this problem to get a not-horrible initial guess for the initial costates.  Not reproducing here 
+# for now
+initialFSolveState = [0.0011569091762708, 0.00010000000130634948, 1.0]
 
 justBcCb = helper.CreateCallbackForBoundaryConditionsWithFullState()
-display(justBcCb[1](0, 6000, 7000, 8000, 0, *initialaFSolveState, 5000000, 42164000, -2000, -3000, 17, 10000, 20000, 30000))
+display(justBcCb[1](0, 6000, 7000, 8000, 0, *initialFSolveState, 5000000, 42164000, -2000, -3000, 17, 10000, 20000, 30000))
 
-solverCb = helper.createCallbackToSolveForBoundaryConditions(realIpvCallback, tArray, [r0, u0, v0, lon0, *initialaFSolveState])
+solverCb = helper.createCallbackToSolveForBoundaryConditions(realIpvCallback, tArray, [r0, u0, v0, lon0, *initialFSolveState])
 
 #display(solverCb([1.0, 0.001, 0.001, 0.0]))
 #display(helper.GetExpressionToLambdifyInMatrixForm())
 #print(ipvCallback(0, [r0, u0, v0, lon0, 1.0, 0.001, 0.001, 0.0]))
-solution = solve_ivp(ipvCallback, [tArray[0], tArray[-1]], [r0, u0, v0, lon0, *initialaFSolveState], t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
+solution = solve_ivp(ipvCallback, [tArray[0], tArray[-1]], [r0, u0, v0, lon0, *initialFSolveState], t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
 solutionDictionary = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(helper.NonTimeLambdifyArguments, solution)
 plotSolution(helper, solutionDictionary)
 
-fSolveSol = fsolve(solverCb, initialaFSolveState, epsfcn=0.000001, full_output=True)
+fSolveSol = fsolve(solverCb, initialFSolveState, epsfcn=0.000001, full_output=True)
 display(fSolveSol)
 fSolveSolution = solve_ivp(ipvCallback, [tArray[0], tArray[-1]], [r0, u0, v0, lon0, *fSolveSol[0]], t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
 fSolveSolutionDictionary = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(helper.NonTimeLambdifyArguments, fSolveSolution)

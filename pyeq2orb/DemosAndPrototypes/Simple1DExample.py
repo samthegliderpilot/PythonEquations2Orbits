@@ -1,4 +1,5 @@
 #%%
+import __init__ #type: ignore
 import sys
 sys.path.append("..") # treating this as a jupyter-like cell requires adding one directory up
 sys.path.append("../pyeq2orb") # and this line is needed for running like a normal python script
