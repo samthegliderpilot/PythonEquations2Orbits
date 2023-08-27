@@ -656,4 +656,20 @@ class SymbolicProblem(ABC) :
             label (str): A label for the data to use in the plot legend.
         """
         pass
-     
+
+    @property
+    def EquationsOfMotionAsEquations(self) -> List[sy.Eq] :
+        """The equations of motions as symbolic equations where the LHS is the state variable differentiated by time 
+        and the RHS the expression from EquationsOfMotion.  Expect renames in short order to make this the primary property
+
+        Returns:
+            List[sy.Eq]: The equations of motion as symbolic equations,
+        """
+        equationsOfMotion = [] #type: List[sy.Eq]
+
+        for i in range(0, len(self.StateVariables)) :
+            equationsOfMotion.append(sy.Eq(self.StateVariables[i].diff(self.TimeSymbol), self.EquationsOfMotion[self.StateVariables[i]]))
+
+        for i in range(0, len(self.CostateSymbols)) :
+            equationsOfMotion.append(sy.Eq(self.CostateSymbols[i].diff(self.TimeSymbol), self.EquationsOfMotion[self.CostateSymbols[i]]))            
+        return equationsOfMotion             

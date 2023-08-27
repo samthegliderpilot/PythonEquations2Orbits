@@ -239,7 +239,7 @@ class OdeLambdifyHelper(LambdifyHelper):
 
 
 class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
-    def __init__(self, time : sy.Symbol, t0: sy.Symbol, tf: sy.Symbol, equationsOfMotion : List[sy.Eq], boundaryConditionEquations : List[sy.Eq], otherArgsList : List[sy.Symbol], substitutionDictionary : Dict) :
+    def __init__(self, time : sy.Symbol, t0: sy.Symbol, tf: sy.Symbol, equationsOfMotion : List[sy.Eq], boundaryConditionEquations : List[sy.Expr], otherArgsList : List[sy.Symbol], substitutionDictionary : Dict) :
         OdeLambdifyHelper.__init__(self, time, equationsOfMotion, otherArgsList, substitutionDictionary)
         self._t0 = t0 #type: sy.Symbol
         self._tf = tf #type: sy.Symbol
@@ -263,7 +263,7 @@ class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
         self._tf = value
 
     @property
-    def BoundaryConditionExpressions(self) -> List[sy.Eq] :
+    def BoundaryConditionExpressions(self) -> List[sy.Expr] :
         return self._boundaryConditions # must equal 0
     
     @property

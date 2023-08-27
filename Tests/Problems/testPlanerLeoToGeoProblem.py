@@ -11,6 +11,7 @@ from pyeq2orb.Numerical import ScipyCallbackCreators
 from pyeq2orb.DemosAndPrototypes.LambdifyHelpers import OdeLambdifyHelperWithBoundaryConditions
 import pyeq2orb as pe2o
 import importlib
+from typing import List
 
 class testPlanerLeoToGeoProblem(unittest.TestCase) :
     @staticmethod
@@ -124,17 +125,17 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
             otherArgs.append(baseProblem.TimeFinalSymbol)
         if len(nus) > 0 :
             otherArgs.extend(nus)
-
-        lambdifyHelper = OdeLambdifyHelperWithBoundaryConditions(problem.TimeSymbol, problem.Time0Symbol, problem.TimeFinalSymbol, problem.EquationsOfMotion, problem.SubstitutionDictionary)
+        
+        lambdifyHelper = OdeLambdifyHelperWithBoundaryConditions(problem.TimeSymbol, problem.TimeInitialSymbol, problem.TimeFinalSymbol, problem.EquationsOfMotionAsEquations, problem.BoundaryConditions, otherArgs, problem.SubstitutionDictionary)
         
         odeIntEomCallback = lambdifyHelper.CreateSimpleCallbackForSolveIvp()
         # run a test solution to get a better guess for the final nu values, this is a good technique, but 
         # it is still a custom-to-this-problem piece of code because it is still initial-guess work
-        argsForOde = []
+        
         if len(nus) > 0 :
             initialFSolveStateGuess.append(initialFSolveStateGuess[1])
             initialFSolveStateGuess.append(initialFSolveStateGuess[2])  
-            argsForOde = []
+            argsForOde = [] #type: List[float]
             if scaleTime :
                 argsForOde.append(tfOrg)
             argsForOde.append(initialFSolveStateGuess[1])
