@@ -82,15 +82,15 @@ def createTrapezoidalEquations(steps) :
 display(createTrapezoidalEquations(n))
 
 def trapezoidalMatrixCreation(x, steps) :
-    lenx = len(x)
-    colCount = lenx
+    lengthOfX = len(x)
+    colCount = lengthOfX
     rowCount = (steps-1)*4
     theMatrix = sy.Matrix.zeros(rowCount, colCount)
-    districtizedEquations = createTrapezoidalEquations(steps) 
+    sampledEquations = createTrapezoidalEquations(steps) 
     for r in range(0, 4*(steps-1)) :
-        for c in range(0, lenx) : 
+        for c in range(0, lengthOfX) : 
             try :
-                theMatrix[r, c] = districtizedEquations[r].diff(x[c]).doit()
+                theMatrix[r, c] = sampledEquations[r].diff(x[c]).doit()
             except:
                 display(theMatrix)
                 raise

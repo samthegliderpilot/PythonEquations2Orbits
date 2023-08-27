@@ -6,14 +6,12 @@ sys.path.insert(1, os.path.dirname(os.path.dirname(sys.path[0]))) # need to impo
 sy.init_printing()
 
 from pyeq2orb.ForceModels.TwoBodyForce import CreateTwoBodyMotionMatrix, CreateTwoBodyListForModifiedEquinoctialElements
-from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
-from pyeq2orb.Coordinates.KeplerianModule import KeplerianElements
 import pyeq2orb.Coordinates.KeplerianModule as KepModule
 import pyeq2orb.Coordinates.OrbitFunctions as orb
 from pyeq2orb.Coordinates.ModifiedEquinoctialElementsModule import CreateSymbolicElements, ConvertKeplerianToEquinoctial, EquinoctialElementsHalfI
 import scipyPaperPrinter as jh #type: ignore
 jh.printMarkdown("# Modified Equinoctial Elements Summary")
-jh.printMarkdown("While working with optimal control problems for satellite maneuvers, I needed a reference for working with Equinoctial and Modifeid Equinoctial Elements. This will pull together several sources and show the equations and some of the derivations of these equations that are encoded in the library I'm writing.")
+jh.printMarkdown("While working with optimal control problems for satellite maneuvers, I needed a reference for working with Equinoctial and Modified Equinoctial Elements. This will pull together several sources and show the equations and some of the derivations of these equations that are encoded in the library I'm writing.")
 
 jh.printMarkdown("Note that this document is made with the symbolic (sympy) routines I have written to do optimal control problems.  As such, equations will be simplified in minor ways and values in the equations will be in a different order than what sources might show.")
 
@@ -22,9 +20,9 @@ jh.printMarkdown("And many thanks for the Citation Style Language website for ma
 jh.printMarkdown("## Purpose of Modified Equinoctial Elements")
 jh.printMarkdown("First off, why even bother with Modified Equinoctial Elements?  There are a few reasons:")
 jh.printMarkdown("- Similar to Keplerian Elements, there is only 1 fast variable (as opposed to Cartesian radius and velocity vectors which are all fast variables) which assists with the various optimization techniques that follows.")
-jh.printMarkdown("- Keplerian elements have singularties at orbit common in the industry (GEO orbits especally) where the eccentriciy is very low and the inclination is near 0. Equinoctial elements are much better behaved in those orbit regiems")
+jh.printMarkdown("- Keplerian elements have singularities at orbit common in the industry (GEO orbits especially) where the eccentricity is very low and the inclination is near 0. Equinoctial elements are much better behaved in those orbit regimes")
 jh.printMarkdown("- Normal Equinoctial Elements have a singularity at inclinations of 90 degrees and cannot completely describe parabolic orbits.  Modified Equinoctial Elements only have singularities for orbits with an inclination of 180 degrees")
-jh.printMarkdown("Note that there is ambuguity for orbits with an inclination near 0 or 180 degrees.  A rigious set of elements should be a 'retorgrade factor' that will determin if the orbit is posigrade or retorgrade (or within a few degrees of 180 degrees), however for simplicity we will not be adding this factor @Vallado5thEdition.")
+jh.printMarkdown("Note that there is ambiguity for orbits with an inclination near 0 or 180 degrees.  A rigorous set of elements should be a 'retrograde factor' that will determine if the orbit is posigrade or retrograde (or within a few degrees of 180 degrees), however for simplicity we will not be adding this factor @Vallado5thEdition.")
 
 jh.printMarkdown("These characteristics make Equinoctial Elements a good choice for many types of problems.")
 
@@ -38,7 +36,7 @@ jh.showEquation("g", equiInTermsOfKep.EccentricitySinTermG)
 jh.showEquation("h", equiInTermsOfKep.InclinationCosTermH)
 jh.showEquation("k", equiInTermsOfKep.InclinationSinTermK)
 jh.showEquation("L", equiInTermsOfKep.TrueLongitude)
-jh.printMarkdown("Similar to Keplerian Elements, there is a True Longitude, Mean Longitude and Eccentricic Longitude, and conversions between them have the same challenges as the Anomalies do for Keplerian Elements.")
+jh.printMarkdown("Similar to Keplerian Elements, there is a True Longitude, Mean Longitude and Eccentric Longitude, and conversions between them have the same challenges as the Anomalies do for Keplerian Elements.")
 jh.printMarkdown("Also, the True Longitude here can often be greater than 360 degrees.  There may be instances where you will want to modulus-divide it by 1 rev of your angle units.")
 
 jh.printMarkdown("And the conversion of Modified Equinoctial Elements to Keplerian")
@@ -63,8 +61,8 @@ jh.printMarkdown("- L = true longitude")
 jh.printMarkdown("- $" + r'\mu' + "$ = gravitational parameter")
 
 jh.printMarkdown("## Equinoctial Orbital Elements")
-jh.printMarkdown("Indeed, the Modified elements are not the originally defined Equinoctial elements. Many sources describe non-modified Equinoctial elements, and converting them is straight forward @AppliedNonsingularAstrodynamcis.")
-jh.printMarkdown("The only difference is that the size of the orbit is defined with the semi-major axis, and the order of the other elements (the sin terms come before the cos terms).  The converstion from Modified Equinoctial Elements is:")
+jh.printMarkdown("Indeed, the Modified elements are not the originally defined Equinoctial elements. Many sources describe non-modified Equinoctial elements, and converting them is straight forward @AppliedNonsingularAstrodynamics.")
+jh.printMarkdown("The only difference is that the size of the orbit is defined with the semi-major axis, and the order of the other elements (the sin terms come before the cos terms).  The conversion from Modified Equinoctial Elements is:")
 jh.printMarkdown("Going from Modified to original Equinoctial Elements:")
 meeToEe = EquinoctialElementsHalfI.FromModifiedEquinoctialElements(equiElements)
 jh.showEquation("a", meeToEe.SemiMajorAxis)
@@ -108,7 +106,7 @@ jh.printMarkdown("As expected, for two body motion, the only change is in the Tr
 jh.printMarkdown("For the perturbation matrix, the cartesian acceleration is defined as:")
 
 jh.printMarkdown("## To and from the RIC axes")
-jh.printMarkdown("Although there is room for significant simplication, taking the basic defintions of the radial/in-tract/cross-track axes and the cartesian conversion, we get the following matrix converting an RIC axes to Inertial")
+jh.printMarkdown("Although there is room for significant simplification, taking the basic definitions of the radial/in-tract/cross-track axes and the cartesian conversion, we get the following matrix converting an RIC axes to Inertial")
 
 jh.showEquation("R_{RIC-ECI}", orb.CreateComplicatedRicToInertialMatrix(equiElements.ToMotionCartesian()))
 jh.printMarkdown('### Sources')
@@ -117,7 +115,7 @@ jh.printMarkdown('### Sources')
 #%%
 if '__file__' in globals() or '__file__' in locals():
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    thisFilePath = os.path.join(dir_path, "ModifiedEquinoctialElementsExplanation.py")
+    thisFilePath = os.path.join(dir_path, "004_ModifiedEquinoctialElementsExplanation.py")
     jh.ReportGeneratorFromPythonFileWithCells.WriteIpynbToDesiredFormatWithPandoc(thisFilePath, keepDirectoryClean=True)
     jh.printMarkdown("done")
 

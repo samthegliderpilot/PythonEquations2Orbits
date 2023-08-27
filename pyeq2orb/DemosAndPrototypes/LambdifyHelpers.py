@@ -214,11 +214,11 @@ class OdeLambdifyHelper(LambdifyHelper):
     def NonTimeLambdifyArguments(self) :
         return self.LambdifyArguments[1]
 
-    def AddMoreEquationsOfMotion(self, newEoms : List[sy.Eq]):
-        for i in range(0, len(newEoms)) :
-            self.NonTimeLambdifyArguments.append(newEoms[i].lhs.expr)
-            self.ExpressionsToLambdify.append(newEoms[i].rhs)
-            self._equationsOfMotion.append(newEoms[i])
+    def AddMoreEquationsOfMotion(self, newEquationsOfMotion : List[sy.Eq]):
+        for i in range(0, len(newEquationsOfMotion)) :
+            self.NonTimeLambdifyArguments.append(newEquationsOfMotion[i].lhs.expr)
+            self.ExpressionsToLambdify.append(newEquationsOfMotion[i].rhs)
+            self._equationsOfMotion.append(newEquationsOfMotion[i])
 
     def NonTimeArgumentsArgumentsInMatrixForm(self) -> sy.Matrix :
         return sy.Matrix(self.NonTimeLambdifyArguments)

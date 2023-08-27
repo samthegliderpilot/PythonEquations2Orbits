@@ -102,7 +102,7 @@ lambdifyFunctionMap = {'sqrt': poenv.sqrt, 'sin': poenv.sin, 'cos':poenv.cos} #T
 
 asNumericalProblem = NumericalProblemFromSymbolicProblem(problem, lambdifyFunctionMap)
 
-n=200
+n=300
 tSpace = np.linspace(0.0, 1.0, n)
 
 model = poenv.ConcreteModel()

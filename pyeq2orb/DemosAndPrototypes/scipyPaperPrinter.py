@@ -228,7 +228,7 @@ class ReportGeneratorFromPythonFileWithCells :
                 pandocCommand = "pandoc " + mdFileName + " -s -N -o " + outputFilePath +" --citeproc --bibliography=" + join(directory, sources) + " --csl=" + join(directory, csl)
                 ReportGeneratorFromPythonFileWithCells.runCommandPrintingOutput(pandocCommand, directory)
                 if not isfile(outputFilePath) :
-                    raise Exception("File was not created sucessfully")
+                    raise Exception("File was not created successfully")
 
     @staticmethod
     def RemoveSinglePercentLinesFromFile(filePath) :

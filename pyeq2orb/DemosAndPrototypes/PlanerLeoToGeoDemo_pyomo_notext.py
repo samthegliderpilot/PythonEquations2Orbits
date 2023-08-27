@@ -6,7 +6,7 @@ import sys
 import os
 thisFile = os.path.abspath(__file__)
 sys.path.append(os.path.abspath(thisFile + '..\\..\\..\\'))
-# these two appends do not conflict with eachother
+# these two appends do not conflict with each other
 import math
 import sympy as sy
 import numpy as np
@@ -63,7 +63,7 @@ if scale :
 rs = problem.StateVariables[0]
 us = problem.StateVariables[1]
 vs = problem.StateVariables[2]
-lons = problem.StateVariables[3]
+longitudes = problem.StateVariables[3]
 
 jh.t = problem._timeSymbol
 
@@ -90,9 +90,9 @@ if scale :
     initialScaledStateValues = problem.CreateVariablesAtTime0(problem.StateVariables)
     constantsSubsDict.update(zip(initialScaledStateValues, [r0, u0, v0, lon0])) 
     
-lambdiafyFunctionMap = {'sqrt': poenv.sqrt, 'sin': poenv.sin, 'cos':poenv.cos} #TODO: MOOOORE!!!!
+lambdifyFunctionMap = {'sqrt': poenv.sqrt, 'sin': poenv.sin, 'cos':poenv.cos} #TODO: MORE!!!!
 
-asNumericalProblem = NumericalProblemFromSymbolicProblem(problem, lambdiafyFunctionMap)
+asNumericalProblem = NumericalProblemFromSymbolicProblem(problem, lambdifyFunctionMap)
 
 n=200
 tSpace = np.linspace(0.0, 1.0, n)
@@ -118,8 +118,8 @@ model.uDot = podae.DerivativeVar(model.u, wrt=model.t)
 model.vDot = podae.DerivativeVar(model.v, wrt=model.t)
 model.lonDot = podae.DerivativeVar(model.lon, wrt=model.t)
 
-def mapPyomoStateToProblemState(m, t, expre) :
-    return expre([t, m.r[t], m.u[t], m.v[t], m.lon[t], m.control[t], m.tf])
+def mapPyomoStateToProblemState(m, t, expression) :
+    return expression([t, m.r[t], m.u[t], m.v[t], m.lon[t], m.control[t], m.tf])
 
 model.rEom = poenv.Constraint(model.t, rule =lambda m, t2: m.rDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 0)))
 model.uEom = poenv.Constraint(model.t, rule =lambda m, t2: m.uDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 1)))
@@ -127,10 +127,10 @@ model.vEom = poenv.Constraint(model.t, rule =lambda m, t2: m.vDot[t2] == mapPyom
 model.lonEom = poenv.Constraint(model.t, rule =lambda m, t2: m.lonDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 3)))
 
 
-def mapPyomoStateToProblemStatebc(m, t, expre) :
-    return expre([t, m.r[t], m.u[t], m.v[t], m.lon[t], m.control[t], m.tf])
+def mapPyomoStateToProblemStateBc(m, t, expression) :
+    return expression([t, m.r[t], m.u[t], m.v[t], m.lon[t], m.control[t], m.tf])
 
-model.bc1 = poenv.Constraint(rule = lambda mod1 : 0 == mapPyomoStateToProblemStatebc(mod1, 1.0, asNumericalProblem.BoundaryConditionCallbacks[0]))
+model.bc1 = poenv.Constraint(rule = lambda mod1 : 0 == mapPyomoStateToProblemStateBc(mod1, 1.0, asNumericalProblem.BoundaryConditionCallbacks[0]))
 model.bc2 = poenv.Constraint(rule = lambda mod1 : 0 == mapPyomoStateToProblemState(mod1, 1.0, asNumericalProblem.BoundaryConditionCallbacks[1]))
 
 def singlePyomoArrayToTerminalCostCallback(m, t, expr) :
@@ -143,7 +143,7 @@ model.var_input[model.control] = {0: 0.03}
 model.var_input[model.tf] = {0: tfOrg}
 
 sim = podae.Simulator(model, package='scipy') 
-tsim, profiles = sim.simulate(numpoints=n, varying_inputs=model.var_input, integrator='dop853', initcon=np.array([r0,u0, v0, lon0], dtype=float))
+tSim, profiles = sim.simulate(numpoints=n, varying_inputs=model.var_input, integrator='dop853', initcon=np.array([r0,u0, v0, lon0], dtype=float))
 
 #poenv.TransformationFactory('dae.finite_difference').apply_to(model, wrt=model.t, nfe=n, scheme='BACKWARD')
 poenv.TransformationFactory('dae.collocation').apply_to(model, wrt=model.t, nfe=n,ncp=3, scheme='LAGRANGE-RADAU')

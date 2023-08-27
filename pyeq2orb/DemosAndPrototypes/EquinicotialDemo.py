@@ -537,7 +537,7 @@ simulating=False
 
 #poenv.TransformationFactory('dae.finite_difference').apply_to(model, wrt=model.t, nfe=n, scheme='BACKWARD')
 print("transforming pyomo")
-poenv.TransformationFactory('dae.collocation').apply_to(model, wrt=model.t, nfe=n, ncp=3, scheme='LAGRANGE-LEGENDRE')
+poenv.TransformationFactory('dae.collocation').apply_to(model, wrt=model.t, nfe=n, ncp=3, scheme='LAGRANGE-RADAU')
 #['LAGRANGE-RADAU', 'LAGRANGE-LEGENDRE']
 print("initializing the pyomo model")
 sim.initialize_model()
@@ -545,7 +545,7 @@ sim.initialize_model()
 print("running the pyomo model")
 solver = poenv.SolverFactory('cyipopt')
 solver.config.options['tol'] = 1e-9
-solver.config.options['max_iter'] = 3000
+solver.config.options['max_iter'] = 4000
 
 try :
     solver.solve(model, tee=True)

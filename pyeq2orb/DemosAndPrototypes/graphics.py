@@ -48,10 +48,10 @@ if __name__ == '__main__' and sys.flags.interactive == 0:
 #     yy = 0
 #     zy = 0
 
-#     Xdot = (xx, yx, zx)
-#     Ydot = (xy, yy, zy)
+#     XDot = (xx, yx, zx)
+#     YDot = (xy, yy, zy)
 
-#     xyx = np.array([Xdot, Ydot])
+#     xyx = np.array([XDot, YDot])
 #     sh1 = gl.GLLinePlotItem(pos=xyz, width=2, antialias=False, color='red')
 #     w.addItem(sh1)
 #     w.show()
@@ -85,9 +85,9 @@ if __name__ == '__main__' and sys.flags.interactive == 0:
 #         points_list.append(point2) #add the point2 tuple to the points_list
 #         print(points_list)
 #         points_array = np.array(points_list) #convert the list to an array
-#         drawing_variable = gl.GLLinePlotItem(pos = points_array, width = 1, antialias = True)   #make a variable to store drawing data(specify the points, set antialiasing)
+#         drawing_variable = gl.GLLinePlotItem(pos = points_array, width = 1, antialias = True)   #make a variable to store drawing data(specify the points, set anti-aliasing)
 #         self.window.addItem(drawing_variable) #draw the item
-#         drawing_variable2 = gl.GLLinePlotItem(pos = xyz, width = 1, antialias = True)   #make a variable to store drawing data(specify the points, set antialiasing)
+#         drawing_variable2 = gl.GLLinePlotItem(pos = xyz, width = 1, antialias = True)   #make a variable to store drawing data(specify the points, set anti-aliasing)
 #         self.window.addItem(drawing_variable2) #draw the item
 
 #     def start(self):

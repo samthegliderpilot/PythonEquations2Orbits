@@ -69,14 +69,14 @@ gravityOdeHelper.setStateElement(y(t), vy(t), y(0))
 gravityOdeHelper.setStateElement(vx(t), 0.0, vx(0))
 gravityOdeHelper.setStateElement(vy(t), -1*gSy, vy(0))
 
-#gravityOdeHelper.lamdifyParameterSymbols.append(gSy)
+#gravityOdeHelper.lambdifyParameterSymbols.append(gSy)
 gravityOdeHelper.constants[gSy] = g
 
 print(gravityOdeHelper.makeStateForLambdifiedFunction())
 
 callback = gravityOdeHelper.createLambdifiedCallback()
-desolveAns = gravityOdeHelper.attemptDeSolve()
-deSolveCb = gravityOdeHelper.deSolveResultsToCallback(desolveAns, initialValues)
+deSolveAns = gravityOdeHelper.attemptDeSolve()
+deSolveCb = gravityOdeHelper.deSolveResultsToCallback(deSolveAns, initialValues)
 
 count = 20
 allDataForward = integrateSystemOverTimeRange(callback, TrapezoidalForward, initialValues, [g], t0, tf, count)
@@ -92,4 +92,4 @@ plotData.append(trap)
 plotData.append(trapBack)
 plotData.append(truthData)
 
-plot2DLines(plotData, "Integration Experements")
+plot2DLines(plotData, "Integration Experiments")
