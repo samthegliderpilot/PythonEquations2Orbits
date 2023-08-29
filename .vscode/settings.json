@@ -63,6 +63,7 @@
         "rtol",
         "scipy",
         "semilatus",
+        "SEPSPOT",
         "showlegend",
         "SLSQP",
         "solveivp",

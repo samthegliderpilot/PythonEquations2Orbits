@@ -4,7 +4,7 @@ import math
 from pyeq2orb.Coordinates.KeplerianModule import KeplerianElements
 from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
-from typing import List, Dict, Optional, cast, Union
+from typing import List, Dict, Optional, cast, Union, cast
 from numbers import Real
 
 class ModifiedEquinoctialElements:
@@ -119,8 +119,8 @@ class ModifiedEquinoctialElements:
         rz = 2*(r/sSquared)*(h*sinL - k*cosL)
 
         sqrtMuOverP = sy.sqrt(mu/p)
-        vx = -1*(1/sSquared) *sqrtMuOverP*(   sinL + alpSq*sinL - 2*h*k*cosL + g - 2*f*h*k + alpSq*g)
-        vy = -1*(1/sSquared) *sqrtMuOverP*(-1*cosL + alpSq*cosL + 2*h*k*sinL - f + 2*g*h*k + alpSq*f)
+        vx = (-1/sSquared) *sqrtMuOverP*(   sinL + alpSq*sinL - 2*h*k*cosL + g - 2*f*h*k + alpSq*g)
+        vy = (-1/sSquared) *sqrtMuOverP*(-cosL + alpSq*cosL + 2*h*k*sinL - f + 2*g*h*k + alpSq*f)
         vz = (2/(sSquared))*sqrtMuOverP*(h*cosL + k*sinL + f*h + g*k)
 
         return MotionCartesian(Cartesian(rx, ry, rz), Cartesian(vx, vy, vz))
@@ -194,8 +194,8 @@ class ModifiedEquinoctialElements:
         # note that in teh 3rd row, middle term, I added a 1/w because I think it is correct even though the MME pdf doesn't have it
         # note that SAO/NASA (Walked, Ireland and Owens) says that the final term of the third element is feq/w instead of heq/w
         B = sy.Matrix([[0, (2*pEq/w)*sqrtPOverMu, 0],
-                    [   sqrtPOverMu*sy.sin(lEq), sqrtPOverMu*(1.0/w)*((w+1)*sy.cos(lEq)+fEq), -1*sqrtPOverMu*(gEq/w)*(kEq*sy.sin(lEq)-hEq*sy.cos(lEq))],
-                    [-1*sqrtPOverMu*sy.cos(lEq), sqrtPOverMu*(1.0/w)*((w+1)*sy.sin(lEq)+gEq),    sqrtPOverMu*(fEq/w)*(kEq*sy.sin(lEq)-hEq*sy.cos(lEq))],
+                    [   sqrtPOverMu*sy.sin(lEq), sqrtPOverMu*(1.0/w)*((w+1)*sy.cos(lEq)+fEq), -sqrtPOverMu*(gEq/w)*(kEq*sy.sin(lEq)-hEq*sy.cos(lEq))],
+                    [-sqrtPOverMu*sy.cos(lEq), sqrtPOverMu*(1.0/w)*((w+1)*sy.sin(lEq)+gEq),    sqrtPOverMu*(fEq/w)*(kEq*sy.sin(lEq)-hEq*sy.cos(lEq))],
                     [0.0,0.0,sqrtPOverMu*(s2*sy.cos(lEq)/(2*w))],
                     [0.0,0.0,sqrtPOverMu*(s2*sy.sin(lEq)/(2*w))],
                     [0.0,0.0,sqrtPOverMu*(hEq*sy.sin(lEq)-kEq*sy.cos(lEq))/w]])
@@ -217,7 +217,7 @@ class ModifiedEquinoctialElements:
 
     def __len__(self):
         return 6
-    
+
 def ConvertKeplerianToEquinoctial(keplerianElements : KeplerianElements, nonModdedLongitude : Optional[bool]= True) ->ModifiedEquinoctialElements :
     a = keplerianElements.SemiMajorAxis
     e = keplerianElements.Eccentricity
@@ -226,7 +226,7 @@ def ConvertKeplerianToEquinoctial(keplerianElements : KeplerianElements, nonModd
     raan = keplerianElements.RightAscensionOfAscendingNode
     ta = keplerianElements.TrueAnomaly
 
-    per = a*(1.0-e**2)
+    per = a*(1-e**2)
     f = e*sy.cos(w+raan)
     g = e*sy.sin(w+raan)
     
@@ -241,7 +241,10 @@ def ConvertKeplerianToEquinoctial(keplerianElements : KeplerianElements, nonModd
 
     return ModifiedEquinoctialElements(per, f, g, h, k, l, keplerianElements.GravitationalParameter)
 
-def CreateSymbolicElements(elementOf :Optional[SymbolOrNumber]= None) -> ModifiedEquinoctialElements : #TODO named arguments of mu and element of
+def CreateSymbolicElements(elementOf :Optional[SymbolOrNumber]= None, mu : Optional[SymbolOrNumber] = None) -> ModifiedEquinoctialElements : #TODO named arguments of mu and element of
+    if mu is None:
+        mu = sy.Symbol(r'\mu', positive=True, real=True)
+
     if(elementOf == None) : 
         p = sy.Symbol('p', positive=True, real=True)
         f = sy.Symbol('f', real=True)
@@ -256,8 +259,7 @@ def CreateSymbolicElements(elementOf :Optional[SymbolOrNumber]= None) -> Modifie
         h = sy.Function('h', real=True)(elementOf)
         k= sy.Function('k', real=True)(elementOf)
         l = sy.Function('L', real=True)(elementOf)
-    mu = sy.Symbol(r'\mu', positive=True, real=True)
-
+    
     return ModifiedEquinoctialElements(p, f, g, h, k, l, mu)
 
 
@@ -276,25 +278,25 @@ class EquinoctialElementsHalfI :
     def __init__(self, a:SymbolOrNumber, h:SymbolOrNumber, k:SymbolOrNumber, p:SymbolOrNumber, q:SymbolOrNumber, longitude:SymbolOrNumber, mu:SymbolOrNumber) :
         self.SemiMajorAxis = a
         self.EccentricitySinTermH = h
-        self.EccentricityCosTermJ = k
+        self.EccentricityCosTermK = k
         self.InclinationSinTermP = p
         self.InclinationCosTermQ = q
         self.Longitude = longitude # consider how things would work if longitude was left ambiguous
         self.GravitationalParameter = mu
 
     def ConvertToModifiedEquinoctial(self) ->ModifiedEquinoctialElements:
-        eSq = self.EccentricityCosTermJ**2+self.EccentricitySinTermH**2
+        eSq = self.EccentricityCosTermK**2+self.EccentricitySinTermH**2
         param = self.SemiMajorAxis * (1.0 - eSq)
-        return ModifiedEquinoctialElements(param, self.EccentricityCosTermJ, self.EccentricitySinTermH, self.InclinationCosTermQ, self.InclinationSinTermP, self.Longitude, self.GravitationalParameter)
+        return ModifiedEquinoctialElements(param, self.EccentricityCosTermK, self.EccentricitySinTermH, self.InclinationCosTermQ, self.InclinationSinTermP, self.Longitude, self.GravitationalParameter)
 
     @staticmethod
     def FromModifiedEquinoctialElements(mee : ModifiedEquinoctialElements)->EquinoctialElementsHalfI :
         eSq = mee.EccentricityCosTermF**2+mee.EccentricitySinTermG**2
-        sma = mee.SemiParameter/(1.0-eSq)
+        sma = mee.SemiParameter/(1-eSq)
         return EquinoctialElementsHalfI(sma, mee.EccentricitySinTermG, mee.EccentricityCosTermF, mee.InclinationSinTermK, mee.InclinationCosTermH, mee.TrueLongitude, mee.GravitationalParameter)
 
     @staticmethod
-    def CreateSymbolicElements(elementOf :Optional[SymbolOrNumber]= None) ->EquinoctialElementsHalfI : #TODO named arguments of mu and element of
+    def CreateSymbolicElements(elementOf :Optional[SymbolOrNumber]= None, mu : Optional[SymbolOrNumber] = None) ->EquinoctialElementsHalfI : 
         if(elementOf == None) : 
             a = sy.Symbol('a', real=True)
             h = sy.Symbol('h', real=True)
@@ -309,7 +311,8 @@ class EquinoctialElementsHalfI :
             p = sy.Function('p', real=True)(elementOf)
             q= sy.Function('q', real=True)(elementOf)
             l = sy.Function('l', real=True)(elementOf)
-        mu = sy.Symbol(r'\mu', positive=True, real=True)
+        if mu is None :
+            mu = cast(SymbolOrNumber, sy.Symbol(r'\mu', positive=True, real=True))
 
         return EquinoctialElementsHalfI(a, h, k, p, q, l, mu)
     
@@ -331,7 +334,7 @@ class EquinoctialElementsHalfI :
         p = self.InclinationSinTermP
         q = self.InclinationCosTermQ
         h = self.EccentricitySinTermH
-        k = self.EccentricityCosTermJ
+        k = self.EccentricityCosTermK
         mu = self.GravitationalParameter
         a = self.SemiMajorAxis
         f = eccentricLongitude
@@ -360,7 +363,7 @@ class EquinoctialElementsHalfI :
         p = self.InclinationSinTermP
         q = self.InclinationCosTermQ
         h = self.EccentricitySinTermH
-        k = self.EccentricityCosTermJ
+        k = self.EccentricityCosTermK
         mu = self.GravitationalParameter
         a = self.SemiMajorAxis
         f = eccentricLongitude

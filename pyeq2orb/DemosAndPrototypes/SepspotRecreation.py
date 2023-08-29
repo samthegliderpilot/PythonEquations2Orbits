@@ -16,32 +16,39 @@ import pyeq2orb.Coordinates.ModifiedEquinoctialElementsModule as mee
 from IPython.display import display
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 import scipyPaperPrinter as jh #type: ignore
-jh.printMarkdown("# Sepspot Recreation")
-jh.printMarkdown("In working my way up through low-thrust modeling for satellite maneuvers, it is inevetable to run into Dr. Edelbaum's work.  Newer work such as Jean Albert Kechichian's practicaly requires understanding SEPSPOT as a prerequesit.  This writeup will go through the basics of SEPSPOT's algorithsm as described in the references below.")
+jh.printMarkdown("# SEPSPOT Recreation")
+jh.printMarkdown("In working my way up through low-thrust modeling for satellite maneuvers, it is inevitable to run into Dr. Edelbaum's work.  Newer work such as Jean Albert Kechichian's practically requires understanding SEPSPOT as a prerequesit.  This writeup will go through the basics of SEPSPOT's algorithsm as described in the references below.")
 
-jh.printMarkdown("In other work in this python library, I have already created many helper types such as Equinocital elements, their equations of motion, rotation matrices, and more. To start, we will define out set of equinoctial elements.  Unlike the orignial paper, I will be using the modified elements.  This replaces the semi-major axis with the parameter and reorders/renames some of the other elements.")
-t=sy.Symbol('t')
-mu = sy.Symbol(r'\mu')
-kepElements = KepModule.CreateSymbolicElements()
-simpleEquiElements = mee.CreateSymbolicElements()
-simpleBoringEquiElements = mee.EquinoctialElementsHalfI.CreateSymbolicElements()
+jh.printMarkdown("In other work in this python library, I have already created many helper types such as Equinoctial elements, their equations of motion, rotation matrices, and more. To start, we will define out set of equinoctial elements.  Unlike the orignial paper, I will be using the modified elements.  This replaces the semi-major axis with the parameter and reorders/renames some of the other elements.")
+t=sy.Symbol('t', real=True)
+mu = sy.Symbol(r'\mu', real=True, positive=True)
+kepElements = KepModule.CreateSymbolicElements(mu=mu)
+
+simpleBoringEquiElements = mee.EquinoctialElementsHalfI.CreateSymbolicElements(mu=mu)
+a = simpleBoringEquiElements.SemiMajorAxis
+h = simpleBoringEquiElements.EccentricitySinTermH
+k = simpleBoringEquiElements.EccentricityCosTermK
+p = simpleBoringEquiElements.InclinationSinTermP
+q = simpleBoringEquiElements.InclinationCosTermQ
+beta = 1/(1+sy.sqrt(1-h**2-k**2))
 equiInTermsOfKep = mee.ConvertKeplerianToEquinoctial(kepElements)
+# kepInTermsOfEqui = simpleEquiElements.ToKeplerian()
 # jh.showEquation("p", equiInTermsOfKep.SemiParameter)
-# jh.showEquation("f", equiInTermsOfKep.EccentricitySinTermG)
+# jh.showEquation("f", equiInTermsOfKep.EccentricityCosTermF)
 # jh.showEquation("g", equiInTermsOfKep.EccentricitySinTermG)
 # jh.showEquation("h", equiInTermsOfKep.InclinationCosTermH)
 # jh.showEquation("k", equiInTermsOfKep.InclinationSinTermK)
 # jh.showEquation("L", equiInTermsOfKep.TrueLongitude)
 eccentricAnomaly = sy.Symbol('E')
 eccentricLongitude = sy.Function('F')(t)
-simpleEquiElements.F = eccentricLongitude
+simpleBoringEquiElements.F = eccentricLongitude
 equiInTermsOfKep.F = eccentricAnomaly + kepElements.ArgumentOfPeriapsis + kepElements.RightAscensionOfAscendingNode
 jh.printMarkdown("We want our orbital elements to use the eccentric longitude which is:")
 jh.showEquation(eccentricLongitude, equiInTermsOfKep.F) #TODO: Look into how to better include this in the normal equi elements
 
 jh.printMarkdown("The rotation matrix of the axes being used for this analysis to inertial is:")
-jh.showEquation("R", simpleEquiElements.CreateFgwToInertialAxes())
-r = simpleEquiElements.CreateFgwToInertialAxes()
+jh.showEquation("R", simpleBoringEquiElements.CreateFgwToInertialAxes())
+r = simpleBoringEquiElements.CreateFgwToInertialAxes()
 jh.printMarkdown("And with keplerian elements:")
 jh.showEquation("R", equiInTermsOfKep.CreateFgwToInertialAxes())
 
@@ -63,15 +70,15 @@ jh.showEquation(x2DotSy, x2SimpleEqui)
 normalEquiElementsInTermsOfKep = mee.EquinoctialElementsHalfI.FromModifiedEquinoctialElements(equiInTermsOfKep)
 [x1Complete, x2Complete] = normalEquiElementsInTermsOfKep.RadiusInFgw(equiInTermsOfKep.F)
 [x1DotComplete, x2DotComplete] = normalEquiElementsInTermsOfKep.VelocityInFgw(equiInTermsOfKep.F)
-#jh.showEquation("X_1", x1Complete)
-#jh.showEquation("X_2", x2Complete)
-#jh.showEquation("\dot{X_1}", x1DotComplete)
-#jh.showEquation("\dot{X_2}", x2DotComplete)
+jh.showEquation("X_1", x1Complete.trigsimp(deep=True))
+jh.showEquation("X_2", x2Complete.trigsimp(deep=True))
+jh.showEquation("\dot{X_1}", x1DotComplete.trigsimp(deep=True))
+jh.showEquation("\dot{X_2}", x2DotComplete.trigsimp(deep=True))
 
-#%%
-# x,y,z = sy.symbols('x y z', real=True)
-# vx,vy,vz = sy.symbols('v_x v_y v_z', real=True)
-# cart = MotionCartesian(Cartesian(x,y,z), Cartesian(vx,vy,vz))
+
+x,y,z = sy.symbols('x y z', real=True)
+vx,vy,vz = sy.symbols('v_x v_y v_z', real=True)
+cart = MotionCartesian(Cartesian(x,y,z), Cartesian(vx,vy,vz))
 # sma = sy.Function('a', real=True, positive=True)(x,y,z,vz,vy,vz)
 # ecc = sy.Function('ecc', real=True, positive=True)(x,y,z,vz,vy,vz)
 # inc = sy.Function('i', real=True)(x,y,z,vz,vy,vz)
@@ -159,10 +166,6 @@ def poisonBracket(exp, f, g, states) :
 #%%
 
 
-
-
-
-
 fullSubsDictionary[x1Sy] = x1Complete
 fullSubsDictionary[x2Sy] = x2Complete
 fullSubsDictionary[x1DotSy] = x1DotComplete
@@ -203,7 +206,7 @@ def makeMatrixOfSymbols(baseString : str, rows, cols, t=None) :
 
 n = 5
 jh.printMarkdown("Staring with our x:")
-x = sy.Matrix([[simpleEquiElements.SemiParameter, simpleEquiElements.EccentricityCosTermF, simpleEquiElements.EccentricitySinTermG, simpleEquiElements.InclinationCosTermH, simpleEquiElements.InclinationSinTermK]]).transpose()
+x = sy.Matrix([[simpleBoringEquiElements.SemiMajorAxis, simpleBoringEquiElements.EccentricitySinTermH, simpleBoringEquiElements.EccentricityCosTermK, simpleBoringEquiElements.InclinationSinTermP, simpleBoringEquiElements.InclinationCosTermQ]]).transpose()
 xSy = sy.MatrixSymbol('x', n, 1)
 jh.showEquation(xSy, x)
 jh.printMarkdown(r'We write our $\underline{\dot{x}}$ with the assumed optimal control vector $\underline{\hat{u}}$ as:')
@@ -235,6 +238,51 @@ jh.printMarkdown("Putting this back into our Hamiltonian, we get")
 hStar = (lambdas.transpose() * g1Sy)[0,0] + aSy*(uOpt.norm())
 jh.showEquation("H^{*}", hStar)
 jh.printMarkdown("Although not as cleanly defined as in the paper, we will soon be substituting expressions into this to create our equations of motion and boundary conditions.")
+
+#%%
+a = kepElements.SemiMajorAxis
+n = kepElements.MeanMotion
+x1 = x1Complete
+y1 = x2Complete
+xDot = x1DotComplete
+yDot = x2DotComplete
+F = simpleBoringEquiElements.F
+dX1dh = a*(-h*beta*sy.cos(F)- (beta+(h**2)*beta**3)*(h*sy.cos(F)-k*sy.sin(F))/(1-beta))
+dY1dh = a*( k*beta*sy.cos(F)-1      +h*k* (beta**3)*(h*sy.cos(F)-k*sy.sin(F))/(1-beta))
+dX1dk = a*( h*beta*sy.sin(F)-1      -h*k* (beta**3)*(h*sy.cos(F)-k*sy.sin(F))/(1-beta))
+dY1dk = a*(-k*beta*sy.sin(F)+beta+((k**2)*(beta**3)*(h*sy.cos(F)-k*sy.sin(F))/(1-beta)))
+m11 = 2*xDot/(n*n*a)
+m12 = 2*yDot/(n*n*a)
+m13 = 0
+m21 = (sy.sqrt(1-h**2-k**2)/(n*a**2))*(dX1dk+(xDot/n)*(sy.sin(F)-h*beta))
+m22 = (sy.sqrt(1-h**2-k**2)/(n*a**2))*(dY1dk+(yDot/n)*(sy.sin(F)-h*beta))
+m23 = k*(q*y1-p*x1)/(n*(a**2)*sy.sqrt(1-h**h-k**h))
+m31 = -1*(sy.sqrt(1-h**2-k**2)/(n*a**2))*(dX1dh-(xDot/n)*(sy.cos(F)-k*beta))
+m32 = -1*(sy.sqrt(1-h**2-k**2)/(n*a**2))*(dY1dh-(yDot/n)*(sy.cos(F)-k*beta))
+m33 = -1*h*(q*y1-p*x1)/(n*(a**2)*sy.sqrt(1-h**h-k**h))
+m41 = 0
+m42 = 0
+m43 = (1+p**2+q**2)*y1/(2*n*a**2*sy.sqrt(1-h**2-k**2))
+m51 = 0
+m52 = 0
+m53 = (1+p**2+q**2)*x1/(2*n*a**2*sy.sqrt(1-h**2-k**2))
+
+#%%
+M = sy.Matrix([[m11, m12, m13], [m21, m22, m23],[m31, m32, m33],[m41, m42, m43],[m51, m52, m53]]).applyfunc(lambda s : sy.simplify(s))
+display(M)
+dMda = M.diff(a)
+display(dMda)
+
+#%%
+#accel = sy.Symbol('a', real=True, nonnegative=True)
+
+
+lambdas = sy.Matrix([[sy.Symbol(r'\lambda_a')],[sy.Symbol(r'\lambda_h')],[sy.Symbol(r'\lambda_k')],[sy.Symbol(r'\lambda_p')],[sy.Symbol(r'\lambda_q')]])
+acceleration= sy.Symbol('a')#sy.Matrix([[sy.Symbol('a_x'),sy.Symbol('a_y'),sy.Symbol('a_z')]])
+MtimesLambdas = M.transpose()*lambdas
+mTimesLambdasMagnitude = MtimesLambdas.norm()
+
+zdot = acceleration * (M*(MtimesLambdas)/(mTimesLambdasMagnitude))
 #%%
 jh.printMarkdown("## Averaging of the Hamiltonian")
 

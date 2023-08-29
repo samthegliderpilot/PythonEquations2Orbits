@@ -248,7 +248,7 @@ class GaussianEquationsOfMotion :
         return sy.Eq(lhs, rhs)
 
 
-def CreateSymbolicElements(elementsFunctionOf : Optional[sy.Expr] = None) -> KeplerianElements :
+def CreateSymbolicElements(elementsFunctionOf : Optional[sy.Expr] = None, mu : Optional[SymbolOrNumber] = None) -> KeplerianElements :
     """Creates a KeplerianElements structure made of symbols.
 
     Args:
@@ -271,5 +271,6 @@ def CreateSymbolicElements(elementsFunctionOf : Optional[sy.Expr] = None) -> Kep
         raan = sy.Function('\Omega', real=True)(elementsFunctionOf)
         aop = sy.Function('\omega', real=True)(elementsFunctionOf)
         ta = sy.Function(r'\nu', real=True)(elementsFunctionOf)
-    mu = sy.Symbol('\mu', positive=True, real=True)
+    if mu is None :
+        mu = sy.Symbol('\mu', positive=True, real=True)
     return KeplerianElements(a, ecc, inc, aop, raan, ta, mu)
