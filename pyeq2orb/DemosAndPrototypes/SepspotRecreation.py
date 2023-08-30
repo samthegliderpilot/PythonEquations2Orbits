@@ -30,6 +30,8 @@ h = simpleBoringEquiElements.EccentricitySinTermH
 k = simpleBoringEquiElements.EccentricityCosTermK
 p = simpleBoringEquiElements.InclinationSinTermP
 q = simpleBoringEquiElements.InclinationCosTermQ
+
+
 beta = 1/(1+sy.sqrt(1-h**2-k**2))
 equiInTermsOfKep = mee.ConvertKeplerianToEquinoctial(kepElements)
 # kepInTermsOfEqui = simpleEquiElements.ToKeplerian()
@@ -79,80 +81,7 @@ jh.showEquation("\dot{X_2}", x2DotComplete.trigsimp(deep=True))
 x,y,z = sy.symbols('x y z', real=True)
 vx,vy,vz = sy.symbols('v_x v_y v_z', real=True)
 cart = MotionCartesian(Cartesian(x,y,z), Cartesian(vx,vy,vz))
-# sma = sy.Function('a', real=True, positive=True)(x,y,z,vz,vy,vz)
-# ecc = sy.Function('ecc', real=True, positive=True)(x,y,z,vz,vy,vz)
-# inc = sy.Function('i', real=True)(x,y,z,vz,vy,vz)
-# raan = sy.Function(r'\Omega', real=True)(x,y,z,vz,vy,vz)
-# aop = sy.Function(r'\omega', real=True)(x,y,z,vz,vy,vz)
-# ta = sy.Function(r'\nu', real=True, positive=True)(x,y,z,vz,vy,vz)
 
-# kep = KepModule.KeplerianElements(sma, ecc, inc, aop, raan, ta, mu)
-# boringEqui = mee.ConvertKeplerianToEquinoctial(kep)
-# k = boringEqui.InclinationSinTermK.simplify()
-# display(k)
-# dkdvz =sy.Derivative(k, vz)
-# display(dkdvz)
-# dkdvz=dkdvz.doit()
-# display(dkdvz)
-#%%
-# radVec = r*Cartesian(x1Complete, x2Complete, 0)
-# velVec = r*Cartesian(x1DotComplete, x2DotComplete, 0)
-# kepElementsInTermsOfCart = KepModule.KeplerianElements.FromMotionCartesian(cart, mu)
-# thisSubsDict = OrderedDict()
-# thisSubsDict[sma] = kepElementsInTermsOfCart.SemiMajorAxis
-# thisSubsDict[ecc] = kepElementsInTermsOfCart.Eccentricity
-# thisSubsDict[inc] = kepElementsInTermsOfCart.Inclination
-# thisSubsDict[raan] = kepElementsInTermsOfCart.RightAscensionOfAscendingNode
-# thisSubsDict[aop] = kepElementsInTermsOfCart.ArgumentOfPeriapsis
-# thisSubsDict[ta] = kepElementsInTermsOfCart.TrueAnomaly
-# thisSubsDict[x] = radVec.X
-# thisSubsDict[y] = radVec.Y
-# thisSubsDict[z] = radVec.Z
-# thisSubsDict[vx] = velVec.X
-# thisSubsDict[vy] = velVec.Y
-# thisSubsDict[vz] = velVec.Z
-# dkdvzSubsed = dkdvz.subs(thisSubsDict, simultaneous=True).subs(thisSubsDict, simultaneous=True).doit()
-# display(dkdvzSubsed)
-# dkdvzSubsed=dkdvzSubsed.expand().simplify()
-# display(dkdvzSubsed)
-
-#%%
-# x1PerAdFunc = sy.Function('x_1', real=True)(simpleBoringEquiElements.SemiMajorAxis, simpleBoringEquiElements.EccentricitySinTermH, simpleBoringEquiElements.EccentricityCosTermJ)
-# x2PerAdFunc = sy.Function('x_2', real=True)(simpleBoringEquiElements.SemiMajorAxis, simpleBoringEquiElements.EccentricitySinTermH, simpleBoringEquiElements.EccentricityCosTermJ)
-# x1DotPerAdFunc = sy.Function('\dot{x_1}', real=True)(simpleBoringEquiElements.SemiMajorAxis, simpleBoringEquiElements.EccentricitySinTermH, simpleBoringEquiElements.EccentricityCosTermJ)
-# x2DotPerAdFunc = sy.Function('\dot{x_2}', real=True)(simpleBoringEquiElements.SemiMajorAxis, simpleBoringEquiElements.EccentricitySinTermH, simpleBoringEquiElements.EccentricityCosTermJ)
-
-# x1AsFunc = sy.Function('X_1', real=True)(x1PerAdFunc, x2PerAdFunc, simpleBoringEquiElements.InclinationCosTermQ, simpleBoringEquiElements.InclinationSinTermP)
-# x2AsFunc = sy.Function('X_2', real=True)(x1PerAdFunc, x2PerAdFunc, simpleBoringEquiElements.InclinationCosTermQ, simpleBoringEquiElements.InclinationSinTermP)
-# x3AsFunc = sy.Function('X_3', real=True)(x1PerAdFunc, x2PerAdFunc, simpleBoringEquiElements.InclinationCosTermQ, simpleBoringEquiElements.InclinationSinTermP)
-# x1DotAsFunc = sy.Function('\dot{X_1}', real=True)(x1PerAdFunc, x2PerAdFunc, simpleBoringEquiElements.InclinationCosTermQ, simpleBoringEquiElements.InclinationSinTermP)
-# x2DotAsFunc = sy.Function('\dot{X_2}', real=True)(x1PerAdFunc, x2PerAdFunc, simpleBoringEquiElements.InclinationCosTermQ, simpleBoringEquiElements.InclinationSinTermP)
-# x3DotAsFunc = sy.Function('\dot{X_3}', real=True)(x1PerAdFunc, x2PerAdFunc, simpleBoringEquiElements.InclinationCosTermQ, simpleBoringEquiElements.InclinationSinTermP)
-
-# w1Func = sy.Function("w_1", real=True)(x1AsFunc, x2AsFunc, x3AsFunc, x1DotAsFunc, x2DotAsFunc, x3DotAsFunc)
-# w2Func = sy.Function("w_2", real=True)(x1AsFunc, x2AsFunc, x3AsFunc, x1DotAsFunc, x2DotAsFunc, x3DotAsFunc)
-# w3Func = sy.Function("w_3", real=True)(x1AsFunc, x2AsFunc, x3AsFunc, x1DotAsFunc, x2DotAsFunc, x3DotAsFunc)
-
-# xSuperSimple = Cartesian(x1AsFunc, x2AsFunc, x3AsFunc) 
-# xDotSuperSimple =Cartesian(x1DotAsFunc, x2DotAsFunc, x3DotAsFunc)
-
-# xComplicated = r*Cartesian(x1Complete, x2Complete, 0)
-# xDotComplicated = r*Cartesian(x1DotComplete, x2DotComplete, 0)
-# fullSubsDictionary[x1PerAdFunc] = x1Complete
-# fullSubsDictionary[x2PerAdFunc] = x2Complete
-# fullSubsDictionary[x1DotPerAdFunc] = x1DotComplete
-# fullSubsDictionary[x2DotPerAdFunc] = x2DotComplete
-# fullSubsDictionary[x1AsFunc] = xComplicated[0]
-# fullSubsDictionary[x2AsFunc] = xComplicated[1]
-# fullSubsDictionary[x3AsFunc] = xComplicated[2]
-# fullSubsDictionary[x1DotAsFunc] = xDotComplicated[0]
-# fullSubsDictionary[x2DotAsFunc] = xDotComplicated[1]
-# fullSubsDictionary[x3DotAsFunc] = xDotComplicated[2]
-
-# equiElementsInTermsOfXs = mee.EquinoctialElementsHalfI.InTermsOfX1And2AndTheirDots(x1AsFunc, x2AsFunc,x3AsFunc, x1DotAsFunc, x2DotAsFunc, x3DotAsFunc, sy.Symbol('p'), sy.Symbol('q'), mu, fullSubsDictionary, 0)
-# pSimple = equiElementsInTermsOfXs.InclinationSinTermP.expand().simplify()
-# jh.showEquationNoFunctionsOf("p", pSimple)
-# display(sy.diff(pSimple.expand(), x1PerAdFunc).expand().simplify())
 #%%
 def poisonBracket(exp, f, g, states) :
     sum = 0
@@ -161,7 +90,6 @@ def poisonBracket(exp, f, g, states) :
             sum = sum - sy.diff(f, a) * sy.diff(g, b) + sy.diff(f, b)*sy.diff(g, a)
     return sum
 
-#display(poisonBracket(x1SimpleEqui, simpleBoringEquiElements.SemiMajorAxis, [simpleBoringEquiElements.SemiMajorAxis,
 
 #%%
 
@@ -176,13 +104,13 @@ kepElements.M = meanAnomaly
 keplerianEquationLhs = kepElements.M + kepElements.ArgumentOfPeriapsis + kepElements.RightAscensionOfAscendingNode
 keplerianEquationHhs = equiInTermsOfKep.F - equiInTermsOfKep.EccentricityCosTermF*sy.sin(eccentricLongitude) + equiInTermsOfKep.EccentricitySinTermG*sy.cos(eccentricLongitude)
 kepEquation = sy.Eq(keplerianEquationLhs, keplerianEquationHhs)
-jh.printMarkdown("And finally, we have Keplers equation")
+jh.printMarkdown("And finally, we have Kepler's equation")
 jh.showEquation(kepEquation)
 
 
 #%%
 jh.printMarkdown("### The Optimal Control Problem")
-jh.printMarkdown("We will limit ourselves (for now) to the 5-state orbit averaged problem.  We will also for now stick to the 2-body problem with no oblatness of the Earth.")
+jh.printMarkdown("We will limit ourselves (for now) to the 5-state orbit averaged problem.  We will also for now stick to the 2-body problem with no oblateness of the Earth.")
 jh.printMarkdown("The paper defines the Hamiltonian as")
 jh.printMarkdown(r'$$H=\underline{\lambda}^{T}\underline{\dot{x}}$$')
 jh.printMarkdown("Which is the standard Hamiltonian I've seen in other sources assuming no path cost.")
@@ -246,7 +174,7 @@ x1 = x1Complete
 y1 = x2Complete
 xDot = x1DotComplete
 yDot = x2DotComplete
-F = simpleBoringEquiElements.F
+F = eccentricLongitude
 dX1dh = a*(-h*beta*sy.cos(F)- (beta+(h**2)*beta**3)*(h*sy.cos(F)-k*sy.sin(F))/(1-beta))
 dY1dh = a*( k*beta*sy.cos(F)-1      +h*k* (beta**3)*(h*sy.cos(F)-k*sy.sin(F))/(1-beta))
 dX1dk = a*( h*beta*sy.sin(F)-1      -h*k* (beta**3)*(h*sy.cos(F)-k*sy.sin(F))/(1-beta))
@@ -268,11 +196,9 @@ m52 = 0
 m53 = (1+p**2+q**2)*x1/(2*n*a**2*sy.sqrt(1-h**2-k**2))
 
 #%%
-M = sy.Matrix([[m11, m12, m13], [m21, m22, m23],[m31, m32, m33],[m41, m42, m43],[m51, m52, m53]]).applyfunc(lambda s : sy.simplify(s))
+M = sy.Matrix([[m11, m12, m13], [m21, m22, m23],[m31, m32, m33],[m41, m42, m43],[m51, m52, m53]])
 display(M)
-dMda = M.diff(a)
-display(dMda)
-
+display(M.shape)
 #%%
 #accel = sy.Symbol('a', real=True, nonnegative=True)
 
@@ -281,8 +207,33 @@ lambdas = sy.Matrix([[sy.Symbol(r'\lambda_a')],[sy.Symbol(r'\lambda_h')],[sy.Sym
 acceleration= sy.Symbol('a')#sy.Matrix([[sy.Symbol('a_x'),sy.Symbol('a_y'),sy.Symbol('a_z')]])
 MtimesLambdas = M.transpose()*lambdas
 mTimesLambdasMagnitude = MtimesLambdas.norm()
+MNormalized =(MtimesLambdas)/(mTimesLambdasMagnitude)
+zDot = acceleration * (M*MNormalized)
+display(zDot.shape)
 
-zdot = acceleration * (M*(MtimesLambdas)/(mTimesLambdasMagnitude))
+#%%
+
+s = (1-k*sy.cos(F)-h*sy.sin(F))/(2*sy.pi)
+delSDelZ = sy.Matrix([[0, -sy.sin(F), -sy.cos(F), 0, 0]]) *2*sy.pi
+zDotOverAnOrbit = -acceleration*sy.Integral((M*MNormalized)*s  , (F, -sy.pi, sy.pi))
+delZDotDelZ = acceleration*M.applyfunc(lambda s: sy.diff(s, F))*MNormalized
+display(delZDotDelZ.shape)
+#%%
+
+jh.printMarkdown("In implimenting equation 40, note that the delZDot del z is made on a per-row basis.")
+z = [a, h, k, p, q]
+part2 = lambdas.transpose()*zDot*delSDelZ
+lmdDotArray = []
+for i in range(0, 5) :
+    delZDotDelZ = acceleration*M.applyfunc(lambda s: sy.diff(s, z[i]))*MNormalized 
+    part1 = ((lambdas.transpose()*delZDotDelZ) * s)[0]
+    fullIntegralOfThisEom = -sy.Integral(part1 + part2[0,i], (F, -sy.pi, sy.pi))
+    lmdDotArray.append(fullIntegralOfThisEom)
+    print("finished " + str(i))
+
+
+print(lmdDotArray)
+
 #%%
 jh.printMarkdown("## Averaging of the Hamiltonian")
 
