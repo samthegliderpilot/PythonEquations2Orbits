@@ -4,6 +4,7 @@ import __init__
 import sympy as sy
 import os
 import sys
+import math
 from collections import OrderedDict
 sys.path.insert(1, os.path.dirname(os.path.dirname(sys.path[0]))) # need to import 2 directories up (so pyeq2orb is a subfolder)
 sy.init_printing()
@@ -22,9 +23,10 @@ jh.printMarkdown("In working my way up through low-thrust modeling for satellite
 jh.printMarkdown("In other work in this python library, I have already created many helper types such as Equinoctial elements, their equations of motion, rotation matrices, and more. To start, we will define out set of equinoctial elements.  Unlike the orignial paper, I will be using the modified elements.  This replaces the semi-major axis with the parameter and reorders/renames some of the other elements.")
 t=sy.Symbol('t', real=True)
 mu = sy.Symbol(r'\mu', real=True, positive=True)
-kepElements = KepModule.CreateSymbolicElements(mu=mu)
+muVal = 3.986004418e5  
+kepElements = KepModule.CreateSymbolicElements(t, mu)
 
-simpleBoringEquiElements = mee.EquinoctialElementsHalfI.CreateSymbolicElements(mu=mu)
+simpleBoringEquiElements = mee.EquinoctialElementsHalfI.CreateSymbolicElements(t, mu)
 a = simpleBoringEquiElements.SemiMajorAxis
 h = simpleBoringEquiElements.EccentricitySinTermH
 k = simpleBoringEquiElements.EccentricityCosTermK
@@ -203,7 +205,7 @@ display(M.shape)
 #accel = sy.Symbol('a', real=True, nonnegative=True)
 
 
-lambdas = sy.Matrix([[sy.Symbol(r'\lambda_a')],[sy.Symbol(r'\lambda_h')],[sy.Symbol(r'\lambda_k')],[sy.Symbol(r'\lambda_p')],[sy.Symbol(r'\lambda_q')]])
+#lambdas = sy.Matrix([[sy.Symbol(r'\lambda_a')],[sy.Symbol(r'\lambda_h')],[sy.Symbol(r'\lambda_k')],[sy.Symbol(r'\lambda_p')],[sy.Symbol(r'\lambda_q')]])
 acceleration= sy.Symbol('a')#sy.Matrix([[sy.Symbol('a_x'),sy.Symbol('a_y'),sy.Symbol('a_z')]])
 MtimesLambdas = M.transpose()*lambdas
 mTimesLambdasMagnitude = MtimesLambdas.norm()
@@ -218,6 +220,8 @@ delSDelZ = sy.Matrix([[0, -sy.sin(F), -sy.cos(F), 0, 0]]) *2*sy.pi
 zDotOverAnOrbit = -acceleration*sy.Integral((M*MNormalized)*s  , (F, -sy.pi, sy.pi))
 delZDotDelZ = acceleration*M.applyfunc(lambda s: sy.diff(s, F))*MNormalized
 display(delZDotDelZ.shape)
+
+
 #%%
 
 jh.printMarkdown("In implimenting equation 40, note that the delZDot del z is made on a per-row basis.")
@@ -233,73 +237,116 @@ for i in range(0, 5) :
 
 
 print(lmdDotArray)
+#%%
+# now we try to integrate
+from pyeq2orb.DemosAndPrototypes.LambdifyHelpers import OdeLambdifyHelperWithBoundaryConditions
+
+eoms = []
+for i in range(0, len(z)):
+    eoms.append(sy.Eq(z[i].diff(t), zDot[i]))
+for i in range(0, len(lambdas)):
+    eoms.append(sy.Eq(lambdas[i].diff(t), lmdDotArray[i]))
+lmdHelper = OdeLambdifyHelperWithBoundaryConditions(t, sy.Symbol('t_0', real=True), sy.Symbol('t_f', real=True), eoms, [], [], {mu: muVal})
+
+z0 = SymbolicProblem.SafeSubs(z, {t: lmdHelper.t0})
+zF = SymbolicProblem.SafeSubs(z, {t: lmdHelper.tf})
+
+a0V = 10509.0
+h0V = 0.325
+k0V = 0
+p0V = 28.5*math.pi/180.0
+q0V = 0
+t0V = 2444239.0 * 86400
+
+afV = 42241.19
+hfV = 0
+kfV = 0
+pfV = 0
+qfV = 0
+tfV = 0
+
+lmdHelper.BoundaryConditionExpressions.append(zF[0]-afV)
+lmdHelper.BoundaryConditionExpressions.append(zF[1])
+lmdHelper.BoundaryConditionExpressions.append(zF[2])
+lmdHelper.BoundaryConditionExpressions.append(zF[3])
+lmdHelper.BoundaryConditionExpressions.append(zF[4])
+
+accel = 9.798e-4  #units are km, sec
+
+lmdGuess = [10,0.1,0.1,200,200]
+
+fullInitialState = [a0V, h0V, k0V, p0V, q0V]
+fullInitialState.extend(lmdGuess)
+#%%
+integratorCallback = lmdHelper.CreateSimpleCallbackForSolveIvp()
+
 
 #%%
-jh.printMarkdown("## Averaging of the Hamiltonian")
+# jh.printMarkdown("## Averaging of the Hamiltonian")
 
-jh.printMarkdown("In order to get the averaged Hamiltonian, we need to make the following transformation:")
-def createAveragedHamiltonian(h, lowerBound, upperBound,averageringVariabe, dtdAveragingVariable) :
-    T = upperBound - lowerBound
-    oneOverT = 1/T
-    hamltAveraged = oneOverT * sy.integrate(h*dtdAveragingVariable, (averageringVariabe, lowerBound, upperBound))
-    return hamltAveraged
+# jh.printMarkdown("In order to get the averaged Hamiltonian, we need to make the following transformation:")
+# def createAveragedHamiltonian(h, lowerBound, upperBound,averageringVariabe, dtdAveragingVariable) :
+#     T = upperBound - lowerBound
+#     oneOverT = 1/T
+#     hamltAveraged = oneOverT * sy.integrate(h*dtdAveragingVariable, (averageringVariabe, lowerBound, upperBound))
+#     return hamltAveraged
 
-kepEquationEquiElementsRhs = eccentricLongitude - simpleEquiElements.EccentricitySinTermG*sy.sin(eccentricLongitude) + simpleEquiElements.EccentricityCosTermF*sy.cos(eccentricLongitude)
-jh.printMarkdown("The derivative of the left hand side of Keplers equation is the mean motion, where T is the period")
-period = sy.Symbol('T')
-dmdt = 2*sy.pi/period
-display(dmdt)
-jh.printMarkdown("And the right hand side will give us an expression for $\frac{dt}{dF}$")
-dKepDtRhs = sy.diff(kepEquationEquiElementsRhs, t)
-equToGetDFDt = sy.Eq(dmdt, dKepDtRhs)
-dtdF=1/sy.solve(equToGetDFDt, sy.diff(eccentricLongitude, t))[0]
-jh.showEquation(r'\frac{dt}{dF}', dtdF)
-hAveraged = createAveragedHamiltonian(hStar, -1*sy.pi, sy.pi, eccentricLongitude, dtdF)
-display(hAveraged)
+# kepEquationEquiElementsRhs = eccentricLongitude - simpleBoringEquiElements.EccentricitySinTermH*sy.sin(eccentricLongitude) + simpleBoringEquiElements.EccentricityCosTermK*sy.cos(eccentricLongitude)
+# jh.printMarkdown("The derivative of the left hand side of Keplers equation is the mean motion, where T is the period")
+# period = sy.Symbol('T')
+# dmdt = 2*sy.pi/period
+# display(dmdt)
+# jh.printMarkdown("And the right hand side will give us an expression for $\frac{dt}{dF}$")
+# dKepDtRhs = sy.diff(kepEquationEquiElementsRhs, t)
+# equToGetDFDt = sy.Eq(dmdt, dKepDtRhs)
+# dtdF=1/sy.solve(equToGetDFDt, sy.diff(eccentricLongitude, t))[0]
+# jh.showEquation(r'\frac{dt}{dF}', dtdF)
+# hAveraged = createAveragedHamiltonian(hStar, -1*sy.pi, sy.pi, eccentricLongitude, dtdF)
+# display(hAveraged)
 
-jh.printMarkdown("With this, we need to start filling in our G1 and G2 expressions.  After that, it is applying the Optimal Control Euler-Lagrange expressions.")
+# jh.printMarkdown("With this, we need to start filling in our G1 and G2 expressions.  After that, it is applying the Optimal Control Euler-Lagrange expressions.")
 
-display(simpleEquiElements.CreatePerturbationMatrix())
+#display(simpleBoringEquiElements.CreatePerturbationMatrix())
 
-
-#%%
-
-fullRDot = simpleEquiElements.CreateFgwToInertialAxes()*sy.Matrix([[x1DotSimpleEqui],[x2DotSimpleEqui],[0]]) 
-#display(fullRDot)
-
-#display(fullRDot.diff(simpleEquiElements.InclinationCosTermH))
-
-m11 = 2*x1DotSimpleEqui/(simpleBoringEquiElements.SemiMajorAxis * sy.Symbol(r'\mu')/(simpleBoringEquiElements.SemiMajorAxis**3))
-maybeM11 = x1DotSimpleEqui.diff(simpleBoringEquiElements.SemiMajorAxis)
-#display(m11)
-#display(maybeM11)
-#display((m11-maybeM11))
-
-a = sy.Symbol('a')
-mu=sy.Symbol(r'\mu')
-
-simpM11 = 2*a*a/mu
-
-x1DotSuperSimple = sy.sqrt(mu/a)*a
-display(sy.diff(x1DotSuperSimple,a)-1/simpM11)
-
-x1S = sy.Symbol('X_1')
-x2S = sy.Symbol('X_2')
-x1DotS = sy.Symbol('\dot{X_1}')
-x2DotS = sy.Symbol('\dot{X_2}')
-
-xMag = sy.sqrt(x1S**2+x2S**2)
-xDotMag = sy.sqrt(x1DotS**2+x2DotS**2)
-a = (1/xMag-xDotMag**2/mu)**(-1)
-display(a.diff(x1DotS))
 
 #%%
-innerX1Dot = sy.Symbol(r'\dot{X_1}')
-a = simpleBoringEquiElements.SemiMajorAxis
-#simpleX1Dot = sy.sqrt(sy.Symbol(r'\mu')/(a**3))*a**2*innerX1Dot
-simpleX1Dot = sy.Symbol('n')*a**2*innerX1Dot
-display(simpleX1Dot)
-display(sy.powsimp(simpleX1Dot.diff(simpleBoringEquiElements.SemiMajorAxis)))
+
+# fullRDot = simpleBoringEquiElements.CreateFgwToInertialAxes()*sy.Matrix([[x1DotSimpleEqui],[x2DotSimpleEqui],[0]]) 
+# #display(fullRDot)
+
+# #display(fullRDot.diff(simpleEquiElements.InclinationCosTermH))
+
+# m11 = 2*x1DotSimpleEqui/(simpleBoringEquiElements.SemiMajorAxis * sy.Symbol(r'\mu')/(simpleBoringEquiElements.SemiMajorAxis**3))
+# maybeM11 = x1DotSimpleEqui.diff(simpleBoringEquiElements.SemiMajorAxis)
+# #display(m11)
+# #display(maybeM11)
+# #display((m11-maybeM11))
+
+# a = sy.Symbol('a')
+# mu=sy.Symbol(r'\mu')
+
+# simpM11 = 2*a*a/mu
+
+# x1DotSuperSimple = sy.sqrt(mu/a)*a
+# display(sy.diff(x1DotSuperSimple,a)-1/simpM11)
+
+# x1S = sy.Symbol('X_1')
+# x2S = sy.Symbol('X_2')
+# x1DotS = sy.Symbol('\dot{X_1}')
+# x2DotS = sy.Symbol('\dot{X_2}')
+
+# xMag = sy.sqrt(x1S**2+x2S**2)
+# xDotMag = sy.sqrt(x1DotS**2+x2DotS**2)
+# a = (1/xMag-xDotMag**2/mu)**(-1)
+# display(a.diff(x1DotS))
+
+#%%
+# innerX1Dot = sy.Symbol(r'\dot{X_1}')
+# a = simpleBoringEquiElements.SemiMajorAxis
+# #simpleX1Dot = sy.sqrt(sy.Symbol(r'\mu')/(a**3))*a**2*innerX1Dot
+# simpleX1Dot = sy.Symbol('n')*a**2*innerX1Dot
+# display(simpleX1Dot)
+# display(sy.powsimp(simpleX1Dot.diff(simpleBoringEquiElements.SemiMajorAxis)))
 
 #%%
 # if '__file__' in globals() or '__file__' in locals():
