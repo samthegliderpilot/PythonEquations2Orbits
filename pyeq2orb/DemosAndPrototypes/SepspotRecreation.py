@@ -27,12 +27,13 @@ muVal = 3.986004418e5
 kepElements = KepModule.CreateSymbolicElements(t, mu)
 
 simpleBoringEquiElements = mee.EquinoctialElementsHalfI.CreateSymbolicElements(t, mu)
+simpleBoringEquiElements.SemiMajorAxis = sy.Function('a', real=True, positive=True)(t)
 a = simpleBoringEquiElements.SemiMajorAxis
 h = simpleBoringEquiElements.EccentricitySinTermH
 k = simpleBoringEquiElements.EccentricityCosTermK
 p = simpleBoringEquiElements.InclinationSinTermP
 q = simpleBoringEquiElements.InclinationCosTermQ
-
+n = sy.sqrt(mu/(a**3))
 
 beta = 1/(1+sy.sqrt(1-h**2-k**2))
 equiInTermsOfKep = mee.ConvertKeplerianToEquinoctial(kepElements)
@@ -80,9 +81,9 @@ jh.showEquation("\dot{X_1}", x1DotComplete.trigsimp(deep=True))
 jh.showEquation("\dot{X_2}", x2DotComplete.trigsimp(deep=True))
 
 
-x,y,z = sy.symbols('x y z', real=True)
-vx,vy,vz = sy.symbols('v_x v_y v_z', real=True)
-cart = MotionCartesian(Cartesian(x,y,z), Cartesian(vx,vy,vz))
+#x,y,z = sy.symbols('x y z', real=True)
+#vx,vy,vz = sy.symbols('v_x v_y v_z', real=True)
+#cart = MotionCartesian(Cartesian(x,y,z), Cartesian(vx,vy,vz))
 
 #%%
 def poisonBracket(exp, f, g, states) :
@@ -170,8 +171,6 @@ jh.showEquation("H^{*}", hStar)
 jh.printMarkdown("Although not as cleanly defined as in the paper, we will soon be substituting expressions into this to create our equations of motion and boundary conditions.")
 
 #%%
-a = kepElements.SemiMajorAxis
-n = kepElements.MeanMotion
 x1 = x1Complete
 y1 = x2Complete
 xDot = x1DotComplete
@@ -240,13 +239,14 @@ print(lmdDotArray)
 #%%
 # now we try to integrate
 from pyeq2orb.DemosAndPrototypes.LambdifyHelpers import OdeLambdifyHelperWithBoundaryConditions
+accelVal = 9.798e-4  #units are km, sec
 
 eoms = []
 for i in range(0, len(z)):
     eoms.append(sy.Eq(z[i].diff(t), zDot[i]))
 for i in range(0, len(lambdas)):
     eoms.append(sy.Eq(lambdas[i].diff(t), lmdDotArray[i]))
-lmdHelper = OdeLambdifyHelperWithBoundaryConditions(t, sy.Symbol('t_0', real=True), sy.Symbol('t_f', real=True), eoms, [], [], {mu: muVal})
+lmdHelper = OdeLambdifyHelperWithBoundaryConditions(t, sy.Symbol('t_0', real=True), sy.Symbol('t_f', real=True), eoms, [], [], {mu: muVal, acceleration:accelVal})
 
 z0 = SymbolicProblem.SafeSubs(z, {t: lmdHelper.t0})
 zF = SymbolicProblem.SafeSubs(z, {t: lmdHelper.tf})
@@ -271,7 +271,6 @@ lmdHelper.BoundaryConditionExpressions.append(zF[2])
 lmdHelper.BoundaryConditionExpressions.append(zF[3])
 lmdHelper.BoundaryConditionExpressions.append(zF[4])
 
-accel = 9.798e-4  #units are km, sec
 
 lmdGuess = [10,0.1,0.1,200,200]
 
