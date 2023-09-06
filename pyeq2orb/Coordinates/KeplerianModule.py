@@ -97,7 +97,7 @@ class KeplerianElements() :
         Returns:
             KeplerianElements: The Keplerian Elements that represent the passed in values.
         """
-        return KeplerianElements.FromCartesian(motion.Position.X, motion.Position.Y, motion.Position.Z, motion.Velocity.X, motion.Velocity.Y, motion.Velocity.Z, mu)
+        return KeplerianElements.FromCartesian(motion.Position[0], motion.Position[1], motion.Position[2], motion.Velocity[0], motion.Velocity[1], motion.Velocity[2], mu)
 
     def ToArrayOfElements(self) ->List[SymbolOrNumber]:
         return [self.SemiMajorAxis, self.Eccentricity, self.Inclination, self.ArgumentOfPeriapsis, self.RightAscensionOfAscendingNode, self.TrueAnomaly]

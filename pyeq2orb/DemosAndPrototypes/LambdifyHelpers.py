@@ -178,7 +178,7 @@ class OdeLambdifyHelper(LambdifyHelper):
             odeArgs = [self.Time, cast(Union[sy.Symbol, List[sy.Symbol]], odeArgs)]
         if self.OtherArguments != None and len(self.OtherArguments) >0 :
             odeArgs.append(self.OtherArguments)
-        eomCallback = sy.lambdify(odeArgs, eomList, modules=['scipy'])
+        eomCallback = sy.lambdify(odeArgs, eomList, modules=['scipy'], cse=True, docstring_limit=0)
         
 
         # don't need the next wrapper if there are no other args

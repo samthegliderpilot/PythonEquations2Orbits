@@ -47,7 +47,8 @@ def deepClean(exp):
     subsDict = {}
     
     for func in functions:
-        subsDict[func] = sy.Symbol(func.name)
+        if hasattr(func, 'name') :
+            subsDict[func] = sy.Symbol(func.name)
 
     return exp.subs(subsDict)
 

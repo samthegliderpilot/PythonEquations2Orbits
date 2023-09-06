@@ -302,7 +302,7 @@ class EquinoctialElementsHalfI :
             h = sy.Symbol('h', real=True)
             k = sy.Symbol('k', real=True)
             p = sy.Symbol('p', real=True)
-            q= sy.Symbol('q', real=True)
+            q = sy.Symbol('q', real=True)
             l = sy.Symbol('l', real=True)
         else :
             a = sy.Function('a', positive=True)(elementOf)
