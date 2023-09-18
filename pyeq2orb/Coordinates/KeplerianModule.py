@@ -248,7 +248,7 @@ class GaussianEquationsOfMotion :
         return sy.Eq(lhs, rhs)
 
 
-def CreateSymbolicElements(elementsFunctionOf : Optional[sy.Expr] = None, mu : Optional[SymbolOrNumber] = None) -> KeplerianElements :
+def CreateSymbolicElements(elementsFunctionOf : Optional[Union[sy.Expr, List[sy.Expr]]] = None, mu : Optional[SymbolOrNumber] = None) -> KeplerianElements :
     """Creates a KeplerianElements structure made of symbols.
 
     Args:
@@ -265,12 +265,15 @@ def CreateSymbolicElements(elementsFunctionOf : Optional[sy.Expr] = None, mu : O
         aop = sy.Symbol('\omega', real=True)
         ta = sy.Symbol(r'\nu', real=True)
     else:
-        a = sy.Function("a", real=True)(elementsFunctionOf)
-        ecc = sy.Function('e', nonnegative=True)(elementsFunctionOf)
-        inc = sy.Function('i', real=True)(elementsFunctionOf)
-        raan = sy.Function('\Omega', real=True)(elementsFunctionOf)
-        aop = sy.Function('\omega', real=True)(elementsFunctionOf)
-        ta = sy.Function(r'\nu', real=True)(elementsFunctionOf)
+        if not hasattr(elementsFunctionOf, "__len__") :
+            elementsFunctionOf = [elementsFunctionOf]
+
+        a = sy.Function("a", real=True)(*elementsFunctionOf)
+        ecc = sy.Function('e', nonnegative=True)(*elementsFunctionOf)
+        inc = sy.Function('i', real=True)(*elementsFunctionOf)
+        raan = sy.Function('\Omega', real=True)(*elementsFunctionOf)
+        aop = sy.Function('\omega', real=True)(*elementsFunctionOf)
+        ta = sy.Function(r'\nu', real=True)(*elementsFunctionOf)
     if mu is None :
         mu = sy.Symbol('\mu', positive=True, real=True)
     return KeplerianElements(a, ecc, inc, aop, raan, ta, mu)

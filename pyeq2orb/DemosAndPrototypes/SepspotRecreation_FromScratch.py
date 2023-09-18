@@ -17,6 +17,33 @@ import pyeq2orb.Coordinates.ModifiedEquinoctialElementsModule as mee
 from IPython.display import display
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 import scipyPaperPrinter as jh #type: ignore
+
+
+
+def poisonBracket(f, g, ps, qs) :
+    sum = 0
+    for i in range(0, len(ps)):
+        pi = ps[i]
+        qi = qs[i]
+        sum = sum + sy.diff(f, qi) * sy.diff(g, pi) - sy.diff(f, pi)*sy.diff(g, qi)
+    return sum
+
+def poisonBracketMatrix(fs, gs, ps, qs) : #This might be lagrange brackets
+    m = sy.Matrix(len(fs), len(gs)) # should be square
+    for r in range(0, len(fs)):
+        for c in range(0, len(gs)):
+            m[r,c] = poisonBracket(fs[r], gs[r], ps, qs)
+            #m[c,r] = m[r,c]
+    return m
+
+q = sy.Symbol('q', real=True)
+p = sy.Symbol('p', real=True)
+f1 = p-q
+f2 = sy.sin(q)
+
+#display(poisonBracket(f1, f2, [p],[q]))
+
+
 jh.printMarkdown("# SEPSPOT Recreation")
 jh.printMarkdown("In working my way up through low-thrust modeling for satellite maneuvers, it is inevitable to run into Dr. Edelbaum's work.  Newer work such as Jean Albert Kechichian's practically requires understanding SEPSPOT as a prerequesit.  This writeup will go through the basics of SEPSPOT's algorithsm as described in the references below.")
 
@@ -97,7 +124,6 @@ y1Dot = sy.Function('\dot{Y}_1', real=True)(a, h, k, F, t)
 
 x1Exp = a*((1-beta*h**2)*sy.cos(F)+h*k*beta*sy.sin(F)-k)
 y1Exp = a*((1-beta*k**2)*sy.sin(F)+h*k*beta*sy.cos(F)-h)
-
 #TODO: Can derive?
 x1DotExp = n*a**2/r * (h*k*beta*sy.cos(F)-(1-beta*(h**2)*sy.sin(F)))
 y1DotExp = n*a**2/r * (-h*k*beta*sy.sin(F)+(1-beta*(k**2)*sy.cos(F)))
@@ -155,10 +181,10 @@ preM = sy.Matrix([[a, h, k, p, q]]).transpose()
 MRow1 = preM.diff(x1Dot).applyfunc(lambda s : s.simplify())
 jh.showEquationNoFunctionsOf("M_1", MRow1)
 
-MRow1Subs = MRow1[2].subs(finalSubs).simplify()
+MRow1Subs = MRow1[2].subs(finalSubs)
 jh.showEquationNoFunctionsOf("M_{13}", MRow1Subs)
 
-MRow1SubsLevel2 = MRow1Subs.subs(fullSubsDictionary).simplify()
+MRow1SubsLevel2 = MRow1Subs.subs(fullSubsDictionary)
 jh.showEquationNoFunctionsOf("M_{13}", MRow1SubsLevel2)
 
 #%%
@@ -176,12 +202,6 @@ jh.showEquationNoFunctionsOf("M_{13}", MRow1SubsLevel2)
 #cart = MotionCartesian(Cartesian(x,y,z), Cartesian(vx,vy,vz))
 
 #%%
-def poisonBracket(exp, f, g, states) :
-    sum = 0
-    for a in states:
-        for b in states:
-            sum = sum - sy.diff(f, a) * sy.diff(g, b) + sy.diff(f, b)*sy.diff(g, a)
-    return sum
 
 
 #%%
