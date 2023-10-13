@@ -1,4 +1,3 @@
-
 #%%
 import __init__  #type: ignore
 import sympy as sy
@@ -9,7 +8,7 @@ from pyeq2orb.Coordinates.KeplerianModule import KeplerianElements
 from pyeq2orb.Coordinates.ModifiedEquinoctialElementsModule import ModifiedEquinoctialElements, CreateSymbolicElements
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
-from pyeq2orb.DemosAndPrototypes.LambdifyHelpers import LambdifyHelper, OdeLambdifyHelper
+from pyeq2orb.Numerical.LambdifyHelpers import LambdifyHelper, OdeLambdifyHelper
 from typing import List, Dict, cast
 from matplotlib.figure import Figure #type: ignore
 import scipyPaperPrinter as jh#type: ignore
@@ -545,7 +544,7 @@ sim.initialize_model()
 print("running the pyomo model")
 solver = poenv.SolverFactory('cyipopt')
 solver.config.options['tol'] = 1e-9
-solver.config.options['max_iter'] = 4000
+solver.config.options['max_iter'] = 500
 
 try :
     solver.solve(model, tee=True)

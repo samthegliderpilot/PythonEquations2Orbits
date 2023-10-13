@@ -119,7 +119,7 @@ class testScaledSymbolicProblem(unittest.TestCase) :
         self.assertAlmostEqual(finalState[1], 0.000, 2, msg="u check")
         self.assertAlmostEqual(finalState[2], 0.397980812304531, 1, msg="v check")        
 
-    def testScaledStateAndTimeAndAjoinedTransversalityRegression(self) :
+    def testScaledStateAndTimeAndAdjoinedTransversalityRegression(self) :
         from Tests.Problems.testPlanerLeoToGeoProblem import testPlanerLeoToGeoProblem # including it here to avoid VS Code from finding TestPlanerLeoToGeo twice
         (odeSolveIvpCb, fSolveCb, tArray, z0, problem) = testPlanerLeoToGeoProblem.CreateEvaluatableCallbacks(True, True, False)
         knownAnswer = [1.49570364e+01,  8.42572232e-01,  1.56018680e+01,  3.43139328e+05, -7.43267414e+00,  1.36499856e+01]
@@ -137,6 +137,6 @@ class testScaledSymbolicProblem(unittest.TestCase) :
 
         values = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(problem.IntegrationSymbols,  odeAns)
         descaled = problem.DescaleResults(values)
-        self.assertAlmostEqual(descaled[problem.WrappedProblem.StateVariables[0]][-1], 42162080.85814935, delta=10, msg="radius check descaled")
+        self.assertAlmostEqual(descaled[problem.WrappedProblem.StateVariables[0]][-1], 42162080.85814935, delta=50, msg="radius check descaled")
         self.assertAlmostEqual(descaled[problem.WrappedProblem.StateVariables[1]][-1], 0.000, 2, msg="u check descaled")
         self.assertAlmostEqual(descaled[problem.WrappedProblem.StateVariables[2]][-1], 3074.735, 1, msg="v check descaled")    

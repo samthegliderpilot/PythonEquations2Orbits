@@ -95,7 +95,7 @@ class testScipyWrapper(unittest.TestCase) :
         scipySolver = ScipyDiscretizationMinimizeWrapper(oneDWorkProblem)
 
         cost = scipySolver.CostFunctionInTermsOfZ(oneDWorkProblem.CreateTimeRange(3), [1.0, 1.0, 1.0, 1.0,   0.1, 0.1, 0.1, 0.1,   0.25, 0.25, 1.0, 1.0 ])
-        self.assertAlmostEqual(0.5052083333333334, cost, delta=0.000001, msg="cost")
+        self.assertAlmostEqual(0.5052083333333334 , cost, delta=0.000001, msg="cost")
 
     def testCreateIndividualColocationConstraints(self) :
         #TODO: Incomplete

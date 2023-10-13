@@ -4,7 +4,7 @@ from datetime import datetime
 from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
 from pyeq2orb.Coordinates.ModifiedEquinoctialElementsModule import EquinoctialElementsHalfI, ModifiedEquinoctialElements
 import numpy as np
-from pyeq2orb.DemosAndPrototypes.LambdifyHelpers import LambdifyHelper, OdeLambdifyHelper
+from pyeq2orb.Numerical.LambdifyHelpers import LambdifyHelper, OdeLambdifyHelper
 from scipy.integrate import solve_ivp #type: ignore
 import pyeq2orb.Graphics.Primitives as prim
 import sympy as sy

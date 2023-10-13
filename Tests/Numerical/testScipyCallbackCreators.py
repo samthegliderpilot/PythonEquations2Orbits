@@ -2,7 +2,7 @@ import unittest
 import sympy as sy
 from scipy.integrate import odeint, solve_ivp # type: ignore
 import pyeq2orb.Numerical.ScipyCallbackCreators as scipyCreator
-from pyeq2orb.DemosAndPrototypes.LambdifyHelpers import OdeLambdifyHelper
+from pyeq2orb.Numerical.LambdifyHelpers import OdeLambdifyHelper
 class testScipyCallbackCreators(unittest.TestCase) :
 
     def testOdeIntHelperFunctions(self) :

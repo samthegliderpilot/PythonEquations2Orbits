@@ -29,6 +29,7 @@
         "docstrings",
         "dtype",
         "epsfcn",
+        "Evaluatable",
         "framealpha",
         "hoverinfo",
         "initcon",

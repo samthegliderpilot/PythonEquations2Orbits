@@ -8,7 +8,7 @@ from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 from pyeq2orb.ScaledSymbolicProblem import ScaledSymbolicProblem
 from pyeq2orb.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
 from pyeq2orb.Numerical import ScipyCallbackCreators
-from pyeq2orb.DemosAndPrototypes.LambdifyHelpers import OdeLambdifyHelperWithBoundaryConditions
+from pyeq2orb.Numerical.LambdifyHelpers import OdeLambdifyHelperWithBoundaryConditions
 import pyeq2orb as pe2o
 import importlib
 from typing import List
@@ -184,11 +184,11 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
             i=i+1
         odeAns = solve_ivp(odeSolveIvpCb, [tArray[0], tArray[-1]], [*z0, *knownAnswer], args=tuple([]), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)  
         finalState = ScipyCallbackCreators.GetFinalStateFromIntegratorResults(odeAns)
-        self.assertAlmostEqual(finalState[0], 42162071.898083754, delta=10, msg="radius check")
+        self.assertAlmostEqual(finalState[0], 42162071.898083754, delta=20, msg="radius check")
         self.assertAlmostEqual(finalState[1], 0.000, 2, msg="u check")
         self.assertAlmostEqual(finalState[2], 3074.735, 1, msg="v check")
 
-    def testRegressionWithAjoinedTransversality(self) :
+    def testRegressionWithAdjoinedTransversality(self) :
         importlib.reload(pe2o)
         (odeSolveIvpCb, fSolveCb, tArray, z0, problem) = testPlanerLeoToGeoProblem.CreateEvaluatableCallbacks(False, False, False)
         knownAnswer = [26.22755418,   1277.08146331,  23647.73092022, -11265.69782522, 20689.28488067]

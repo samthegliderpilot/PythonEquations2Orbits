@@ -348,7 +348,7 @@ for i in range(0, 5) :
 print(lmdDotArray)
 #%%
 # now we try to integrate
-from pyeq2orb.DemosAndPrototypes.LambdifyHelpers import OdeLambdifyHelperWithBoundaryConditions
+from pyeq2orb.Numerical.LambdifyHelpers import OdeLambdifyHelperWithBoundaryConditions
 accelVal = 9.798e-4  #units are km, sec
 fullSubsDictionary[mu] = muVal
 fullSubsDictionary[acceleration] = accelVal

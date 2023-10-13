@@ -10,23 +10,23 @@ class testSymbolicOptimizerProblem(unittest.TestCase) :
 
     def testCreateCoVectorFromList(self) :
         prob = OneDWorkSymbolicProblem()
-        expectedCovector = [sy.Function(r'\lambda_{x}', real=True)(prob.TimeSymbol), sy.Function(r'\lambda_{v}', real=True)(prob.TimeSymbol)]
+        expectedCoVector = [sy.Function(r'\lambda_{x}', real=True)(prob.TimeSymbol), sy.Function(r'\lambda_{v}', real=True)(prob.TimeSymbol)]
         actualCostateVector = SymbolicProblem.CreateCoVector(prob.StateVariables, r'\lambda', prob.TimeSymbol)
-        self.assertEqual(expectedCovector[0], actualCostateVector[0], "lmd x")
-        self.assertEqual(expectedCovector[1], actualCostateVector[1], "lmd v")
+        self.assertEqual(expectedCoVector[0], actualCostateVector[0], "lmd x")
+        self.assertEqual(expectedCoVector[1], actualCostateVector[1], "lmd v")
 
     def testCreateCoVectorFromSymbol(self) :
         prob = OneDWorkSymbolicProblem()
-        expectedCovector = sy.Function(r'\lambda_{x}', real=True)(prob.TimeSymbol)
+        expectedCoVector = sy.Function(r'\lambda_{x}', real=True)(prob.TimeSymbol)
         actualCostateVector = SymbolicProblem.CreateCoVector(prob.StateVariables[0], r'\lambda', prob.TimeSymbol)
-        self.assertEqual(expectedCovector, actualCostateVector, "lmd x")
+        self.assertEqual(expectedCoVector, actualCostateVector, "lmd x")
 
     def testCreateCoVectorFromVector(self) :
         prob = OneDWorkSymbolicProblem()
-        expectedCovector = [sy.Function(r'\lambda_{x}', real=True)(prob.TimeSymbol), sy.Function(r'\lambda_{v}', real=True)(prob.TimeSymbol)]
+        expectedCoVector = [sy.Function(r'\lambda_{x}', real=True)(prob.TimeSymbol), sy.Function(r'\lambda_{v}', real=True)(prob.TimeSymbol)]
         actualCostateVector = SymbolicProblem.CreateCoVector(Vector.fromArray(prob.StateVariables), r'\lambda', prob.TimeSymbol)
-        self.assertEqual(expectedCovector[0], actualCostateVector[0,0], "lmd x")
-        self.assertEqual(expectedCovector[1], actualCostateVector[1,0], "lmd v")
+        self.assertEqual(expectedCoVector[0], actualCostateVector[0,0], "lmd x")
+        self.assertEqual(expectedCoVector[1], actualCostateVector[1,0], "lmd v")
 
     def testCreateHamiltonian(self) :
         prob = OneDWorkSymbolicProblem()
