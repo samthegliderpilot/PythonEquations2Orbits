@@ -164,7 +164,7 @@ isp = 3000.0
 nRev = 2.0
 thrustVal =  0.1997*1.2
 g = 9.8065 
-n = 201
+n = 301
 tSpace = np.linspace(0.0, tfVal, n)
 
 Au = 149597870700.0
@@ -396,7 +396,6 @@ marsEphemeris.InitFromMotions(tArray, marsMotions)
 marsPath = prim.PathPrimitive(marsEphemeris)
 marsPath.color = "#990011"
 
-
 problemForOneOffPropagation = baseProblem
 
 odeHelper = OdeHelperModule.OdeHelper(problemForOneOffPropagation.TimeSymbol)
@@ -444,26 +443,51 @@ model = poenv.ConcreteModel()
 model.t = podae.ContinuousSet(initialize=np.linspace(0.0, 1.0, n), domain=poenv.NonNegativeReals)
 smaLow = 126.10e9/trivialScalingDic[baseProblem.StateVariables[0]] # little less than earth
 smaHigh = 327.0e9/trivialScalingDic[baseProblem.StateVariables[0]] # little more than mars
-model.perRad = poenv.Var(model.t, bounds=(smaLow, smaHigh), initialize=float(per0/trivialScalingDic[baseProblem.StateVariables[0]]))
-model.f = poenv.Var(model.t, bounds=(-0.7, 0.7), initialize=float(f0))
-model.g = poenv.Var(model.t, bounds=(-0.7, 0.7), initialize=float(g0))
-model.h  = poenv.Var(model.t, bounds=(-0.7, 0.7), initialize=float(h0))
-model.k = poenv.Var(model.t, bounds=(-0.7, 0.7), initialize=float(k0))
-model.lon = poenv.Var(model.t, bounds=(0, 8*math.pi), initialize=float(lon0))
-model.mass = poenv.Var(model.t, bounds=(0.0, float(m0Val)), initialize=(float(m0Val)))
+# model.perRad = poenv.Var(model.t, bounds=(smaLow, smaHigh), initialize=float(per0/trivialScalingDic[baseProblem.StateVariables[0]]))
+# model.f = poenv.Var(model.t, bounds=(-0.7, 0.7), initialize=float(f0))
+# model.g = poenv.Var(model.t, bounds=(-0.7, 0.7), initialize=float(g0))
+# model.h  = poenv.Var(model.t, bounds=(-0.7, 0.7), initialize=float(h0))
+# model.k = poenv.Var(model.t, bounds=(-0.7, 0.7), initialize=float(k0))
+# model.lon = poenv.Var(model.t, bounds=(0, 8*math.pi), initialize=float(lon0))
+# model.mass = poenv.Var(model.t, bounds=(0.0, float(m0Val)), initialize=(float(m0Val)))
 
-model.perRad[0].fix(float(per0/trivialScalingDic[baseProblem.StateVariables[0]]))
-model.f[0].fix(float(f0))
-model.g[0].fix(float(g0))
-model.h[0].fix(float(h0))
-model.k[0].fix(float(k0))
-model.lon[0].fix(float(lon0))
-model.mass[0].fix(float(m0Val))
+# some day, if I want to, using the add_component and a healthy amount of wrapping methods, we could
+# fully automate the creation of a pyomo model from the symbolic problem statement.  But I would 
+# rather explore more math and cases than build a well designed and tested library like that (for now).
+def addStateElementToPyomo(model : poenv.ConcreteModel, domain, name : str, lowerBound : float, upperBound:float, initialValue : float, fixInitialValue = True) :
+    if domain == None :
+        model.add_component(name, poenv.Var(bounds=(lowerBound, upperBound), initialize=float(initialValue)))
+    else:
+        model.add_component(name, poenv.Var(domain, bounds=(lowerBound, upperBound), initialize=float(initialValue)))
+    element = model.component(name)
+    if fixInitialValue :
+        if lowerBound == upperBound :
+            element.fix(float(initialValue))
+        else:
+            element[0].fix(float(initialValue))
+    return element
 
-model.tf = poenv.Var(bounds=(tfVal, tfVal), initialize=float(tfVal))
-model.tf.fix(tfVal)
-model.controlAzimuth = poenv.Var(model.t, bounds=(-1*math.pi, math.pi))
-model.controlElevation = poenv.Var(model.t, bounds=(-0.6, 0.6))  # although this can go from -90 to 90 deg, common sense suggests that a lower bounds would be appropriate for this problem.  If the optimizer stays at these limits, then increase them
+def addStateElementToPyomoNoInitialValue(model : poenv.ConcreteModel, domain, name : str, lowerBound : float, upperBound:float) :
+    if domain == None :
+        model.add_component(name, poenv.Var(bounds=(lowerBound, upperBound)))
+    else:
+        model.add_component(name, poenv.Var(domain, bounds=(lowerBound, upperBound)))
+    element = model.component(name)
+    
+    return element
+
+
+perRad = addStateElementToPyomo(model,model.t, "perRad", smaLow, smaHigh, float(per0/trivialScalingDic[baseProblem.StateVariables[0]]))
+fVar = addStateElementToPyomo(model,model.t, "f", -0.7, 0.7, float(f0))
+gVar = addStateElementToPyomo(model, model.t,"g", -0.7, 0.7, float(g0))
+hVar = addStateElementToPyomo(model, model.t,"h", -0.7, 0.7, float(h0))
+kVar = addStateElementToPyomo(model, model.t,"k", -0.7, 0.7, float(k0))
+lonVar = addStateElementToPyomo(model,model.t, "lon", 0, 8*math.pi, float(lon0))
+massVar = addStateElementToPyomo(model,model.t, "mass", 0, float(m0Val), float(m0Val))
+tfVar = addStateElementToPyomo(model, None, "tf", tfVal, tfVal, tfVal)
+azimuthControlVar = addStateElementToPyomoNoInitialValue(model,model.t, "controlAzimuth", -1*math.pi, math.pi)
+elevationControlVar = addStateElementToPyomoNoInitialValue(model,model.t, "controlElevation", -0.6, 0.6) # although this can go from -90 to 90 deg, common sense suggests that a lower bounds would be appropriate for this problem.  If the optimizer stays at these limits, then increase them
+
 model.throttle = poenv.Var(model.t, bounds=(0.0, 1.0))
 
 model.perDot = podae.DerivativeVar(model.perRad, wrt=model.t)
