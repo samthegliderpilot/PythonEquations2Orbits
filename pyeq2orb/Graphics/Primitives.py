@@ -1,4 +1,4 @@
-from typing import List, cast
+from typing import List, cast, Optional
 import numpy as np 
 from pyeq2orb.Coordinates.CartesianModule import Cartesian
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
@@ -49,6 +49,12 @@ class EphemerisArrays :
         self.Y.append(y)
         self.Z.append(z)
 
+    def ExtendValues(self, t : float, x : float, y : float, z : float) :
+        self.T.extend(t)
+        self.X.extend(x)
+        self.Y.extend(y)
+        self.Z.extend(z)
+
     def GetMaximumValue(self) :
         return max([max(self.X, key=abs), max(self.Y, key=abs), max(self.Z, key=abs)])
 
@@ -82,10 +88,12 @@ class Primitive :
 
 
 class PathPrimitive(Primitive) :
-    def __init__(self, ephemeris = EphemerisArrays()) :
+    def __init__(self, ephemeris = EphemerisArrays(), color: Optional[str]=None) :
         Primitive.__init__(self)
         self._ephemeris = ephemeris
-        self._color = '#0000ff'
+        if(color == None) :
+            color = '#0000ff'
+        self._color = color
         self._width = 1
 
     @property

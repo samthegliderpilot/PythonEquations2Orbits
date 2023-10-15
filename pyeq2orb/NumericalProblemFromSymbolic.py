@@ -101,4 +101,3 @@ class NumericalProblemFromSymbolicProblem(NumericalOptimizerProblemBase) :
     @inherit_docstrings
     def AddResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[Expr, List[float]], label : str) -> None:
         self._wrappedProblem.AddStandardResultsToFigure(figure, t, dictionaryOfValueArraysKeyedOffState, label)
-

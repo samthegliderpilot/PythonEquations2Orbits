@@ -26,6 +26,7 @@ import plotly.graph_objects as go #type: ignore
 from scipy.integrate import solve_ivp
 import pyeq2orb.Graphics.Primitives as prim
 from pyeq2orb.Graphics.Plotly2DModule import plot2DLines
+from pyeq2orb.Graphics.PlotlyUtilities import PlotAndAnimatePlanetsWithPlotly
 from pandas import DataFrame #type: ignore
 import plotly.graph_objects as go
 from collections import OrderedDict
@@ -37,12 +38,6 @@ from collections import OrderedDict
 from pyeq2orb import SafeSubs
 #import plotly.io as pio
 #pio.renderers.default = "vscode"
-
-
-########
-# model.add_component('abc', Var(idx, domain=pmo.Boolean))
-# model.component('abc').pprint()
-########
 
 # order in paper is perRad, f,g,h,k,l
 class HowManyImpulses(SymbolicProblem) :
@@ -247,7 +242,7 @@ arguments = [baseProblem.Azimuth, baseProblem.Elevation, baseProblem.Throttle, b
 # for emK, emV in baseProblem.EquationsOfMotion.items() :
 #     jh.showEquation(sy.diff(emK, t), emV)
 
-lambdifyFunctionMap = {'sqrt': poenv.sqrt, 'sin': poenv.sin, 'cos':poenv.cos} #TODO: MORE!!!!
+lambdifyFunctionMap = {'sqrt': poenv.sqrt, 'sin': poenv.sin, 'cos':poenv.cos} #TODO: MOARE!!!!
 
 trivialScalingDic = {} # type: Dict[sy.Expr, SymbolOrNumber]
 for sv in baseProblem.StateVariables :
@@ -262,70 +257,7 @@ scaledProblem = ScaledSymbolicProblem(baseProblem, baseProblem.StateVariables, t
 asNumericalProblem = NumericalProblemFromSymbolicProblem(scaledProblem, lambdifyFunctionMap)
 print("scaled and numerical problems made")
 
-def PlotAndAnimatePlanetsWithPlotly(title : str, wanderers : List[prim.PathPrimitive], tArray : List[float], thrustVector : List[go.Scatter3d]) :
-    lines = []
-    maxValue = -1
 
-    #animation arrays
-    xArrays = []
-    yArrays = []
-    zArrays=[]
-    for planet in wanderers :
-        #colors = np.full(len(planet.ephemeris.T), planet.color)
-        dataDict = DataFrame({"x":planet.ephemeris.X, "y":planet.ephemeris.Y, "z": planet.ephemeris.Z })
-        thisLine = go.Scatter3d(x=dataDict["x"], y=dataDict["y"], z=dataDict["z"], mode="lines", line=dict(color=planet.color, width=5))
-        
-        lines.append(thisLine)
-        
-        thisMax = planet.ephemeris.GetMaximumValue()
-        if thisMax > maxValue :
-            maxValue = thisMax
-        
-        # for the animation, we can only have 1 scatter_3d and we need to shuffle all of the 
-        # points for all of the planets to be at the same time 
-        xForAni = splev(tArray, splrep(planet.ephemeris.T, planet.ephemeris.X))
-        yForAni = splev(tArray, splrep(planet.ephemeris.T, planet.ephemeris.Y))
-        zForAni = splev(tArray, splrep(planet.ephemeris.T, planet.ephemeris.Z))
-        xArrays.append(xForAni)
-        yArrays.append(yForAni)
-        zArrays.append(zForAni)
-
-
-    dataDictionary = {"x":[], "y":[], "z":[], "t":[], "color":[], "size":[]} #type: Dict[str, List[float]]
-    t = dataDictionary["t"]
-    k = 0
-    for step in tArray :
-        p = 0
-        for cnt in wanderers:
-            t.append(step/86400)
-            dataDictionary["x"].append(xArrays[p][k])
-            dataDictionary["y"].append(yArrays[p][k])
-            dataDictionary["z"].append(zArrays[p][k])
-            dataDictionary["color"].append(cnt.color)
-            dataDictionary["size"].append(7)
-            p=p+1
-        k=k+1
-    
-    fig = px.scatter_3d(dataDictionary, title=title, x="x", y="y", z="z", animation_frame="t", color="color", size="size")    
-
-    # make the scaling item
-    scalingMarker = go.Scatter3d(name="",
-        visible=True,
-        showlegend=False,
-        opacity=0, # full transparent
-        hoverinfo='none',
-        x=[0,maxValue*1.5],
-        y=[0,maxValue*1.5],
-        z=[0,maxValue*1.5])
-    print(str(maxValue))
-    fig.add_trace(scalingMarker)
-    for item in lines :
-        fig.add_trace(item)
-    if thrustVector != None :
-        for thrust in thrustVector :
-            fig.add_trace(thrust)
-    fig.update_layout(autosize=False, width=800, height=600)
-    fig.show()
 
 def getInertialThrustVectorFromDataDict(problem : SymbolicProblem, dataDict, muValue) -> List[Cartesian] :
     cartesians = []
@@ -431,10 +363,10 @@ simEphemeris.InitFromMotions(tSpace, guessMotions)
 simPath = prim.PathPrimitive(simEphemeris)
 simPath.color = "#00ff00"
 
-simDataDict = convertIvpResultsToDataDict(baseProblem, testSolution)
-addFixedAzElMagToDataDict(baseProblem, simDataDict, fixedAz, fixedEl, fixedMag)
-thrustCartesians = getInertialThrustVectorFromDataDict(baseProblem, simDataDict, muVal)
-sampleThrustLines = createScattersForThrustVectors(simEphemeris, thrustCartesians, "#ff0000", Au/05.0)
+#simDataDict = convertIvpResultsToDataDict(baseProblem, testSolution)
+#addFixedAzElMagToDataDict(baseProblem, simDataDict, fixedAz, fixedEl, fixedMag)
+#thrustCartesians = getInertialThrustVectorFromDataDict(baseProblem, simDataDict, muVal)
+#sampleThrustLines = createScattersForThrustVectors(simEphemeris, thrustCartesians, "#ff0000", Au/05.0)
 #PlotAndAnimatePlanetsWithPlotly("Integration sample", [earthPath, marsPath, simPath], testSolution.t, sampleThrustLines)
 
 print("making pyomo model")
@@ -443,52 +375,64 @@ model = poenv.ConcreteModel()
 model.t = podae.ContinuousSet(initialize=np.linspace(0.0, 1.0, n), domain=poenv.NonNegativeReals)
 smaLow = 126.10e9/trivialScalingDic[baseProblem.StateVariables[0]] # little less than earth
 smaHigh = 327.0e9/trivialScalingDic[baseProblem.StateVariables[0]] # little more than mars
-# model.perRad = poenv.Var(model.t, bounds=(smaLow, smaHigh), initialize=float(per0/trivialScalingDic[baseProblem.StateVariables[0]]))
-# model.f = poenv.Var(model.t, bounds=(-0.7, 0.7), initialize=float(f0))
-# model.g = poenv.Var(model.t, bounds=(-0.7, 0.7), initialize=float(g0))
-# model.h  = poenv.Var(model.t, bounds=(-0.7, 0.7), initialize=float(h0))
-# model.k = poenv.Var(model.t, bounds=(-0.7, 0.7), initialize=float(k0))
-# model.lon = poenv.Var(model.t, bounds=(0, 8*math.pi), initialize=float(lon0))
-# model.mass = poenv.Var(model.t, bounds=(0.0, float(m0Val)), initialize=(float(m0Val)))
 
 # some day, if I want to, using the add_component and a healthy amount of wrapping methods, we could
 # fully automate the creation of a pyomo model from the symbolic problem statement.  But I would 
 # rather explore more math and cases than build a well designed and tested library like that (for now).
-def addStateElementToPyomo(model : poenv.ConcreteModel, domain, name : str, lowerBound : float, upperBound:float, initialValue : float, fixInitialValue = True) :
-    if domain == None :
-        model.add_component(name, poenv.Var(bounds=(lowerBound, upperBound), initialize=float(initialValue)))
-    else:
-        model.add_component(name, poenv.Var(domain, bounds=(lowerBound, upperBound), initialize=float(initialValue)))
-    element = model.component(name)
-    if fixInitialValue :
-        if lowerBound == upperBound :
-            element.fix(float(initialValue))
-        else:
-            element[0].fix(float(initialValue))
-    return element
 
-def addStateElementToPyomoNoInitialValue(model : poenv.ConcreteModel, domain, name : str, lowerBound : float, upperBound:float) :
-    if domain == None :
-        model.add_component(name, poenv.Var(bounds=(lowerBound, upperBound)))
-    else:
-        model.add_component(name, poenv.Var(domain, bounds=(lowerBound, upperBound)))
-    element = model.component(name)
+
+class PyomoHelperFunctions :
+    def __init__(self,model: poenv.ConcreteModel, domain):
+        self.Model = model
+        self.Domain = domain
+        self.IndexToStateMap = {}
+        self._nextStateIndex = 0
     
-    return element
+    def addStateElementToPyomo(self, name : str, lowerBound : float, upperBound:float, initialValue : float,  fixInitialValue = True) :
+        model = self.Model
+        model.add_component(name, poenv.Var(self.Domain, bounds=(lowerBound, upperBound), initialize=float(initialValue)))
+        element = model.component(name)
+        if fixInitialValue :
+            element[0].fix(float(initialValue))
+        self.IndexToStateMap[self._nextStateIndex] = lambda m, t : element[t]
+        self._nextStateIndex =self._nextStateIndex+1
+        return element
 
+    # def addEquationOfMotionConstraint(self, name, callback, originalElement):
+    #     model = self.Model
+    #     model.add_component(name, podae.DerivativeVar(originalElement, wrt=model.t))
+    #     derivativeElement = model.component(name)
+    #     model.add_component(name+"Eom", poenv.Constraint(self.Domain, rule =callback))
+    #     return model.component(name+"Eom")
 
-perRad = addStateElementToPyomo(model,model.t, "perRad", smaLow, smaHigh, float(per0/trivialScalingDic[baseProblem.StateVariables[0]]))
-fVar = addStateElementToPyomo(model,model.t, "f", -0.7, 0.7, float(f0))
-gVar = addStateElementToPyomo(model, model.t,"g", -0.7, 0.7, float(g0))
-hVar = addStateElementToPyomo(model, model.t,"h", -0.7, 0.7, float(h0))
-kVar = addStateElementToPyomo(model, model.t,"k", -0.7, 0.7, float(k0))
-lonVar = addStateElementToPyomo(model,model.t, "lon", 0, 8*math.pi, float(lon0))
-massVar = addStateElementToPyomo(model,model.t, "mass", 0, float(m0Val), float(m0Val))
-tfVar = addStateElementToPyomo(model, None, "tf", tfVal, tfVal, tfVal)
-azimuthControlVar = addStateElementToPyomoNoInitialValue(model,model.t, "controlAzimuth", -1*math.pi, math.pi)
-elevationControlVar = addStateElementToPyomoNoInitialValue(model,model.t, "controlElevation", -0.6, 0.6) # although this can go from -90 to 90 deg, common sense suggests that a lower bounds would be appropriate for this problem.  If the optimizer stays at these limits, then increase them
+    def addConstantSolveForParameter(self, name, lowerBound, upperBound, initialGuess):
+        model = self.Model
+        model.add_component(name, poenv.Var(bounds=(lowerBound, upperBound), initialize=float(initialGuess)))
+        component = model.component(name)
+        component.fix(float(initialGuess))
+        return component
 
-model.throttle = poenv.Var(model.t, bounds=(0.0, 1.0))
+    def addControlVariable(self, name, lowerBound, upperBound) :
+        model = self.Model
+        model.add_component(name, poenv.Var(self.Domain, bounds=(lowerBound, upperBound)))
+        element = model.component(name)
+        return element
+    
+
+pyomoHelper = PyomoHelperFunctions(model, model.t)
+perRad = pyomoHelper.addStateElementToPyomo("perRad", smaLow, smaHigh, float(per0/trivialScalingDic[baseProblem.StateVariables[0]]))
+fVar = pyomoHelper.addStateElementToPyomo("f", -0.7, 0.7, float(f0))
+gVar = pyomoHelper.addStateElementToPyomo("g", -0.7, 0.7, float(g0))
+hVar = pyomoHelper.addStateElementToPyomo("h", -0.7, 0.7, float(h0))
+kVar = pyomoHelper.addStateElementToPyomo("k", -0.7, 0.7, float(k0))
+lonVar = pyomoHelper.addStateElementToPyomo("lon", 0, 8*math.pi, float(lon0))
+massVar = pyomoHelper.addStateElementToPyomo("mass", 0, float(m0Val), float(m0Val))
+tfVar = pyomoHelper.addConstantSolveForParameter("tf", tfVal, tfVal, tfVal)
+
+azimuthControlVar = pyomoHelper.addControlVariable("controlAzimuth", -1*math.pi, math.pi)
+elevationControlVar = pyomoHelper.addControlVariable("controlElevation", -0.6, 0.6) # although this can go from -90 to 90 deg, common sense suggests that a lower bounds would be appropriate for this problem.  If the optimizer stays at these limits, then increase them
+throttleControlVar = pyomoHelper.addControlVariable("throttle", 0.0, 1.0)
+
 
 model.perDot = podae.DerivativeVar(model.perRad, wrt=model.t)
 model.fDot = podae.DerivativeVar(model.f, wrt=model.t)
@@ -508,23 +452,8 @@ indexToStateMap = {
 6: lambda m, t : m.mass[t],
 }
 
-def finalConditionsCallback(m, t, i) :
-    return indexToStateMap[i](m, t)
-
-simulating = False
-lastState = [] #type: List
 def mapPyomoStateToProblemState(m, t, expression) :
-    global lastState
-    global simulating
-    # if(simulating):
-    #     m.controlAzimuth.value = math.pi/2.0
-    #     m.throttle.value = 1.0
-    #     m.controlAzimuth[t].value = math.pi/2.0
-    #     m.throttle[t].value = 1.0
     state = [t, m.perRad[t], m.f[t], m.g[t],m.h[t], m.k[t], m.lon[t], m.mass[t], m.controlAzimuth[t], m.controlElevation[t], m.throttle[t], m.tf]
-
-    #state = [t, m.perRad[t], m.f[t], m.g[t],m.h[t], m.k[t], m.lon[t], m.mass[t], m.ux[t], m.uy[t], m.uz[t], m.throttle[t], m.tf]
-    lastState = state
     return expression(state)
 
 model.perEom = poenv.Constraint(model.t, rule =lambda m, t2: m.perDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 0)))
@@ -543,6 +472,7 @@ model.bc5 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[4](mod1, 
 #model.bc6 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[5](mod1, 1.0) - float(finalElements.TrueLongitude + (4*math.pi)))
 model.bc6 = poenv.Constraint(rule = lambda mod1 : 0 == poenv.sin(indexToStateMap[5](mod1, 1.0)) - math.sin(finalElements.TrueLongitude%(2*math.pi)))
 model.bc7 = poenv.Constraint(rule = lambda mod1 : 0 == poenv.cos(indexToStateMap[5](mod1, 1.0)) - math.cos(finalElements.TrueLongitude%(2*math.pi)))
+
 finalMassCallback = lambda m : m.mass[1.0]/100.0
 model.massObjective = poenv.Objective(expr = finalMassCallback, sense=poenv.maximize)
 
@@ -553,10 +483,7 @@ model.var_input = poenv.Suffix(direction=poenv.Suffix.IMPORT)
 model.var_input[model.controlAzimuth] = {0.0: math.pi/2.0}
 model.var_input[model.controlElevation] = {0.0: 0.0}
 model.var_input[model.throttle] = {0.0: 0.7}
-#model.var_input[model.tf] = {0.0: tfVal}
-simulating=True
 tSim, profiles = sim.simulate(numpoints=n, varying_inputs=model.var_input, integrator='dop853')
-simulating=False
 
 #poenv.TransformationFactory('dae.finite_difference').apply_to(model, wrt=model.t, nfe=n, scheme='BACKWARD')
 print("transforming pyomo")
@@ -574,7 +501,7 @@ try :
     solver.solve(model, tee=True)
 except Exception as ex:
     print("Whop whop" + str(ex))
-    print(lastState)
+    #print(lastState)
 
 def extractPyomoSolution(model, stateSymbols):
     tSpace =np.array( [t for t in model.t]) 
@@ -659,5 +586,3 @@ plot2DLines([azimuthPlotData, elevationPlotData], "Thrust angles (deg)")
 
 throttle = prim.XAndYPlottableLineData(time, dictSolution[stateSymbols[9]], "throttle", '#FF0000', 2)
 plot2DLines([throttle], "Throttle (0 to 1)")
-
-

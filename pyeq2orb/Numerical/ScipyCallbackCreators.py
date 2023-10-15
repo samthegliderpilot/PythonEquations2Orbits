@@ -35,7 +35,7 @@ def ConvertSolveIvpResultsToDictionary(integrationState : List[sy.Expr], solveIv
     asDict = OrderedDict()
     i = 0
     for sv in range(0,len(integrationState)) :
-        asDict[integrationState[sv]] = solveIvpResults.y[i]
+        asDict[integrationState[sv]] = list(solveIvpResults.y[i])
         i=i+1
     return asDict
 
