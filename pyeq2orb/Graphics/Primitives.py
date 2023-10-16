@@ -88,13 +88,13 @@ class Primitive :
 
 
 class PathPrimitive(Primitive) :
-    def __init__(self, ephemeris = EphemerisArrays(), color: Optional[str]=None) :
+    def __init__(self, ephemeris = EphemerisArrays(), color: Optional[str]=None, width : Optional[int]=2) :
         Primitive.__init__(self)
         self._ephemeris = ephemeris
         if(color == None) :
             color = '#0000ff'
         self._color = color
-        self._width = 1
+        self._width = width
 
     @property
     def ephemeris(self) -> EphemerisArrays :

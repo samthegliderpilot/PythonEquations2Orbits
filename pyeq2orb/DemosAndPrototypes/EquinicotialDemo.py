@@ -428,11 +428,11 @@ kVar = pyomoHelper.addStateElementToPyomo("k", -0.7, 0.7, float(k0))
 lonVar = pyomoHelper.addStateElementToPyomo("lon", 0, 8*math.pi, float(lon0))
 massVar = pyomoHelper.addStateElementToPyomo("mass", 0, float(m0Val), float(m0Val))
 tfVar = pyomoHelper.addConstantSolveForParameter("tf", tfVal, tfVal, tfVal)
-
+#model.tf = poenv.Var(bounds=(tfVal, tfVal), initialize=tfVal)
+#model.tf.fix(float(tfVal))
 azimuthControlVar = pyomoHelper.addControlVariable("controlAzimuth", -1*math.pi, math.pi)
 elevationControlVar = pyomoHelper.addControlVariable("controlElevation", -0.6, 0.6) # although this can go from -90 to 90 deg, common sense suggests that a lower bounds would be appropriate for this problem.  If the optimizer stays at these limits, then increase them
 throttleControlVar = pyomoHelper.addControlVariable("throttle", 0.0, 1.0)
-
 
 model.perDot = podae.DerivativeVar(model.perRad, wrt=model.t)
 model.fDot = podae.DerivativeVar(model.f, wrt=model.t)
@@ -495,7 +495,7 @@ sim.initialize_model()
 print("running the pyomo model")
 solver = poenv.SolverFactory('cyipopt')
 solver.config.options['tol'] = 1e-9
-solver.config.options['max_iter'] = 500
+solver.config.options['max_iter'] = 1000
 
 try :
     solver.solve(model, tee=True)
@@ -574,8 +574,9 @@ except :
 
 thrustVectorRun = getInertialThrustVectorFromDataDict(baseProblem, dictSolution, muVal)
 thrustPlotlyItemsRun = createScattersForThrustVectors(satPath.ephemeris, thrustVectorRun, "#ff0000", Au/10.0)
-PlotAndAnimatePlanetsWithPlotly("some title", [earthPath, marsPath, simPath, satPath], time, thrustPlotlyItemsRun)
-
+fig = PlotAndAnimatePlanetsWithPlotly("some title", [earthPath, marsPath, simPath, satPath], time, thrustPlotlyItemsRun)
+fig.update_layout()#autosize=False, width=800, height=600)
+fig.show()  
 azimuthPlotData = prim.XAndYPlottableLineData(time, dictSolution[stateSymbols[7]]*180.0/math.pi, "azimuth", '#0000ff', 2, 0)
 elevationPlotData = prim.XAndYPlottableLineData(time, dictSolution[stateSymbols[8]]*180.0/math.pi, "elevation", '#00ff00', 2, 0)
 

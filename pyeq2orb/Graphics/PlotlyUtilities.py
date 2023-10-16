@@ -72,9 +72,8 @@ def PlotAndAnimatePlanetsWithPlotly(title : str, wanderers : List[prim.PathPrimi
     yArrays = []
     zArrays=[]
     for planet in wanderers :
-        #colors = np.full(len(planet.ephemeris.T), planet.color)
         dataDict = DataFrame({"x":planet.ephemeris.X, "y":planet.ephemeris.Y, "z": planet.ephemeris.Z })
-        thisLine = go.Scatter3d(x=dataDict["x"], y=dataDict["y"], z=dataDict["z"], mode="lines", line=dict(color=planet.color, width=5))
+        thisLine = go.Scatter3d(x=dataDict["x"], y=dataDict["y"], z=dataDict["z"], mode="lines", line=dict(color=planet.color, width=planet.width))
         
         lines.append(thisLine)
         
@@ -115,15 +114,14 @@ def PlotAndAnimatePlanetsWithPlotly(title : str, wanderers : List[prim.PathPrimi
         showlegend=False,
         opacity=0, # full transparent
         hoverinfo='none',
-        x=[0,maxValue*1.5],
-        y=[0,maxValue*1.5],
-        z=[0,maxValue*1.5])
-    print(str(maxValue))
+        x=[0,maxValue*1.125],
+        y=[0,maxValue*1.125],
+        z=[0,maxValue*1.125])
+    
     fig.add_trace(scalingMarker)
     for item in lines :
         fig.add_trace(item)
     if thrustVector != None :
         for thrust in thrustVector :
             fig.add_trace(thrust)
-    fig.update_layout(autosize=False, width=800, height=600)
-    fig.show()        
+    return fig    
