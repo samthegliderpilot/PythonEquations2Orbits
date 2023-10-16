@@ -8,7 +8,7 @@ import math
 from collections import OrderedDict
 sys.path.insert(1, os.path.dirname(os.path.dirname(sys.path[0]))) # need to import 2 directories up (so pyeq2orb is a subfolder)
 sy.init_printing()
-
+from typing import Union, List, Optional, Sequence
 from pyeq2orb.ForceModels.TwoBodyForce import CreateTwoBodyMotionMatrix, CreateTwoBodyListForModifiedEquinoctialElements
 from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
 from pyeq2orb.Coordinates.KeplerianModule import KeplerianElements
@@ -17,10 +17,10 @@ import pyeq2orb.Coordinates.ModifiedEquinoctialElementsModule as mee
 from IPython.display import display
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 import scipyPaperPrinter as jh #type: ignore
-jh.printMarkdown("# SEPSPOT Recreation")
-jh.printMarkdown("In working my way up through low-thrust modeling for satellite maneuvers, it is inevitable to run into Dr. Edelbaum's work.  Newer work such as Jean Albert Kechichian's practically requires understanding SEPSPOT as a prerequesit.  This writeup will go through the basics of SEPSPOT's algorithsm as described in the references below.")
+#jh.printMarkdown("# SEPSPOT Recreation")
+#jh.printMarkdown("In working my way up through low-thrust modeling for satellite maneuvers, it is inevitable to run into Dr. Edelbaum's work.  Newer work such as Jean Albert Kechichian's practically requires understanding SEPSPOT as a prerequesit.  This writeup will go through the basics of SEPSPOT's algorithsm as described in the references below.")
 
-jh.printMarkdown("In other work in this python library, I have already created many helper types such as Equinoctial elements, their equations of motion, rotation matrices, and more. To start, we will define out set of equinoctial elements.  Unlike the orignial paper, I will be using the modified elements.  This replaces the semi-major axis with the parameter and reorders/renames some of the other elements.")
+#jh.printMarkdown("In other work in this python library, I have already created many helper types such as Equinoctial elements, their equations of motion, rotation matrices, and more. To start, we will define out set of equinoctial elements.  Unlike the orignial paper, I will be using the modified elements.  This replaces the semi-major axis with the parameter and reorders/renames some of the other elements.")
 t=sy.Symbol('t', real=True)
 mu = sy.Symbol(r'\mu', real=True, positive=True)
 muVal = 3.986004418e5  
@@ -48,16 +48,16 @@ eccentricAnomaly = sy.Symbol('E')
 eccentricLongitude = sy.Function('F')(t)
 simpleBoringEquiElements.F = eccentricLongitude
 equiInTermsOfKep.F = eccentricAnomaly + kepElements.ArgumentOfPeriapsis + kepElements.RightAscensionOfAscendingNode
-jh.printMarkdown("We want our orbital elements to use the eccentric longitude which is:")
-jh.showEquation(eccentricLongitude, equiInTermsOfKep.F) #TODO: Look into how to better include this in the normal equi elements
+#jh.printMarkdown("We want our orbital elements to use the eccentric longitude which is:")
+#jh.showEquation(eccentricLongitude, equiInTermsOfKep.F) #TODO: Look into how to better include this in the normal equi elements
 
-jh.printMarkdown("The rotation matrix of the axes being used for this analysis to inertial is:")
-jh.showEquation("R", simpleBoringEquiElements.CreateFgwToInertialAxes())
+#jh.printMarkdown("The rotation matrix of the axes being used for this analysis to inertial is:")
+#jh.showEquation("R", simpleBoringEquiElements.CreateFgwToInertialAxes())
 r = simpleBoringEquiElements.CreateFgwToInertialAxes()
-jh.printMarkdown("And with keplerian elements:")
-jh.showEquation("R", equiInTermsOfKep.CreateFgwToInertialAxes())
+#jh.printMarkdown("And with keplerian elements:")
+#jh.showEquation("R", equiInTermsOfKep.CreateFgwToInertialAxes())
 
-jh.printMarkdown("And we need the position and velocity in the FGW axes.  Using the normal equinoctial elements (in order to better compare to the original paper):")
+#jh.printMarkdown("And we need the position and velocity in the FGW axes.  Using the normal equinoctial elements (in order to better compare to the original paper):")
 x1Sy = sy.Symbol('X_1')
 x2Sy = sy.Symbol('X_2')
 x1DotSy = sy.Symbol(r'\dot{X_1}')
@@ -68,17 +68,68 @@ xDotSuperSimple = Cartesian(x1DotSy, x2DotSy, 0)
 fullSubsDictionary = {}
 [x1SimpleEqui, x2SimpleEqui] = simpleBoringEquiElements.RadiusInFgw(eccentricLongitude, fullSubsDictionary)
 [x1DotSimpleEqui, x2DotSimpleEqui] = simpleBoringEquiElements.VelocityInFgw(eccentricLongitude, fullSubsDictionary)
-jh.showEquation(x1Sy, x1SimpleEqui)
-jh.showEquation(x2Sy, x2SimpleEqui)
-jh.showEquation(x1DotSy, x1SimpleEqui)
-jh.showEquation(x2DotSy, x2SimpleEqui)
+# jh.showEquation(x1Sy, x1SimpleEqui)
+# jh.showEquation(x2Sy, x2SimpleEqui)
+# jh.showEquation(x1DotSy, x1SimpleEqui)
+# jh.showEquation(x2DotSy, x2SimpleEqui)
 normalEquiElementsInTermsOfKep = mee.EquinoctialElementsHalfI.FromModifiedEquinoctialElements(equiInTermsOfKep)
 [x1Complete, x2Complete] = normalEquiElementsInTermsOfKep.RadiusInFgw(equiInTermsOfKep.F)
 [x1DotComplete, x2DotComplete] = normalEquiElementsInTermsOfKep.VelocityInFgw(equiInTermsOfKep.F)
-jh.showEquation("X_1", x1Complete.trigsimp(deep=True))
-jh.showEquation("X_2", x2Complete.trigsimp(deep=True))
-jh.showEquation("\dot{X_1}", x1DotComplete.trigsimp(deep=True))
-jh.showEquation("\dot{X_2}", x2DotComplete.trigsimp(deep=True))
+# jh.showEquation("X_1", x1Complete.trigsimp(deep=True))
+# jh.showEquation("X_2", x2Complete.trigsimp(deep=True))
+# jh.showEquation("\dot{X_1}", x1DotComplete.trigsimp(deep=True))
+# jh.showEquation("\dot{X_2}", x2DotComplete.trigsimp(deep=True))
+
+#%%
+# I want to keep the overall interface of showEquation, but the cleaning is not sufficient
+def showEquation(lhsOrEquation : Union[sy.Eq, sy.Expr, str], rhs : Optional[sy.Expr] = None, argsToKeep : Optional[Union[Sequence[sy.Symbol], bool]] = [], dotNotationForTimeDerivatives : Optional[bool] = True, timeSymbol :Optional[sy.Symbol] = None) :
+    if isinstance(argsToKeep, bool) :
+        # this does not care about the dotNotationForTimeDerivatives or the time symbol
+        jh.showEquation(lhsOrEquation, rhs, argsToKeep)
+        return
+
+    if timeSymbol == None :
+        timeSymbol = t #TODO: make sure this is ok
+
+    lhs = lhsOrEquation
+    if(isinstance(lhsOrEquation, sy.Eq)) :
+        lhs = lhsOrEquation.lhs
+        rhs = lhsOrEquation.rhs
+    if(isinstance(lhsOrEquation, str)) :
+        if(isinstance(rhs, sy.Matrix) or 
+           isinstance(rhs, sy.ImmutableMatrix)):
+            lhs = sy.MatrixSymbol(lhsOrEquation, 
+                                   rhs.shape[0], 
+                                   rhs.shape[1])            
+        else:
+            lhs = sy.Symbol(lhsOrEquation)
+    if(isinstance(rhs, str)) :
+        if(isinstance(lhsOrEquation, sy.Matrix) or 
+           isinstance(lhsOrEquation, sy.ImmutableMatrix)):
+            rhs = sy.MatrixSymbol(rhs, 
+                                   lhsOrEquation.shape[0], 
+                                   lhsOrEquation.shape[1])
+        else:
+            rhs = sy.Symbol(rhs)
+
+    if dotNotationForTimeDerivatives:
+        for derivativeExp in rhs.atoms(sy.Derivative):
+            if timeSymbol in derivativeExp._wrt_variables :
+                numberOfDs = derivativeExp.Order
+                symbolName = r'\dot{' + derivativeExp.Expr.name  +'}'
+
+
+
+    rhs= jh.deepClean(rhs, argsToKeep)    
+    lhs= jh.deepClean(lhs, argsToKeep)    
+    display(sy.Eq(lhs, rhs))
+#jh.showEquation(x1Sy, x1SimpleEqui, False)
+#showEquation(x1Sy, x1SimpleEqui, [k])
+
+qOfT = sy.Function('q')(t)
+dqdt = qOfT.diff(t)
+ddqdtt = dqdt.diff(t)
+showEquation(r'\frac{dq}{dt}', dqdt)
 
 
 #x,y,z = sy.symbols('x y z', real=True)

@@ -42,13 +42,19 @@ def printMarkdown(markdown : str) -> None :
         else :
             print(markdown)
 
-def deepClean(exp):
+def deepClean(exp, functionArgumentsToKeep = None):
     functions = exp.atoms(sy.Function)
     subsDict = {}
-    
+    if(functionArgumentsToKeep == None):
+        functionArgumentsToKeep = []
+
     for func in functions:
         if hasattr(func, 'name') :
-            subsDict[func] = sy.Symbol(func.name)
+            remainingFreeSymbols = list(set(func.args).intersection(functionArgumentsToKeep))
+            if len(remainingFreeSymbols) > 0:
+                subsDict[func] = sy.Function(func.name)(*remainingFreeSymbols)
+            else:
+                subsDict[func] = sy.Symbol(func.name)
 
     return exp.subs(subsDict)
 
@@ -122,7 +128,7 @@ def showEquationNoFunctionsOf(lhsOrEquation, rhs=None, cleanEqu=True):
                                    rhs.shape[0], 
                                    rhs.shape[1])            
         else:
-            realLhs = sy.symbols(lhsOrEquation)
+            realLhs = sy.Symbol(lhsOrEquation)
     if(isinstance(rhs, str)) :
         if(isinstance(lhsOrEquation, sy.Matrix) or 
            isinstance(lhsOrEquation, sy.ImmutableMatrix)):
@@ -130,7 +136,7 @@ def showEquationNoFunctionsOf(lhsOrEquation, rhs=None, cleanEqu=True):
                                    lhsOrEquation.shape[0], 
                                    lhsOrEquation.shape[1])
         else:
-            realRhs = sy.symbols(rhs)
+            realRhs = sy.Symbol(rhs)
        
     if(cleanEqu and shouldIClean(realRhs)) : 
         realRhs = deepClean(realRhs)
