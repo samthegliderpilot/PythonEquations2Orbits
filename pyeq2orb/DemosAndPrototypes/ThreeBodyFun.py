@@ -83,3 +83,4 @@ for i in range(0, len(tArray)):
 fig = PlotAndAnimatePlanetsWithPlotly("NHRL In Inertial Frame", [prim.PathPrimitive(inertialEphemeris, "#ff00ff", 3), prim.PathPrimitive(moonInertialEphemeris, "#ffffff", 3)], tArray, None)
 fig.update_layout()
 fig.show()  
+

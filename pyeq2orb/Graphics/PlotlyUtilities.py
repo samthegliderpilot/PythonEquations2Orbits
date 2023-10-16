@@ -37,50 +37,42 @@ class PlotlyDataAndFramesAccumulator :
                 dataForThisFrame.append(pt)
             self.frames.append(go.Frame(data=dataForThisFrame, traces= traceArray, name=f'frame{k}'))
 
-    def AddLinePrimitive(self, pathPrimitve : prim.PathPrimitive) :
+    def AddLinePrimitive(self, pathPrimitive : prim.PathPrimitive) :
         df = PlotlyDataAndFramesAccumulator.CreatePlotlyEphemerisDataFrame(pathPrimitve.ephemeris)
         theLine = go.Scatter3d(x=df["x"], y=df["y"], z=df["z"], mode="lines", line=dict(color=pathPrimitve.color, width=pathPrimitve.width))
         self.data.append(theLine)
 
-    def AddLinePrimitives(self, pathPrimitves : List[prim.PathPrimitive]) :
-        for prim in pathPrimitves :
+    def AddLinePrimitives(self, pathPrimitives : List[prim.PathPrimitive]) :
+        for prim in pathPrimitives :
             self.AddLinePrimitive(prim)
 
-    def AddScalingPoints(self, primitives : List[prim.Primitive]) :
-        maxVal = -1.0
-        for prim in primitives :
-            if prim.maximumValue() > maxVal :
-                maxVal = prim.maximumValue()
+    def CreateScalingMarker(self, primitives : List[prim.Primitive]) ->go.Scatter3d :
+        xB, yB, zB = prim.Primitive.GetEquidistantBoundsForEvenPlotting(primitives)
         
-        markers = go.Scatter3d(name="",
-        visible=True,
-        showlegend=False,
-        opacity=0,
-        hoverinfo='none',
-        x=[0,maxVal],
-        y=[0,maxVal],
-        z=[0,maxVal])
-        self.data.append(markers)
-
+        scalingMarker = go.Scatter3d(name="",
+            visible=True,
+            showlegend=False,
+            opacity=0, # full transparent
+            hoverinfo='none',
+            x=[xB[0], xB[1]],
+            y=[yB[0], zB[1]],
+            z=[yB[0], zB[1]])        
+        return scalingMarker
 
 def PlotAndAnimatePlanetsWithPlotly(title : str, wanderers : List[prim.PathPrimitive], tArray : List[float], thrustVector : List[go.Scatter3d]) :
     lines = []
-    maxValue = -1
 
     #animation arrays
     xArrays = []
     yArrays = []
-    zArrays=[]
+    zArrays = []
+
     for planet in wanderers :
         dataDict = DataFrame({"x":planet.ephemeris.X, "y":planet.ephemeris.Y, "z": planet.ephemeris.Z })
         thisLine = go.Scatter3d(x=dataDict["x"], y=dataDict["y"], z=dataDict["z"], mode="lines", line=dict(color=planet.color, width=planet.width))
         
-        lines.append(thisLine)
-        
-        thisMax = planet.ephemeris.GetMaximumValue()
-        if thisMax > maxValue :
-            maxValue = thisMax
-        
+        lines.append(thisLine)     
+
         # for the animation, we can only have 1 scatter_3d and we need to shuffle all of the 
         # points for all of the planets to be at the same time 
         xForAni = splev(tArray, splrep(planet.ephemeris.T, planet.ephemeris.X))
@@ -109,14 +101,16 @@ def PlotAndAnimatePlanetsWithPlotly(title : str, wanderers : List[prim.PathPrimi
     fig = px.scatter_3d(dataDictionary, title=title, x="x", y="y", z="z", animation_frame="t", color="color", size="size")    
 
     # make the scaling item
+    xB, yB, zB = prim.Primitive.GetEquidistantBoundsForEvenPlotting(wanderers)
+    
     scalingMarker = go.Scatter3d(name="",
         visible=True,
         showlegend=False,
         opacity=0, # full transparent
         hoverinfo='none',
-        x=[0,maxValue*1.125],
-        y=[0,maxValue*1.125],
-        z=[0,maxValue*1.125])
+        x=[xB[0], xB[1]],
+        y=[yB[0], zB[1]],
+        z=[yB[0], zB[1]])
     
     fig.add_trace(scalingMarker)
     for item in lines :

@@ -1,4 +1,4 @@
-from typing import List, cast, Optional
+from typing import List, cast, Optional, Tuple
 import numpy as np 
 from pyeq2orb.Coordinates.CartesianModule import Cartesian
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
@@ -55,8 +55,65 @@ class EphemerisArrays :
         self.Y.extend(y)
         self.Z.extend(z)
 
-    def GetMaximumValue(self) :
+    def GetMaximumAbsoluteValue(self) :
         return max([max(self.X, key=abs), max(self.Y, key=abs), max(self.Z, key=abs)])
+
+    def BoundsX(self):
+        return (min(self.X), max(self.X))
+
+    def BoundsY(self):
+        return (min(self.Y), max(self.Y))
+
+    def BoundsZ(self):
+        return (min(self.Z), max(self.Z))
+
+
+    @staticmethod
+    def GetEquidistantBoundsForEvenPlotting(ephemerisList) :
+        xBounds = ephemerisList[0].BoundsX()
+        yBounds = ephemerisList[0].BoundsY()
+        zBounds = ephemerisList[0].BoundsZ()
+        minX = xBounds[0]
+        maxX = xBounds[1]
+        minY = yBounds[0]
+        maxY = yBounds[1]
+        minZ = zBounds[0]
+        maxZ = zBounds[1]
+        first= True
+        for planet in ephemerisList :           
+            if not first:
+                first = False
+                xBounds = planet.BoundsX()
+                yBounds = planet.BoundsY()
+                zBounds = planet.BoundsZ()
+                if xBounds[0] < minX:
+                    minX = xBounds[0]
+                if xBounds[1] > maxX:
+                    maxX = xBounds[1]
+                if yBounds[0] < minY:
+                    minY = yBounds[0]
+                if yBounds[1] > maxY:
+                    maxY = yBounds[1]
+                if zBounds[0] < minZ:
+                    minZ = zBounds[0]
+                if zBounds[1] > maxZ:
+                    maxZ = zBounds[1]   
+
+        # make the scaling item
+        spanX = maxX-minX
+        spanY = maxY-minY
+        spanZ = maxZ-minZ
+        halfSpan = max([spanX, spanY, spanZ])/2
+        spanToUse = halfSpan*1.25
+        centerX = minX + (maxX-minX)/2
+        centerY = minY + (maxY-minY)/2
+        centerZ = minZ + (maxZ-minZ)/2
+
+        x=(centerX-spanToUse, centerX+spanToUse)
+        y=(centerY-spanToUse, centerY+spanToUse)
+        z=(centerZ-spanToUse, centerZ+spanToUse)
+
+        return x, y, z
 
 class Primitive :
     def __init__(self) :
@@ -64,11 +121,11 @@ class Primitive :
         self._id = ""
         self._ephemeris = EphemerisArrays()
 
-    def maximumValue(self) -> float : 
+    def maximumAbsoluteValue(self) -> float : 
         return self.maximumValueFromEphemeris(self._ephemeris)
 
     def maximumValueFromEphemeris(self, ephemeris):
-        return ephemeris.GetMaximumValue()
+        return ephemeris.GetMaximumAbsoluteValue()
 
     @property
     def color(self) : 
@@ -85,6 +142,10 @@ class Primitive :
     @id.setter
     def id(self, value) :
         self._id = value
+
+    @staticmethod
+    def GetEquidistantBoundsForEvenPlotting(primitiveList) :        
+        return EphemerisArrays.GetEquidistantBoundsForEvenPlotting([prim._ephemeris for prim in primitiveList])
 
 
 class PathPrimitive(Primitive) :
@@ -108,8 +169,8 @@ class PathPrimitive(Primitive) :
     def width(self, value : float) :
         self._width = value 
 
-    def maximumValue(self) -> float:
-        return super().maximumValue()
+    def maximumAbsoluteValue(self) -> float:
+        return super().maximumAbsoluteValue()
 
 class MarkerPrimitive(Primitive) :
     def __init__(self, ephemeris = EphemerisArrays()) :
