@@ -33,11 +33,11 @@ class testScaledSymbolicProblem(unittest.TestCase) :
         l_r = lambdas[0]
         l_v = lambdas[2]
         hamiltonian = problem.CreateHamiltonian(lambdas)
-        xversality = problem.TransversalityConditionInTheDifferentialForm(hamiltonian, 0.0, lambdas) # not allowing final time to vary
+        transversality = problem.TransversalityConditionInTheDifferentialForm(hamiltonian, 0.0, lambdas) # not allowing final time to vary
 
-        zeroedOutCondition =(xversality[0]-(sy.sqrt(mu)*l_v/(2*(r*4.0)**(3/2)) - l_r + 1)).expand().simplify()
+        zeroedOutCondition =(transversality[0]-(sy.sqrt(mu)*l_v/(2*(r*4.0)**(3/2)) - l_r + 1)).expand().simplify()
         self.assertTrue((zeroedOutCondition).is_zero, msg="first xvers cond")
-        self.assertTrue((xversality[1]+lambdas[-1]).is_zero, msg="lmd theta condition")
+        self.assertTrue((transversality[1]+lambdas[-1]).is_zero, msg="lmd theta condition")
 
     def testCreatingAugmentedTransversalityCondition(self) :
         orgProblem = ContinuousThrustCircularOrbitTransferProblem()
@@ -55,14 +55,12 @@ class testScaledSymbolicProblem(unittest.TestCase) :
         b1=sy.Symbol('b1')
         b2=sy.Symbol('b2')
         aug = [b1,b2 ]
-        xversality = problem.TransversalityConditionsByAugmentation(aug, lambdas)
-        print(xversality)
+        transversality = problem.TransversalityConditionsByAugmentation(aug, lambdas)
 
-        firstZeroExpression = (xversality[0]-(-sy.sqrt(mu)*b2/(2*(r*4.0)**(3/2)) + l_r - 1)).expand().simplify()
-        print(firstZeroExpression)
-        secondsZeroExp = xversality[1]-(-b1 + l_u).expand().simplify()
-        thirdZeroExp = xversality[2]-(-b2 + l_v).expand().simplify()
-        fourthZeroExp = xversality[3]-(l_theta).expand().simplify()
+        firstZeroExpression = (transversality[0]-(-sy.sqrt(mu)*b2/(2*(r*4.0)**(3/2)) + l_r - 1)).expand().simplify()
+        secondsZeroExp = transversality[1]-(-b1 + l_u).expand().simplify()
+        thirdZeroExp = transversality[2]-(-b2 + l_v).expand().simplify()
+        fourthZeroExp = transversality[3]-(l_theta).expand().simplify()
 
         self.assertTrue(firstZeroExpression.is_zero, msg="first")
         self.assertTrue(secondsZeroExp.is_zero, msg="second")
@@ -88,7 +86,7 @@ class testScaledSymbolicProblem(unittest.TestCase) :
         self.assertAlmostEqual(finalState[1], 0.000, 2, msg="u check")
         self.assertAlmostEqual(finalState[2], 0.397980812304531, 1, msg="v check")
 
-    def testScaldStateWithAjoinedTransversalityRegression(self) :
+    def testScaldStateWithAdjoinedTransversalityRegression(self) :
         from Tests.Problems.testPlanerLeoToGeoProblem import testPlanerLeoToGeoProblem # including it here to avoid VS Code from finding TestPlanerLeoToGeo twice
         (odeSolveIvpCb, fSolveCb, tArray, z0, problem) = testPlanerLeoToGeoProblem.CreateEvaluatableCallbacks(True, False, False)
         knownAnswer = [14.95703446,  0.84256877, 15.60186291, -7.43265181, 13.6499807]

@@ -1,4 +1,5 @@
-from typing import List, cast, Optional, Tuple
+from __future__ import annotations
+from typing import List, cast, Optional, Tuple, Sequence
 import numpy as np 
 from pyeq2orb.Coordinates.CartesianModule import Cartesian
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
@@ -49,7 +50,7 @@ class EphemerisArrays :
         self.Y.append(y)
         self.Z.append(z)
 
-    def ExtendValues(self, t : float, x : float, y : float, z : float) :
+    def ExtendValues(self, t : List[float], x : List[float], y : List[float], z : List[float]) :
         self.T.extend(t)
         self.X.extend(x)
         self.Y.extend(y)
@@ -69,7 +70,7 @@ class EphemerisArrays :
 
 
     @staticmethod
-    def GetEquidistantBoundsForEvenPlotting(ephemerisList) :
+    def GetEquidistantBoundsForEvenPlotting(ephemerisList : List[EphemerisArrays]) :
         xBounds = ephemerisList[0].BoundsX()
         yBounds = ephemerisList[0].BoundsY()
         zBounds = ephemerisList[0].BoundsZ()
@@ -144,12 +145,12 @@ class Primitive :
         self._id = value
 
     @staticmethod
-    def GetEquidistantBoundsForEvenPlotting(primitiveList) :        
+    def GetEquidistantBoundsForEvenPlotting(primitiveList : Sequence[Primitive]) :        
         return EphemerisArrays.GetEquidistantBoundsForEvenPlotting([prim._ephemeris for prim in primitiveList])
 
 
 class PathPrimitive(Primitive) :
-    def __init__(self, ephemeris = EphemerisArrays(), color: Optional[str]=None, width : Optional[int]=2) :
+    def __init__(self, ephemeris = EphemerisArrays(), color: Optional[str]=None, width : int=2) :
         Primitive.__init__(self)
         self._ephemeris = ephemeris
         if(color == None) :
@@ -162,11 +163,11 @@ class PathPrimitive(Primitive) :
         return self._ephemeris     
 
     @property
-    def width(self) ->float: 
+    def width(self) ->int: 
         return self._width
 
     @width.setter
-    def width(self, value : float) :
+    def width(self, value : int) :
         self._width = value 
 
     def maximumAbsoluteValue(self) -> float:

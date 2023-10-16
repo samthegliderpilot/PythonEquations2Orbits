@@ -1,5 +1,5 @@
 #%%
-import __init__
+import __init__ #type: ignore
 import numpy as np
 from pandas import DataFrame#type: ignore
 from scipy.integrate import solve_ivp #type: ignore

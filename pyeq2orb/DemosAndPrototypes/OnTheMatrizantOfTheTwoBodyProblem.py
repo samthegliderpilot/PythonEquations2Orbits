@@ -1,5 +1,5 @@
 #%%
-import __init__ 
+import __init__  #type:ignore
 import sympy as sy
 import os
 import sys

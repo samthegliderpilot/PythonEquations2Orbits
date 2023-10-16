@@ -9,7 +9,7 @@ from pyeq2orb.Coordinates.ModifiedEquinoctialElementsModule import ModifiedEquin
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
 from pyeq2orb.Numerical.LambdifyHelpers import LambdifyHelper, OdeLambdifyHelper
-from typing import List, Dict, cast
+from typing import List, Dict, cast, Any
 from matplotlib.figure import Figure #type: ignore
 import scipyPaperPrinter as jh#type: ignore
 import pyomo.environ as poenv#type: ignore
@@ -61,9 +61,7 @@ class HowManyImpulses(SymbolicProblem) :
         ricToInertial = orb.CreateComplicatedRicToInertialMatrix(elements.ToMotionCartesian(True))
         alp = ricToInertial*Cartesian(sy.cos(azi)*sy.cos(elv), sy.sin(azi)*sy.cos(elv), sy.sin(elv))
         jh.showEquation("ric", alp)
-        #alp =sy.Matrix([[ sy.Symbol(r'\Delta_{r}') ], [sy.Symbol(r'\Delta_{t}')], [sy.Symbol(r'\Delta_{c}')]])
         alp = sy.Matrix([[sy.cos(azi)*sy.cos(elv)], [sy.sin(azi)*sy.cos(elv)], [sy.sin(elv)]])
-        #alp = sy.Matrix([[ux], [uy], [uz]])
         thrust = sy.Symbol('T')
         m = sy.Function('m')(t)
         throttle = sy.Function('\delta', real=True)(t)
@@ -363,12 +361,6 @@ simEphemeris.InitFromMotions(tSpace, guessMotions)
 simPath = prim.PathPrimitive(simEphemeris)
 simPath.color = "#00ff00"
 
-#simDataDict = convertIvpResultsToDataDict(baseProblem, testSolution)
-#addFixedAzElMagToDataDict(baseProblem, simDataDict, fixedAz, fixedEl, fixedMag)
-#thrustCartesians = getInertialThrustVectorFromDataDict(baseProblem, simDataDict, muVal)
-#sampleThrustLines = createScattersForThrustVectors(simEphemeris, thrustCartesians, "#ff0000", Au/05.0)
-#PlotAndAnimatePlanetsWithPlotly("Integration sample", [earthPath, marsPath, simPath], testSolution.t, sampleThrustLines)
-
 print("making pyomo model")
 
 model = poenv.ConcreteModel()
@@ -385,7 +377,7 @@ class PyomoHelperFunctions :
     def __init__(self,model: poenv.ConcreteModel, domain):
         self.Model = model
         self.Domain = domain
-        self.IndexToStateMap = {}
+        self.IndexToStateMap = {} #type: Dict[int, Any]
         self._nextStateIndex = 0
     
     def addStateElementToPyomo(self, name : str, lowerBound : float, upperBound:float, initialValue : float,  fixInitialValue = True) :

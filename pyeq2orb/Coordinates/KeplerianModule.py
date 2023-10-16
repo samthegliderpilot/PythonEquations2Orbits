@@ -3,7 +3,7 @@ from .CartesianModule import Cartesian, MotionCartesian
 import sympy as sy
 import math as math
 from .RotationMatrix import RotAboutXValladoConvention, RotAboutY, RotAboutX, RotAboutZ, RotAboutZValladoConvention
-from typing import Optional, List
+from typing import Optional, List, Union
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
 
 class KeplerianElements() :
@@ -265,7 +265,7 @@ def CreateSymbolicElements(elementsFunctionOf : Optional[Union[sy.Expr, List[sy.
         aop = sy.Symbol('\omega', real=True)
         ta = sy.Symbol(r'\nu', real=True)
     else:
-        if not hasattr(elementsFunctionOf, "__len__") :
+        if isinstance(elementsFunctionOf, sy.Expr) :
             elementsFunctionOf = [elementsFunctionOf]
 
         a = sy.Function("a", real=True)(*elementsFunctionOf)

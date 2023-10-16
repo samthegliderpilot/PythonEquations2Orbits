@@ -5,7 +5,7 @@ from pyeq2orb.Numerical import ScipyCallbackCreators
 
 
 import sympy as sy
-from typing import List, Dict, Callable, cast, Any, Union
+from typing import List, Dict, Callable, cast, Any, Union, Tuple
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
 
@@ -86,7 +86,7 @@ class LambdifyHelper :
         return sy.lambdify(self.LambdifyArguments, SymbolicProblem.SafeSubs(self.ExpressionsToLambdify, self.SubstitutionDictionary))
 
     @staticmethod
-    def CreateLambdifiedExpressions(stateExpressionList : List[sy.Expr], expressionsToLambdify : List[sy.Expr], constantsSubstitutionDictionary : Dict[sy.Expr, float]) ->sy.Expr :
+    def CreateLambdifiedExpressions(stateExpressionList : List[sy.Expr], expressionsToLambdify : List[sy.Expr], constantsSubstitutionDictionary : Dict[sy.Expr, float]) ->Callable[..., float] :
         """ A helper function to create a lambdified callback of some expressions while also substituting in constant values into the expressions. One common problem that 
         might come up is if the constantsSubstitutionDictionary contains an independent variable of one of the symbols in the state (for example, if one of your state 
         variables is x(t) and you put a constant value of t into the constantsSubstitutionDictionary, this turns x(t) into x(2) and things get confusing quickly). Generally
@@ -270,7 +270,7 @@ class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
     def SymbolsToSolveForWithBoundaryConditions(self) -> List[sy.Symbol] :
         return self._symbolsToSolveForWithBcs # these need to be in terms of t0 or tf
 
-    def CreateCallbackForBoundaryConditionsWithFullState(self) :
+    def CreateCallbackForBoundaryConditionsWithFullState(self) ->tuple[List[sy.Expr], Callable[..., float]]: 
         stateForBoundaryConditions = [] #type: List[sy.Expr]
         stateForBoundaryConditions.append(self.t0)
         stateForBoundaryConditions.extend(SymbolicProblem.SafeSubs(self.NonTimeLambdifyArguments, {self.Time: self.t0}))
@@ -281,11 +281,11 @@ class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
         #stateForBoundaryConditions.extend(fSolveOnlyParameters)
 
         boundaryConditionEvaluationCallbacks = LambdifyHelper.CreateLambdifiedExpressions(stateForBoundaryConditions, self.BoundaryConditionExpressions, self.SubstitutionDictionary)    
-        return [stateForBoundaryConditions,boundaryConditionEvaluationCallbacks]
+        return (stateForBoundaryConditions,boundaryConditionEvaluationCallbacks)
     
     
     def createCallbackToSolveForBoundaryConditions(self, solveIvpCallback, tArray, preSolveInitialGuessForIntegrator : List[float]) :
-        [stateForBoundaryConditions,boundaryConditionEvaluationCallbacks] = self.CreateCallbackForBoundaryConditionsWithFullState()
+        (stateForBoundaryConditions,boundaryConditionEvaluationCallbacks) = self.CreateCallbackForBoundaryConditionsWithFullState()
         mapForIntegrator = [] #type: List[int]
         mapForBcs = [] #type: List[int]
         for i in range(0, len(self.SymbolsToSolveForWithBoundaryConditions)) :

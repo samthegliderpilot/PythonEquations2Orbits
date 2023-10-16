@@ -14,13 +14,13 @@ class testCartesian(unittest.TestCase) :
 
         expectedAdd = Cartesian(5,7,9)
         expectedSubtract = Cartesian(-3,-3,-3)
-        expectedMagnitutde = math.sqrt(1+4+9)
-        expectedNorm = Cartesian(1.0/expectedMagnitutde, 2.0/expectedMagnitutde, 3.0/expectedMagnitutde)
+        expectedMagnitude = math.sqrt(1+4+9)
+        expectedNorm = Cartesian(1.0/expectedMagnitude, 2.0/expectedMagnitude, 3.0/expectedMagnitude)
         expectedDot = 4+10+18
         expectedCross = Cartesian(12-15, 12-6, 5-8)
         self.assertEqual(aCart+anotherCart, expectedAdd, msg="add")
         self.assertEqual(aCart-anotherCart, expectedSubtract, msg="subtract")
-        self.assertEqual(aCart.Magnitude(), expectedMagnitutde, msg="mag")
+        self.assertEqual(aCart.Magnitude(), expectedMagnitude, msg="mag")
         self.assertEqual(aCart.Normalize(), expectedNorm, msg="norm")
         self.assertEqual(aCart.dot(anotherCart), expectedDot, msg="dot")
         self.assertEqual(aCart.cross(anotherCart), expectedCross, msg="cross")

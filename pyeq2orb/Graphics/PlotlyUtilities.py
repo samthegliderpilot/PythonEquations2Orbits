@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict, Sequence, Optional, Iterable
 import pyeq2orb.Graphics.Primitives as prim
 from pandas import DataFrame # type: ignore
 import plotly.graph_objects as go # type: ignore
@@ -38,28 +38,29 @@ class PlotlyDataAndFramesAccumulator :
             self.frames.append(go.Frame(data=dataForThisFrame, traces= traceArray, name=f'frame{k}'))
 
     def AddLinePrimitive(self, pathPrimitive : prim.PathPrimitive) :
-        df = PlotlyDataAndFramesAccumulator.CreatePlotlyEphemerisDataFrame(pathPrimitve.ephemeris)
-        theLine = go.Scatter3d(x=df["x"], y=df["y"], z=df["z"], mode="lines", line=dict(color=pathPrimitve.color, width=pathPrimitve.width))
+        df = PlotlyDataAndFramesAccumulator.CreatePlotlyEphemerisDataFrame(pathPrimitive.ephemeris)
+        theLine = go.Scatter3d(x=df["x"], y=df["y"], z=df["z"], mode="lines", line=dict(color=pathPrimitive.color, width=pathPrimitive.width))
         self.data.append(theLine)
 
     def AddLinePrimitives(self, pathPrimitives : List[prim.PathPrimitive]) :
         for prim in pathPrimitives :
             self.AddLinePrimitive(prim)
 
-    def CreateScalingMarker(self, primitives : List[prim.Primitive]) ->go.Scatter3d :
-        xB, yB, zB = prim.Primitive.GetEquidistantBoundsForEvenPlotting(primitives)
-        
-        scalingMarker = go.Scatter3d(name="",
-            visible=True,
-            showlegend=False,
-            opacity=0, # full transparent
-            hoverinfo='none',
-            x=[xB[0], xB[1]],
-            y=[yB[0], zB[1]],
-            z=[yB[0], zB[1]])        
-        return scalingMarker
+    
+def CreateScalingMarker(primitives : Sequence[prim.Primitive]) ->go.Scatter3d :
+    xB, yB, zB = prim.Primitive.GetEquidistantBoundsForEvenPlotting(primitives)
+    
+    scalingMarker = go.Scatter3d(name="",
+        visible=True,
+        showlegend=False,
+        opacity=0, # full transparent
+        hoverinfo='none',
+        x=[xB[0], xB[1]],
+        y=[yB[0], zB[1]],
+        z=[yB[0], zB[1]])        
+    return scalingMarker
 
-def PlotAndAnimatePlanetsWithPlotly(title : str, wanderers : List[prim.PathPrimitive], tArray : List[float], thrustVector : List[go.Scatter3d]) :
+def PlotAndAnimatePlanetsWithPlotly(title : str, wanderers : List[prim.PathPrimitive], tArray : Iterable[float], thrustVector : Optional[List[go.Scatter3d]]=None) :
     lines = []
 
     #animation arrays
@@ -101,21 +102,12 @@ def PlotAndAnimatePlanetsWithPlotly(title : str, wanderers : List[prim.PathPrimi
     fig = px.scatter_3d(dataDictionary, title=title, x="x", y="y", z="z", animation_frame="t", color="color", size="size")    
 
     # make the scaling item
-    xB, yB, zB = prim.Primitive.GetEquidistantBoundsForEvenPlotting(wanderers)
-    
-    scalingMarker = go.Scatter3d(name="",
-        visible=True,
-        showlegend=False,
-        opacity=0, # full transparent
-        hoverinfo='none',
-        x=[xB[0], xB[1]],
-        y=[yB[0], zB[1]],
-        z=[yB[0], zB[1]])
-    
+    scalingMarker = CreateScalingMarker(wanderers)    
     fig.add_trace(scalingMarker)
+
     for item in lines :
         fig.add_trace(item)
-    if thrustVector != None :
-        for thrust in thrustVector :
+    if thrustVector != None : #Um, mypy, here's the ****ing null check!
+        for thrust in thrustVector : #type: ignore 
             fig.add_trace(thrust)
     return fig    

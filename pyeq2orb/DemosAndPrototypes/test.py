@@ -1,11 +1,8 @@
 #%%
-from pyomo.dae import ContinuousSet, DerivativeVar
-from pyomo.environ import ConcreteModel, TransformationFactory, Var, \
-                          NonNegativeReals, Constraint, \
-                          SolverFactory, Objective, cos, sin, minimize, \
-                          NonNegativeReals
+from pyomo.dae import ContinuousSet, DerivativeVar #type: ignore
+from pyomo.environ import ConcreteModel, TransformationFactory, Var, NonNegativeReals, Constraint, SolverFactory, Objective, cos, sin, minimize, NonNegativeReals #type: ignore
 import numpy as np
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt#type: ignore
 
 # Define parameters of the problem
 h = 185.2e3 # meters, final altitude (100 nmi circular orbit)
