@@ -80,56 +80,13 @@ normalEquiElementsInTermsOfKep = mee.EquinoctialElementsHalfI.FromModifiedEquino
 # jh.showEquation("\dot{X_1}", x1DotComplete.trigsimp(deep=True))
 # jh.showEquation("\dot{X_2}", x2DotComplete.trigsimp(deep=True))
 
-#%%
-# I want to keep the overall interface of showEquation, but the cleaning is not sufficient
-def showEquation(lhsOrEquation : Union[sy.Eq, sy.Expr, str], rhs : Optional[sy.Expr] = None, argsToKeep : Optional[Union[Sequence[sy.Symbol], bool]] = [], dotNotationForTimeDerivatives : Optional[bool] = True, timeSymbol :Optional[sy.Symbol] = None) :
-    if isinstance(argsToKeep, bool) :
-        # this does not care about the dotNotationForTimeDerivatives or the time symbol
-        jh.showEquation(lhsOrEquation, rhs, argsToKeep)
-        return
-
-    if timeSymbol == None :
-        timeSymbol = t #TODO: make sure this is ok
-
-    lhs = lhsOrEquation
-    if(isinstance(lhsOrEquation, sy.Eq)) :
-        lhs = lhsOrEquation.lhs
-        rhs = lhsOrEquation.rhs
-    if(isinstance(lhsOrEquation, str)) :
-        if(isinstance(rhs, sy.Matrix) or 
-           isinstance(rhs, sy.ImmutableMatrix)):
-            lhs = sy.MatrixSymbol(lhsOrEquation, 
-                                   rhs.shape[0], 
-                                   rhs.shape[1])            
-        else:
-            lhs = sy.Symbol(lhsOrEquation)
-    if(isinstance(rhs, str)) :
-        if(isinstance(lhsOrEquation, sy.Matrix) or 
-           isinstance(lhsOrEquation, sy.ImmutableMatrix)):
-            rhs = sy.MatrixSymbol(rhs, 
-                                   lhsOrEquation.shape[0], 
-                                   lhsOrEquation.shape[1])
-        else:
-            rhs = sy.Symbol(rhs)
-
-    if dotNotationForTimeDerivatives:
-        for derivativeExp in rhs.atoms(sy.Derivative):
-            if timeSymbol in derivativeExp._wrt_variables :
-                numberOfDs = derivativeExp.Order
-                symbolName = r'\dot{' + derivativeExp.Expr.name  +'}'
-
-
-
-    rhs= jh.deepClean(rhs, argsToKeep)    
-    lhs= jh.deepClean(lhs, argsToKeep)    
-    display(sy.Eq(lhs, rhs))
 #jh.showEquation(x1Sy, x1SimpleEqui, False)
 #showEquation(x1Sy, x1SimpleEqui, [k])
 
 qOfT = sy.Function('q')(t)
-dqdt = qOfT.diff(t)
-ddqdtt = dqdt.diff(t)
-showEquation(r'\frac{dq}{dt}', dqdt)
+dqdt = 5*qOfT.diff(t)
+ddqdtt = 5*dqdt.diff(t)
+showEquation(r'\frac{dq}{dt}', dqdt, [], True, t)
 
 
 #x,y,z = sy.symbols('x y z', real=True)

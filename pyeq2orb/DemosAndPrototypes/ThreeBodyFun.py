@@ -15,6 +15,9 @@ from pyeq2orb.Numerical import ScipyCallbackCreators
 import pyeq2orb.Graphics.Primitives as prim
 from pyeq2orb.Graphics.PlotlyUtilities import PlotAndAnimatePlanetsWithPlotly
 from pyeq2orb.Coordinates.RotationMatrix import RotAboutZ
+
+import plotly.io as pio#type: ignore
+pio.renderers.default = "vscode"
 deg2rad = math.pi/180
 t = sy.Symbol('t')
 mu = sy.Symbol(r'\mu')

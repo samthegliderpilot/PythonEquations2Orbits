@@ -5,7 +5,7 @@ import sympy as sy
 from sympy.printing.latex import LatexPrinter
 from sympy.core import evaluate
 import sys
-from typing import List
+from typing import List, Union, Sequence, Optional
 defaultCleanEquations = True
 silent = False
 syFunctions = ['cos', 'sin', 'tan', 'exp', 'log', 're', 'im', 'Abs'] # this list might need to grow
@@ -43,6 +43,8 @@ def printMarkdown(markdown : str) -> None :
             print(markdown)
 
 def deepClean(exp, functionArgumentsToKeep = None):
+    if not isinstance(exp, sy.Expr):
+        return exp
     functions = exp.atoms(sy.Function)
     subsDict = {}
     if(functionArgumentsToKeep == None):
@@ -67,40 +69,51 @@ def clean(equ) :
             for col  in equ.sizeof(1) :
                 clean(equ[row, col])
     else:            
-        for val in equ.atoms(sy.Function):
-            
-            dt=sy.Derivative(val, t)
-            ddt=sy.Derivative(dt,t)
+        return replaceDerivativesWithDot(equ)
 
-            # skip built in functions (add to list above)            
-            clsStr = str(type(val))
-            if(clsStr in syFunctions):
-                continue
-            
-            if(hasattr(val, "name")) :
-                newStr = val.name
-                if t0Str in val.args :
-                    newStr = newStr + "{_0}"
-                elif tfStr in val.args :
-                    newStr = newStr + "{_f}"
-                elif t in val.args :
-                    newStr = newStr# + "(t)"
-            else :
-                newStr = str(val)
-            newDtStr = r'\dot{' +newStr +"}"
-            newDDtStr = r'\ddot{' + newStr +"}"
-
-            # newDtStr = newDtStr.replace('}_{', '_')
-            # newDtStr = newDtStr.replace('}_0', '_0}')
-            # newDtStr = newDtStr.replace('}_f', '_f}')
-            # newDDtStr = newDDtStr.replace('}_{', '_')
-            # newDDtStr = newDDtStr.replace('}_0', '_0}')    
-            # newDDtStr = newDDtStr.replace('}_f', '_f}')    
-
-            equ=equ.subs(ddt, sy.Symbol(newDDtStr))
-            equ=equ.subs(dt, sy.Symbol(newDtStr))
-            equ=equ.subs(val, sy.Symbol(newStr))
+def replaceDerivativesWithDot(equ, timeSymbol=None):
+    if timeSymbol == None:
+        timeSymbol = t
+    if not isinstance(equ, sy.Expr):
         return equ
+    for arg in equ.args:
+        if not isinstance(arg, sy.Expr):
+            continue
+        if not isinstance(arg, sy.Derivative):
+            continue
+        val = arg.expr
+        dt=sy.Derivative(val, timeSymbol)
+        ddt=sy.Derivative(dt, timeSymbol)
+
+        # skip built in functions (add to list above)            
+        clsStr = str(type(val))
+        if(clsStr in syFunctions):
+            continue
+        
+        if(hasattr(val, "name")) :
+            newStr = val.name
+            if t0Str in val.args :
+                newStr = newStr + "{_0}"
+            elif tfStr in val.args :
+                newStr = newStr + "{_f}"
+            elif t in val.args :
+                newStr = newStr# + "(t)"
+        else :
+            newStr = str(val)
+        newDtStr = r'\dot{' +newStr +"}"
+        newDDtStr = r'\ddot{' + newStr +"}"
+
+        # newDtStr = newDtStr.replace('}_{', '_')
+        # newDtStr = newDtStr.replace('}_0', '_0}')
+        # newDtStr = newDtStr.replace('}_f', '_f}')
+        # newDDtStr = newDDtStr.replace('}_{', '_')
+        # newDDtStr = newDDtStr.replace('}_0', '_0}')    
+        # newDDtStr = newDDtStr.replace('}_f', '_f}')    
+
+        equ=equ.subs(ddt, sy.Symbol(newDDtStr))
+        equ=equ.subs(dt, sy.Symbol(newDtStr))
+        equ=equ.subs(val, sy.Symbol(newStr)) 
+    return equ   
 
 def showEquationNoFunctionsOf(lhsOrEquation, rhs=None, cleanEqu=True):
     """
@@ -149,7 +162,46 @@ def showEquationNoFunctionsOf(lhsOrEquation, rhs=None, cleanEqu=True):
         else :
             display(sy.Eq(realLhs, realRhs))
 
-def showEquation(lhsOrEquation, rhs=None, cleanEqu=defaultCleanEquations) :    
+# I want to keep the overall interface of showEquation, but the cleaning is not sufficient
+def showEquation(lhsOrEquation : Union[sy.Eq, sy.Expr, str], rhs : Optional[sy.Expr] = None, argsToKeep : Optional[Union[Sequence[sy.Symbol], bool]] = [], dotNotationForTimeDerivatives : Optional[bool] = True, timeSymbol :Optional[sy.Symbol] = None) :
+    if isinstance(argsToKeep, bool) :
+        # this does not care about the dotNotationForTimeDerivatives or the time symbol
+        showEquationOriginal(lhsOrEquation, rhs, argsToKeep)
+        return
+
+    if timeSymbol == None :
+        timeSymbol = t #TODO: make sure this is ok
+
+    lhs = lhsOrEquation
+    if(isinstance(lhsOrEquation, sy.Eq)) :
+        lhs = lhsOrEquation.lhs
+        rhs = lhsOrEquation.rhs
+    if(isinstance(lhsOrEquation, str)) :
+        if(isinstance(rhs, sy.Matrix) or 
+           isinstance(rhs, sy.ImmutableMatrix)):
+            lhs = sy.MatrixSymbol(lhsOrEquation, 
+                                   rhs.shape[0], 
+                                   rhs.shape[1])            
+        else:
+            lhs = sy.Symbol(lhsOrEquation)
+    if(isinstance(rhs, str)) :
+        if(isinstance(lhsOrEquation, sy.Matrix) or 
+           isinstance(lhsOrEquation, sy.ImmutableMatrix)):
+            rhs = sy.MatrixSymbol(rhs, 
+                                   lhsOrEquation.shape[0], 
+                                   lhsOrEquation.shape[1])
+        else:
+            rhs = sy.Symbol(rhs)
+
+    if dotNotationForTimeDerivatives:
+        rhs = replaceDerivativesWithDot(rhs, timeSymbol)
+        lhs = replaceDerivativesWithDot(lhs, timeSymbol)
+
+    rhs= deepClean(rhs, argsToKeep)    
+    lhs= deepClean(lhs, argsToKeep)    
+    display(sy.Eq(lhs, rhs))
+
+def showEquationOriginal(lhsOrEquation, rhs=None, cleanEqu=defaultCleanEquations) :    
     """
     Shows the equation.  The first item is a sympy equation and no rhs will be given.  It can also be a string or number but the rhs 
     must be specified in that case.
