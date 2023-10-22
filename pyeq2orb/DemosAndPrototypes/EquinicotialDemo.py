@@ -486,8 +486,8 @@ sim.initialize_model()
 
 print("running the pyomo model")
 solver = poenv.SolverFactory('cyipopt')
-solver.config.options['tol'] = 1e-9
-solver.config.options['max_iter'] = 1000
+solver.config.options['tol'] = 1e-6
+solver.config.options['max_iter'] = 2000
 
 try :
     solver.solve(model, tee=True)
