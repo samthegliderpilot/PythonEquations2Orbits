@@ -16,6 +16,7 @@ import pyeq2orb.Graphics.Primitives as prim
 from pyeq2orb.Graphics.PlotlyUtilities import PlotAndAnimatePlanetsWithPlotly
 from pyeq2orb.Coordinates.RotationMatrix import RotAboutZ
 
+import plotly.graph_objects as go
 import plotly.io as pio#type: ignore
 pio.renderers.default = "vscode"
 deg2rad = math.pi/180
@@ -86,4 +87,53 @@ for i in range(0, len(tArray)):
 fig = PlotAndAnimatePlanetsWithPlotly("NHRL In Inertial Frame", [prim.PathPrimitive(inertialEphemeris, "#ff00ff", 3), prim.PathPrimitive(moonInertialEphemeris, "#ffffff", 3)], tArray, None)
 fig.update_layout()
 fig.show()  
+#%%
 
+def jacobi(x, y, z, xDot, yDot, zDot, mu) :
+    r1 = np.sqrt((x+mu)**2+y*y+z*z)
+    r2 = np.sqrt((x-1.0+mu)**2+y*y+z*z)
+    u = 0.5*(x*x+y*y)+(1-mu)/r1 + mu/r2
+    vSquared = xDot*xDot + yDot*yDot + zDot*zDot
+    return 2*u-vSquared
+  
+feature_x = np.arange(-2.0, 2.0, 0.01) 
+feature_y = np.arange(-2.0, 2.0, 0.01) 
+  
+# Creating 2-D grid of features 
+[X, Y] = np.meshgrid(feature_x, feature_y) 
+  
+Z = jacobi(X, Y, 0, 0, 0, 0, muVal)
+    
+fig = go.Figure(data = go.Contour(
+        x = feature_x, 
+        y = feature_y, 
+        z = Z,
+        zmin = 2.5, 
+        zmax = 5.0, 
+        zauto=False, 
+        contours_coloring='heatmap', 
+        ncontours=60))
+
+fig.layout.yaxis.scaleanchor="x"     
+fig.update_layout(xaxis=dict(showgrid=False),
+                  yaxis=dict(showgrid=False),
+                  plot_bgcolor = "rgb(255, 255, 255)",
+                  paper_bgcolor = "rgb(255, 255, 255)",
+        width=1000, height=900)
+# layout = grob.Layout(
+
+# )
+fig.update_layout(
+     margin=dict(l=20, r=20, t=20, b=20))
+
+
+fig.show(width=400, autosize=False)
+
+#%%
+fig = go.Figure(data=[go.Surface(z=-1*Z, x=X, y=Y)])
+fig.layout.yaxis.scaleanchor="x"     
+fig.update_layout(title=r'3Body Potential \mu = ' +str(muVal), autosize=False,
+                  width=500, height=500,
+                  scene=dict(zaxis = dict(nticks=4, range=[-4.0,-2.5])),
+                  margin=dict(l=20, r=20, t=20, b=20))
+fig.show()
