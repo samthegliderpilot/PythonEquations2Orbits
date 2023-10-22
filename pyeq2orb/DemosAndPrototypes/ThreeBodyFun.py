@@ -68,7 +68,9 @@ moonEphemeris.ExtendValues(tArray, x_2, y_2, moonSolutionDictionary[z]) #type: i
 moonPath = prim.PathPrimitive(moonEphemeris, "#ffffff")
 
 fig = PlotAndAnimatePlanetsWithPlotly("NHRL in Rotation Frame", [satPath, moonPath], tArray, None)
-fig.update_layout()
+fig.update_layout(
+     margin=dict(l=20, r=20, t=20, b=20))
+
 fig.show()  
 from pyeq2orb.Graphics.Plotly2DModule import plot2DLines
 from pyeq2orb.Graphics.Primitives import XAndYPlottableLineData
@@ -85,7 +87,9 @@ for i in range(0, len(tArray)):
     moonInertialEphemeris.AppendValues(tNow, float(newMoonXyz[0]), float(newMoonXyz[1]), float(newMoonXyz[2]))
 
 fig = PlotAndAnimatePlanetsWithPlotly("NHRL In Inertial Frame", [prim.PathPrimitive(inertialEphemeris, "#ff00ff", 3), prim.PathPrimitive(moonInertialEphemeris, "#ffffff", 3)], tArray, None)
-fig.update_layout()
+fig.update_layout(
+     margin=dict(l=20, r=20, t=20, b=20))
+
 fig.show()  
 #%%
 
@@ -96,8 +100,8 @@ def jacobi(x, y, z, xDot, yDot, zDot, mu) :
     vSquared = xDot*xDot + yDot*yDot + zDot*zDot
     return 2*u-vSquared
   
-feature_x = np.arange(-2.0, 2.0, 0.01) 
-feature_y = np.arange(-2.0, 2.0, 0.01) 
+feature_x = np.arange(-1.7, 1.7, 0.01) 
+feature_y = np.arange(-1.7, 1.7, 0.01) 
   
 # Creating 2-D grid of features 
 [X, Y] = np.meshgrid(feature_x, feature_y) 
@@ -109,7 +113,7 @@ fig = go.Figure(data = go.Contour(
         y = feature_y, 
         z = Z,
         zmin = 2.5, 
-        zmax = 5.0, 
+        zmax = 3.5, 
         zauto=False, 
         contours_coloring='heatmap', 
         ncontours=60))
@@ -119,7 +123,7 @@ fig.update_layout(xaxis=dict(showgrid=False),
                   yaxis=dict(showgrid=False),
                   plot_bgcolor = "rgb(255, 255, 255)",
                   paper_bgcolor = "rgb(255, 255, 255)",
-        width=1000, height=900)
+        width=600, height=500)
 # layout = grob.Layout(
 
 # )
@@ -129,11 +133,13 @@ fig.update_layout(
 
 fig.show(width=400, autosize=False)
 
+# %%
+
 #%%
 fig = go.Figure(data=[go.Surface(z=-1*Z, x=X, y=Y)])
 fig.layout.yaxis.scaleanchor="x"     
 fig.update_layout(title=r'3Body Potential \mu = ' +str(muVal), autosize=False,
                   width=500, height=500,
-                  scene=dict(zaxis = dict(nticks=4, range=[-4.0,-2.5])),
+                  scene=dict(zaxis = dict(nticks=4, range=[-3.5,-2.5])),
                   margin=dict(l=20, r=20, t=20, b=20))
 fig.show()
