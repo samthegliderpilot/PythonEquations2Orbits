@@ -201,6 +201,52 @@ class KeplerianElements() :
         rotMatrix = self.PerifocalToInertialRotationMatrix()
         return MotionCartesian(rotMatrix*motion.Position, rotMatrix*motion.Velocity)
 
+class GaussianEquationsOfMotionVallado :
+    def __init__(self, elements : KeplerianElements, accelerationVector : Cartesian) :
+        self.Elements = elements
+        # Battin page 488
+        # note that Battin has f = true anomaly, theta = argument of latitude
+        mu = elements.GravitationalParameter
+        a = elements.SemiMajorAxis
+        b = elements.SemiMinorAxis
+        e = elements.Eccentricity
+        i = elements.Inclination
+        #raan = elements.RightAscensionOfAscendingNode
+        #aop = elements.ArgumentOfPeriapsis
+        ta = elements.TrueAnomaly
+        u = elements.ArgumentOfLatitude
+
+        r = elements.Radius
+        b = elements.SemiMinorAxis        
+        n = elements.MeanMotion
+        h = n*a*b
+        p = b**2/a
+        cTa = sy.cos(ta)
+        sTa = sy.sin(ta)
+        cU = sy.cos(u)
+        sU = sy.sin(u)
+
+        ar = accelerationVector.X
+        ah = accelerationVector.Y # cross track
+        at = accelerationVector.Z 
+        sqrt1me2 = sy.sqrt(1-e*e)
+        self.SemiMajorAxisDot = 2/(n*sqrt1me2)*(e*sTa*ar+(p/r)*at)
+        self.EccentricityDot = (sqrt1me2/(n*a))*(sTa*ar+(cTa+(e+cTa)/(1+e*cTa))*at)
+        self.InclinationDot = (r*cU/h)*ah
+        self.RightAscensionOfAscendingNodeDot = (r*sU/h*sy.sin(i))*ah        
+        self.ArgumentOfPeriapsisDot = (sqrt1me2/(n*a*e))*(-cTa*ar+sTa*(1+r/p)*at)-r*sy.cot(i)*sy.sin(u)*ah/h
+
+        # take your pick
+        #self.TrueAnomalyDot = h/(r**2)-(1/e*h)*(p*cTa*ar-(p+r)*sTa*aTh)
+        self.TrueAnomalyDot = h/(r**2)+(1/(e*h))*(p*cTa*ar-(p+r)*sTa*at)
+        self.MeanAnomalyDot = n + b/(a*h*e)*((p*cTa-2*r*e)*ar - (p+r)*sTa*at)
+        self.EccentricAnomalyDot = n*a/r + (1/(n*a*e))*((cTa-e)*ar-(1+r/a)*sTa*at)
+
+    def ToSympyMatrixEquation(self) -> sy.Eq:
+        lhs = sy.Matrix([[self.Elements.SemiMajorAxis, self.Elements.Eccentricity, self.Elements.Inclination, self.Elements.ArgumentOfPeriapsis, self.Elements.RightAscensionOfAscendingNode, self.Elements.TrueAnomaly]]).transpose()
+        rhs = sy.Matrix([[self.SemiMajorAxisDot, self.EccentricityDot, self.InclinationDot, self.ArgumentOfPeriapsisDot, self.RightAscensionOfAscendingNodeDot, self.TrueAnomalyDot]]).transpose()
+        return sy.Eq(lhs, rhs)
+
 class GaussianEquationsOfMotion :
     def __init__(self, elements : KeplerianElements, accelerationVector : Cartesian) :
         self.Elements = elements

@@ -175,9 +175,9 @@ class Cartesian(sy.Matrix) :
             prefixStr = cast(str, prefix)
             nameFormattingCb = lambda xyz: prefixStr + "{" + xyz + "}"
         if t == None :
-            return Cartesian(sy.Symbol(nameFormattingCb("x")), sy.Symbol(nameFormattingCb("y")), sy.Symbol(nameFormattingCb("z")))
+            return Cartesian(sy.Symbol(nameFormattingCb("x"), real=True), sy.Symbol(nameFormattingCb("y"), real=True), sy.Symbol(nameFormattingCb("z"), real=True))
         else :
-            return Cartesian(sy.Function(nameFormattingCb("x"))(t), sy.Function(nameFormattingCb("y"))(t), sy.Function(nameFormattingCb("z"))(t))
+            return Cartesian(sy.Function(nameFormattingCb("x"), real=True)(t), sy.Function(nameFormattingCb("y"), real=True)(t), sy.Function(nameFormattingCb("z"), real=True)(t))
 
 
 class MotionCartesian :

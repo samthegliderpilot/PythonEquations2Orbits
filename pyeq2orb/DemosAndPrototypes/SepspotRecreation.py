@@ -86,7 +86,7 @@ normalEquiElementsInTermsOfKep = mee.EquinoctialElementsHalfI.FromModifiedEquino
 qOfT = sy.Function('q')(t)
 dqdt = 5*qOfT.diff(t)
 ddqdtt = 5*dqdt.diff(t)
-showEquation(r'\frac{dq}{dt}', dqdt, [], True, t)
+jh.showEquation(r'\frac{dq}{dt}', dqdt, [], True, t)
 
 
 #x,y,z = sy.symbols('x y z', real=True)

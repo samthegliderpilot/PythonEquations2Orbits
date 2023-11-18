@@ -1,7 +1,7 @@
 #%%
 import __init__ #type: ignore
 import numpy as np
-from pandas import DataFrame#type: ignore
+from pandas import DataFrame #type: ignore
 from scipy.integrate import solve_ivp #type: ignore
 from pyeq2orb.Numerical.LambdifyHelpers import LambdifyHelper, OdeLambdifyHelper, OdeLambdifyHelperWithBoundaryConditions #type: ignore
 import sympy as sy
@@ -9,15 +9,15 @@ from pyeq2orb import SymbolicOptimizerProblem
 from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
 from pyeq2orb.Graphics.Primitives import EphemerisArrays
 import math
-import plotly.express as px#type: ignore
+import plotly.express as px #type: ignore
 from pyeq2orb.Graphics.PlotlyUtilities import PlotlyDataAndFramesAccumulator
 from pyeq2orb.Numerical import ScipyCallbackCreators
 import pyeq2orb.Graphics.Primitives as prim
 from pyeq2orb.Graphics.PlotlyUtilities import PlotAndAnimatePlanetsWithPlotly
 from pyeq2orb.Coordinates.RotationMatrix import RotAboutZ
 
-import plotly.graph_objects as go
-import plotly.io as pio#type: ignore
+import plotly.graph_objects as go #type: ignore
+import plotly.io as pio #type: ignore
 pio.renderers.default = "vscode"
 deg2rad = math.pi/180
 t = sy.Symbol('t')
@@ -93,6 +93,7 @@ fig.update_layout(
 fig.show()  
 #%%
 
+
 def jacobi(x, y, z, xDot, yDot, zDot, mu) :
     r1 = np.sqrt((x+mu)**2+y*y+z*z)
     r2 = np.sqrt((x-1.0+mu)**2+y*y+z*z)
@@ -143,3 +144,4 @@ fig.update_layout(title=r'3Body Potential \mu = ' +str(muVal), autosize=False,
                   scene=dict(zaxis = dict(nticks=4, range=[-3.5,-2.5])),
                   margin=dict(l=20, r=20, t=20, b=20))
 fig.show()
+
