@@ -48,3 +48,9 @@ coverage.xml
 
 # Sphinx documentation
 docs/_build/
+
+# local virutal environment
+.venv
+
+# vscode files
+.vscode

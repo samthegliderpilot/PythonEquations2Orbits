@@ -1,12 +1,6 @@
 #%%
 # type: ignore
 # DECLARE all the things!
-import __init__
-import sys
-import os
-thisFile = os.path.abspath(__file__)
-sys.path.append(os.path.abspath(thisFile + '..\\..\\..\\'))
-# these two appends do not conflict with each other
 import math
 import sympy as sy
 import numpy as np

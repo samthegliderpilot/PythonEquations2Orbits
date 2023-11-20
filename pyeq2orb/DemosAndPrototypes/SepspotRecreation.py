@@ -1,12 +1,11 @@
 #%%
 #type: ignore
-import __init__ 
 import sympy as sy
 import os
 import sys
 import math
 from collections import OrderedDict
-sys.path.insert(1, os.path.dirname(os.path.dirname(sys.path[0]))) # need to import 2 directories up (so pyeq2orb is a subfolder)
+#sys.path.insert(1, os.path.dirname(os.path.dirname(sys.path[0]))) # need to import 2 directories up (so pyeq2orb is a subfolder)
 sy.init_printing()
 from typing import Union, List, Optional, Sequence
 from pyeq2orb.ForceModels.TwoBodyForce import CreateTwoBodyMotionMatrix, CreateTwoBodyListForModifiedEquinoctialElements

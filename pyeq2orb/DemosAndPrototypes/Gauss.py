@@ -6,7 +6,9 @@ import os
 import sys
 sys.path.insert(1, os.path.dirname(os.path.dirname(sys.path[0]))) # need to import 2 directories up (so pyeq2orb is a subfolder)
 sy.init_printing()
-
+# I worked on this to answer, when doing 2 optimal burns for small argument of perigee, eccentricity, and SMA (or longitude drift rate) changes, 
+# does the order of the burns matter?  The answer, yes.  For the desired longitude drift (SMA change), it isn't zero sum as the drift after the first burn
+# burns either helps or hinders how much SMA change is needed by the second burn
 from pyeq2orb.ForceModels.TwoBodyForce import CreateTwoBodyMotionMatrix, CreateTwoBodyListForModifiedEquinoctialElements
 from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
 from pyeq2orb.Coordinates.KeplerianModule import KeplerianElements
@@ -15,7 +17,7 @@ import scipyPaperPrinter as jh #type: ignore
 from scipy.optimize import fsolve, root #type: ignore
 from IPython.display import display
 import numpy as np
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt # type: ignore
 t = sy.Symbol('t')
 t0 = sy.Symbol('t_0')
 tf = sy.Symbol('t_f')
@@ -40,7 +42,7 @@ fig, ax = plt.subplots()
 ax.plot(taRange, eccChange)
 ax.plot(taRange, aopChange)
 
-ax.set(xlabel='true anomalay (rad)', ylabel='ecc change',
+ax.set(xlabel='true anomaly (rad)', ylabel='ecc change',
        title='EccPlot')
 ax.grid()
 

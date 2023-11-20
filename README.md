@@ -13,7 +13,7 @@ The way I've been setting up my environments has been with these conda/pip comma
 ```
 conda create --name Py130OptFun python=3.10
 conda activate Py310OptFun
-conda install -c conda-forge sympy numpy pandas scipy plotly matplotlib jupyter pygmo pyomo cmake pytest plotly p2j pandoc networkx openpyxl pint pymysql pyodbc pyro4 xlrd cyipopt pandoc mypy vispy
+conda install -c conda-forge sympy numpy pandas scipy plotly matplotlib jupyter pygmo pyomo cmake pytest plotly p2j pandoc networkx openpyxl pint pymysql pyodbc pyro4 xlrd cyipopt pandoc mypy vispy setuptools
 conda install -c conda-forge ipopt glpk
 pyomo download-extensions
 pyomo build-extensions

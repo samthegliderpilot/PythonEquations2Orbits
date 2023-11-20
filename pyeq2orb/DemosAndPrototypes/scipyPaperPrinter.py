@@ -77,6 +77,10 @@ def replaceDerivativesWithDot(equ, timeSymbol=None):
     if not isinstance(equ, sy.Expr):
         return equ
     for arg in equ.args:
+        if hasattr(arg, "args") :
+            argNew = replaceDerivativesWithDot(arg, timeSymbol)
+            equ = equ.subs(arg, argNew)
+            arg = argNew
         if not isinstance(arg, sy.Expr):
             continue
         if not isinstance(arg, sy.Derivative):
@@ -114,6 +118,15 @@ def replaceDerivativesWithDot(equ, timeSymbol=None):
         equ=equ.subs(dt, sy.Symbol(newDtStr))
         equ=equ.subs(val, sy.Symbol(newStr)) 
     return equ   
+
+# def createDotSymbol(der : sy.Derivative, t :sy.Symbol) ->sy.Expr:
+#     if not hasattr(der, 'name'):
+#         return der
+#     ds = 'd'
+#     for i in range(2,der.derivative_count) :
+#         ds = ds+'d'
+#     newDtSymbol = sy.Symbol(r'\'' + ds + 'ot{' + der.name + '}')
+#     return newDtSymbol
 
 def showEquationNoFunctionsOf(lhsOrEquation, rhs=None, cleanEqu=True):
     """

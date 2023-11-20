@@ -6,7 +6,7 @@ import os
 import sys
 from IPython.display import display
 from collections import OrderedDict
-sys.path.insert(1, os.path.dirname(os.path.dirname(sys.path[0]))) # need to import 2 directories up (so pyeq2orb is a subfolder)
+#sys.path.insert(1, os.path.dirname(os.path.dirname(sys.path[0]))) # need to import 2 directories up (so pyeq2orb is a subfolder)
 sy.init_printing()
 import scipyPaperPrinter as jh #type: ignore
 import numpy as np

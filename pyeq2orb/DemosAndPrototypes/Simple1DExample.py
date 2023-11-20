@@ -1,9 +1,4 @@
 #%%
-import __init__ #type: ignore
-import sys
-sys.path.append("..") # treating this as a jupyter-like cell requires adding one directory up
-sys.path.append("../pyeq2orb") # and this line is needed for running like a normal python script
-# these two appends do not conflict with each other
 import matplotlib.pyplot as plt #type: ignore
 import pyeq2orb.Problems.OneDimensionalMinimalWorkProblem as OneDWorkProblemModule
 from pyeq2orb.Solvers.ScipyDiscretizationMinimizeWrapper import ScipyDiscretizationMinimizeWrapper

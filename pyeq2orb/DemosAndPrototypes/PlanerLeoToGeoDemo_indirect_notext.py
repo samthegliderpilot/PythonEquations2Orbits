@@ -1,5 +1,4 @@
 #%%
-import __init__ #type: ignore
 from IPython.display import display
 from scipy.integrate import solve_ivp #type: ignore
 import matplotlib.pyplot as plt#type: ignore
@@ -9,11 +8,11 @@ import plotly.express as px#type: ignore
 from pandas import DataFrame #type: ignore
 import math
 from scipy.optimize import fsolve#type: ignore
-from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
-from pyeq2orb.ScaledSymbolicProblem import ScaledSymbolicProblem
-from pyeq2orb.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
-from pyeq2orb.Numerical import ScipyCallbackCreators
-from pyeq2orb.Numerical.LambdifyHelpers import OdeLambdifyHelperWithBoundaryConditions
+from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem #type: ignore
+from pyeq2orb.ScaledSymbolicProblem import ScaledSymbolicProblem #type: ignore
+from pyeq2orb.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem #type: ignore
+from pyeq2orb.Numerical import ScipyCallbackCreators #type: ignore
+from pyeq2orb.Numerical.LambdifyHelpers import OdeLambdifyHelperWithBoundaryConditions #type: ignore
 
 import sympy as sy
 from typing import List, Dict, Callable, Optional, Any
@@ -111,20 +110,20 @@ lonEquation = sy.Eq(lonS.diff(ts), lonEom)
 
 helper = OdeLambdifyHelperWithBoundaryConditions(ts, t0s, tfs, [rEquation, uEquation, vEquation, lonEquation], [bc1, bc2], [], {gs:g, ispS:isp, m0s: m0, thrusts:thrust, mus:mu})
 
-lmds = SymbolicProblem.CreateCoVector(helper.NonTimeLambdifyArguments, None, ts)
-hamlt = SymbolicProblem.CreateHamiltonianStatic(helper.NonTimeLambdifyArguments, ts, helper.GetExpressionToLambdifyInMatrixForm(), 0, lmds)
-lambdaEoms = SymbolicProblem.CreateLambdaDotEquationsStatic(hamlt, ts, helper.NonTimeArgumentsArgumentsInMatrixForm(), lmds)
-helper.AddMoreEquationsOfMotion(lambdaEoms)
-dHdu = SymbolicProblem.CreateHamiltonianControlExpressionsStatic(hamlt, alps)
+costateVariables = SymbolicProblem.CreateCoVector(helper.NonTimeLambdifyArguments, None, ts)
+hamiltonian = SymbolicProblem.CreateHamiltonianStatic(helper.NonTimeLambdifyArguments, ts, helper.GetExpressionToLambdifyInMatrixForm(), 0, costateVariables)
+lambdaEquationsOfMotion = SymbolicProblem.CreateLambdaDotEquationsStatic(hamiltonian, ts, helper.NonTimeArgumentsArgumentsInMatrixForm(), costateVariables)
+helper.AddMoreEquationsOfMotion(lambdaEquationsOfMotion)
+dHdu = SymbolicProblem.CreateHamiltonianControlExpressionsStatic(hamiltonian, alps)
 controlSolved = sy.solve(dHdu, alps)[0] 
 helper.SubstitutionDictionary[alps] =  controlSolved
 
 #TODO: Get the transversality conditions more generally
-bc3 = 1-lmds[0].subs(ts, tfs)+0.5*lmds[2].subs(ts, tfs)*sy.sqrt(1/(rs.subs(ts, tfs)**3))
-bc4 = lmds[3].subs(ts, tfs)
+bc3 = 1-costateVariables[0].subs(ts, tfs)+0.5*costateVariables[2].subs(ts, tfs)*sy.sqrt(1/(rs.subs(ts, tfs)**3))
+bc4 = costateVariables[3].subs(ts, tfs)
 newBcs = [bc3, bc4]
 helper.BoundaryConditionExpressions.extend(newBcs)
-helper.SymbolsToSolveForWithBoundaryConditions.extend(SymbolicProblem.SafeSubs(lmds, {ts: t0s}))
+helper.SymbolsToSolveForWithBoundaryConditions.extend(SymbolicProblem.SafeSubs(costateVariables, {ts: t0s}))
 
 # From working the problem enough, we find that one of the costate variables is constant and 0. 
 # As such, the related BC can be removed, one of the costates can be made constant, an EOM removed, etc..
@@ -134,9 +133,9 @@ del helper.NonTimeLambdifyArguments[-1]
 del helper.EquationsOfMotion[-1]
 del helper.ExpressionsToLambdify[-1]
 del helper.SymbolsToSolveForWithBoundaryConditions[-1]
-helper.SubstitutionDictionary[lmds[3]] =0
-helper.SubstitutionDictionary[lmds[3].subs(ts, tfs)]=0
-helper.SubstitutionDictionary[lmds[3].subs(ts, t0s)]=0
+helper.SubstitutionDictionary[costateVariables[3]] =0
+helper.SubstitutionDictionary[costateVariables[3].subs(ts, tfs)]=0
+helper.SubstitutionDictionary[costateVariables[3].subs(ts, t0s)]=0
 
 
 ipvCallback = helper.CreateSimpleCallbackForSolveIvp()

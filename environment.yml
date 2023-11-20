@@ -1,0 +1,33 @@
+name: py310optfun
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - networkx
+  - pygmo
+  - pyodbc
+  - scipy
+  - pyro4
+  - pandas
+  - pyomo
+  - xlrd
+  - matplotlib
+  - jupyter
+  - pytest
+  - cmake
+  - pandoc
+  - pymysql
+  - sympy
+  - numpy
+  - plotly
+  - p2j
+  - openpyxl
+  - pint
+  - ipopt
+  - glpk
+  - cyipopt
+  - ipopt_bin
+  - idaes-pse
+  - vispy
+  - setuptools
+prefix: C:\Programs\miniforge3\envs\py310optfun
