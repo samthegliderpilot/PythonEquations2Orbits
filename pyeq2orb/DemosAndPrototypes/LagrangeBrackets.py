@@ -84,3 +84,72 @@ display(lagrangeBrackets([solWithKs], [otherXDotExpr], [c1k], [c1k]))
 display(lagrangeBrackets([solWithKs], [otherXDotExpr], [c1k], [c2k]))
 display(lagrangeBrackets([solWithKs], [otherXDotExpr], [c2k], [c1k]))
 display(lagrangeBrackets([solWithKs], [otherXDotExpr], [c2k], [c2k]))
+
+#%%
+eps = sy.Function(r'\eps', real=True)(t)
+eta = sy.Function(r'\eta', real=True)(t)
+
+mu = sy.Symbol(r'\mu', real=True, positive=True)
+m0 = sy.Symbol('M_0', real=True)
+ecc = sy.Symbol('e', real=True, positive=True)
+n = sy.Symbol('n', real=True, positive=True)
+a = (mu/(n**2))**sy.Rational(1,3)
+aSym = sy.Function('a', real=True)(n)
+
+ta = sy.Function(r'f', real=True)(t, n, ecc, m0)
+taSimple = sy.Symbol('f', real=True)
+ma = sy.Function(r'M', real=True)(t, n, ecc, m0)
+maSimple = sy.Symbol('M', real=True)
+eccAnom = sy.Function('E', real=True)(t, m0, n, ecc)
+eccAnomSimple = sy.Symbol('E', real=True)
+
+sinEccAnom = sy.sin(ta)*sy.sqrt(1-ecc**2)/(1+ecc*sy.cos(ta))
+cosEccAnom = (ecc+sy.cos(ta))/(1+ecc*sy.cos(ta))
+
+mEq = sy.Eq(m0-n*t, eccAnom-ecc*sy.sin(eccAnom))
+def evaluateDerivativeOfM0WithRespectToSomething(otherVar, expToSolveFor) :
+    lhs = t*n.diff(otherVar)+m0.diff(otherVar)
+    rhs = eccAnom.diff(otherVar)-ecc.diff(otherVar)*sy.sin(eccAnom)-ecc*sy.cos(eccAnom)*eccAnom.diff(otherVar)
+    return sy.solve(sy.Eq(lhs, rhs), expToSolveFor)[0]
+
+#epsExp = a*(sy.cos(eccAnom)-ecc)
+#etaExp = a*sy.sin(eccAnom)*sy.sqrt(1-ecc*ecc)
+
+epsExp = aSym*(cosEccAnom-ecc)
+etaExp = aSym*sinEccAnom*sy.sqrt(1-ecc**2)
+
+#epsDotExp = -n*a*(sy.sin(eccAnom)/(1-ecc*sy.cos(eccAnom)))
+#etaDotExp = n*a*sy.sqrt(1-ecc**2)*sy.cos(eccAnom)/(1-ecc*sy.cos(eccAnom))
+epsDotExp=-n*aSym*sy.sin(ta)/sy.sqrt(1-ecc*ecc)
+etaDotExp = n*aSym*(sy.cos(ta)+ecc)/sy.sqrt(1-ecc*ecc)
+
+dadn = a.diff(n)
+depsDotdM0 = epsDotExp.diff(m0)
+display(depsDotdM0)
+deccAnomdM0 = evaluateDerivativeOfM0WithRespectToSomething(m0, eccAnom.diff(m0))
+display(deccAnomdM0.subs(eccAnom, eccAnomSimple))
+display(depsDotdM0.subs(eccAnom.diff(m0), deccAnomdM0).expand().simplify().trigsimp(deep=True))
+
+deccAnomdN = evaluateDerivativeOfM0WithRespectToSomething(n, eccAnom.diff(n))
+display(deccAnomdN.subs(eccAnom, eccAnomSimple))
+# neLB = lagrangeBrackets([epsExp, etaExp], [epsDotExp, etaDotExp], [n,ecc], [n,ecc])
+# display(neLB)
+# display(neLB.expand().simplify().trigsimp(deep=True))
+#%%
+nM0LB = lagrangeBrackets([epsExp, etaExp], [epsDotExp, etaDotExp], [n,m0], [n,m0])
+display(nM0LB)
+display(nM0LB.expand().simplify().trigsimp(deep=True))
+
+term1 = epsExp.diff(n)*epsDotExp.diff(m0)
+term2 = epsExp.diff(m0)*epsDotExp.diff(n)
+term3 = etaExp.diff(n)*etaDotExp.diff(m0)
+term4 = etaExp.diff(m0)*etaDotExp.diff(n)
+
+display(term1.subs(eccAnom, eccAnomSimple).subs(ta, taSimple).expand().simplify())
+display(term2.subs(ta, taSimple))
+display(term2.subs(ta, taSimple).subs(aSym, a))
+display(term3.subs(eccAnom, eccAnomSimple).subs(ta, taSimple).simplify())
+display(term4.subs(eccAnom, eccAnomSimple).subs(ta, taSimple).simplify())
+
+display((term1-term2+term3+term4).subs(eccAnom.diff(n), deccAnomdN).subs(eccAnom.diff(m0), deccAnomdM0).subs(ta, taSimple).simplify())
+

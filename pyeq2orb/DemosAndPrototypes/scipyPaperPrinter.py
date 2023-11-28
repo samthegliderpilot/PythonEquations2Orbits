@@ -1,3 +1,4 @@
+#%%
 # This is a set of helper function to display pretty printed equations and markdown in a Jupyter (or Jupyter-like window like in VS Code).
 # This is just for outputting purposes and I don't plan on adding tests or thorough documentation to this (for now).
 from IPython.display import  Latex, display, Markdown
@@ -43,7 +44,7 @@ def printMarkdown(markdown : str) -> None :
             print(markdown)
 
 def deepClean(exp, functionArgumentsToKeep = None):
-    if not isinstance(exp, sy.Expr):
+    if not isinstance(exp, sy.Expr) and not isinstance(exp, sy.MatrixBase):
         return exp
     functions = exp.atoms(sy.Function)
     subsDict = {}
@@ -405,3 +406,7 @@ class ScopeIfFileDoesNotExist :
 
 
     
+# t = sy.Symbol('t')
+# x = sy.Function('x')(t)
+# sSimp = sy.Symbol('y')
+# showEquation(sSimp, x)

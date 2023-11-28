@@ -281,8 +281,16 @@ class EquinoctialElementsHalfI :
         self.EccentricityCosTermK = k
         self.InclinationSinTermP = p
         self.InclinationCosTermQ = q
-        self.Longitude = longitude # consider how things would work if longitude was left ambiguous
+        self.Longitude = longitude # consider how things would work if longitude was left ambiguous (but assuming true)
         self.GravitationalParameter = mu
+
+        self.BetaSy = sy.Function(r'\beta')(h, k)
+        self.NSy = sy.Function('n')(a)
+        self.ROverASy = sy.Function(r'\frac{r}{a}')(h, k, longitude)# assuming true longitude
+
+        self.Beta = 1/(1+sy.sqrt(1-h**2-k**2))
+        self.N = sy.sqrt(mu/(a**3))
+        self.ROverA= 1-k*sy.cos(longitude)-h*sy.sin(longitude)
 
     def ConvertToModifiedEquinoctial(self) ->ModifiedEquinoctialElements:
         eSq = self.EccentricityCosTermK**2+self.EccentricitySinTermH**2
@@ -339,14 +347,14 @@ class EquinoctialElementsHalfI :
         a = self.SemiMajorAxis
         f = eccentricLongitude
 
-        b = 1/(1+sy.sqrt(1-h**2-k**2))
-        n = sy.sqrt(mu/a)
-        rOverA = 1-k*sy.cos(f)-h*sy.sin(f)
+        b = self.Beta
+        n = self.N
+        rOverA = self.ROverA
         if(subsDict != None) :          
             subsDict = cast(dict, subsDict)  
-            bSy = sy.Function(r'\beta')(h, k)
-            nSy = sy.Function('n')(a)
-            rOverASy = sy.Function(r'\frac{r}{a}')(k, f, h)
+            bSy = self.BetaSy
+            nSy = self.NSy
+            rOverASy = self.ROverASy
             subsDict[bSy] = b
             subsDict[nSy] = n
             subsDict[rOverASy] = rOverA
@@ -368,14 +376,14 @@ class EquinoctialElementsHalfI :
         a = self.SemiMajorAxis
         f = eccentricLongitude
 
-        b = 1/(1+sy.sqrt(1-h**2-k**2))
-        n = sy.sqrt(mu/(a**3))
-        rOverA = 1-k*sy.cos(f)-h*sy.sin(f)
-        if(subsDict != None) :      
+        b = self.Beta
+        n = self.N
+        rOverA = self.ROverA
+        if(subsDict != None) :          
             subsDict = cast(dict, subsDict)  
-            bSy = sy.Function(r'\beta')(h, k)
-            nSy = sy.Function('n')(a)
-            rOverASy = sy.Function(r'\frac{r}{a}')(k, f, h)
+            bSy = self.BetaSy
+            nSy = self.NSy
+            rOverASy = self.ROverASy
             subsDict[bSy] = b
             subsDict[nSy] = n
             subsDict[rOverASy] = rOverA
