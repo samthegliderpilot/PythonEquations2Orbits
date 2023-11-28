@@ -35,8 +35,7 @@ n = sy.sqrt(mu/(a**3))
 x = sy.Matrix([[simpleBoringEquiElements.SemiMajorAxis, simpleBoringEquiElements.EccentricitySinTermH, simpleBoringEquiElements.EccentricityCosTermK, simpleBoringEquiElements.InclinationSinTermP, simpleBoringEquiElements.InclinationCosTermQ]]).transpose()
 
 beta = simpleBoringEquiElements.BetaSy
-display(beta)
-eccentricLongitude = sy.Function('F')(t)
+eccentricLongitude = simpleBoringEquiElements.Longitude
 simpleBoringEquiElements.F = eccentricLongitude  #type: ignore
 
 r = simpleBoringEquiElements.CreateFgwToInertialAxes()
@@ -103,10 +102,10 @@ m12 = 2*yDot/(n*n*a)
 m13 = 0
 m21 = (sy.sqrt(1-h**2-k**2)/(n*a**2))*(dX1dk+(xDot/n)*(sy.sin(F)-h*beta))
 m22 = (sy.sqrt(1-h**2-k**2)/(n*a**2))*(dY1dk+(yDot/n)*(sy.sin(F)-h*beta))
-m23 = k*(q*y1-p*x1)/(n*(a**2)*sy.sqrt(1-h**h-k**h))
+m23 = k*(q*y1-p*x1)/(n*(a**2)*sy.sqrt(1-h**2-k**2))
 m31 = -1*(sy.sqrt(1-h**2-k**2)/(n*a**2))*(dX1dh-(xDot/n)*(sy.cos(F)-k*beta))
 m32 = -1*(sy.sqrt(1-h**2-k**2)/(n*a**2))*(dY1dh-(yDot/n)*(sy.cos(F)-k*beta))
-m33 = -1*h*(q*y1-p*x1)/(n*(a**2)*sy.sqrt(1-h**h-k**h))
+m33 = -1*h*(q*y1-p*x1)/(n*(a**2)*sy.sqrt(1-h**2-k**2))
 m41 = 0
 m42 = 0
 m43 = (1+p**2+q**2)*y1/(2*n*a**2*sy.sqrt(1-h**2-k**2))
@@ -226,17 +225,24 @@ for expr in lmdDotArray:
     break
 
 # now we try to integrate
-
+#%%
 accelVal = 9.798e-4  #units are km, sec
 fullSubsDictionary[acceleration] = accelVal
 fullSubsDictionary[mu]=muVal
+fullSubsDictionary[eccentricLongitude] = 0
+fullSubsDictionary[uSy[0]] = 0.0001
+fullSubsDictionary[uSy[1]] = 0
+fullSubsDictionary[uSy[2]] = 0
 eoms = []
 
 for thisLmd in lambdas:
     fullSubsDictionary[thisLmd] = 0
 
-for i in range(0, len(z)):
-    eoms.append(sy.Eq(z[i].diff(t), zDot[i]))
+justStateEom = M*uSy
+for i in range(0, len(x)):
+    theEq = sy.Eq(x[i].diff(t), justStateEom[i])
+    eoms.append(theEq)
+    jh.showEquation(theEq)
 # for i in range(0, len(lambdas)):
 #     eoms.append(sy.Eq(lambdas[i].diff(t), lmdDotArray[i]))
 lmdHelper = OdeLambdifyHelperWithBoundaryConditions(t, sy.Symbol('t_0', real=True), sy.Symbol('t_f', real=True), eoms, [], [], fullSubsDictionary)
@@ -270,7 +276,7 @@ lmdGuess = [20.0,0.01,0.18,8.0,85.0]
 fullInitialState = [a0V, h0V, k0V, p0V, q0V]
 fullInitialState.extend(lmdGuess)
 print("read to lambidfy")
-#%%
+
 integratorCallback = lmdHelper.CreateSimpleCallbackForSolveIvp()
 
 from scipy.integrate import solve_ivp #type: ignore
@@ -279,3 +285,6 @@ initialState = [a0V, h0V,k0V, p0V, q0V ]
 tArray = np.linspace(0.0, 24*86400, 1200)
 solution = solve_ivp(integratorCallback, [0, 24*86400], initialState, t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
 print(solution)
+dxAtStart = integratorCallback(0, initialState)
+display(dxAtStart)
+
