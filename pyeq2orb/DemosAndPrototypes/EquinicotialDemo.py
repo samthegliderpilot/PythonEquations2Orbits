@@ -31,7 +31,6 @@ from pandas import DataFrame #type: ignore
 import plotly.graph_objects as go
 from collections import OrderedDict
 from scipy.interpolate import splev, splrep #type: ignore
-import pyeq2orb.Graphics.Primitives as prim
 import pyeq2orb.Coordinates.OrbitFunctions as orb
 from pyeq2orb.Numerical import OdeHelperModule
 from collections import OrderedDict

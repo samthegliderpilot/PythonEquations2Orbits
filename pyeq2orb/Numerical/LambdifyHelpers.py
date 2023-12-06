@@ -171,8 +171,12 @@ class OdeLambdifyHelper(LambdifyHelper):
         for thisEom in equationsOfMotion :
             # eom's could be constant equations.  Check, add if it doesn't have subs
             if(hasattr(thisEom, "subs")) :
-                thisEom = thisEom.subs(self.SubstitutionDictionary) 
+                thisEom = SymbolicProblem.SafeSubs(thisEom, self.SubstitutionDictionary).doit()  
             eomList.append(thisEom)   
+        for thisEom in equationsOfMotion :
+            # eom's could be constant equations.  Check, add if it doesn't have subs
+            if(hasattr(thisEom, "subs")) :
+                thisEom = thisEom.subs(self.SubstitutionDictionary).doit()         
         odeArgs = self.LambdifyArguments
         if odeArgs[0] != self.Time :   
             odeArgs = [self.Time, cast(Union[sy.Symbol, List[sy.Symbol]], odeArgs)]

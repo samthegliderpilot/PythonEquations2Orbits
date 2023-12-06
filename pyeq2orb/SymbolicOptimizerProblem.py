@@ -585,7 +585,10 @@ class SymbolicProblem(ABC) :
         if hasattr(thingWithSymbols, "subs") :
             if thingWithSymbols in substitutionDictionary :
                 return substitutionDictionary[thingWithSymbols]
-            return thingWithSymbols.subs(substitutionDictionary)
+            finalExp = thingWithSymbols
+            for k,v in substitutionDictionary.items() :
+                finalExp = finalExp.subs(k, v).doit() # this makes a difference?!?
+            return finalExp
         
         if hasattr(thingWithSymbols, "__len__") :
             tbr = []

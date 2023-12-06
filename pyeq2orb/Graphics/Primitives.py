@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, cast, Optional, Tuple, Sequence
+from typing import List, cast, Optional, Tuple, Sequence, Iterator
 import numpy as np 
 from pyeq2orb.Coordinates.CartesianModule import Cartesian
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
@@ -235,7 +235,7 @@ class XAndYPlottableLineData :
     """
     A simple class grouping together common data needed to plot a 2D line.
     """
-    def __init__(self, x : List[float], y: List[float], label : str, color : object, lineWidth=0, markerSize=0):
+    def __init__(self, x : Iterator[float], y: Iterator[float], label : str, color : object, lineWidth=0, markerSize=0):
         self.x = x
         self.y = y
         self.label = label
