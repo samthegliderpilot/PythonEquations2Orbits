@@ -113,10 +113,10 @@ y1 = x2Sy
 xDot = x1DotSy
 yDot = x2DotSy
 g = sy.sqrt(1-h**2-k**2)
-dX1dh = x1SimpleEqui.diff(h).doit()#a*(-h*beta*sy.cos(F)- (beta+(h**2)*beta**3)*(h*sy.cos(F)-k*sy.sin(F))/(1-beta))
-dY1dh = x2SimpleEqui.diff(h).doit()#a*( k*beta*sy.cos(F)-1      +h*k* (beta**3)*(h*sy.cos(F)-k*sy.sin(F))/(1-beta))
-dX1dk = x1SimpleEqui.diff(k).doit()#a*( h*beta*sy.sin(F)-1      -h*k* (beta**3)*(h*sy.cos(F)-k*sy.sin(F))/(1-beta))
-dY1dk = x2SimpleEqui.diff(h).doit()#a*(-k*beta*sy.sin(F)+beta+((k**2)*(beta**3)*(h*sy.cos(F)-k*sy.sin(F))/(1-beta)))
+dX1dh = x1.diff(h).doit()#a*(-h*beta*sy.cos(F)- (beta+(h**2)*beta**3)*(h*sy.cos(F)-k*sy.sin(F))/(1-beta))
+dY1dh = y1.diff(h).doit()#a*( k*beta*sy.cos(F)-1      +h*k* (beta**3)*(h*sy.cos(F)-k*sy.sin(F))/(1-beta))
+dX1dk = xDot.diff(k).doit()#a*( h*beta*sy.sin(F)-1      -h*k* (beta**3)*(h*sy.cos(F)-k*sy.sin(F))/(1-beta))
+dY1dk = yDot.diff(h).doit()#a*(-k*beta*sy.sin(F)+beta+((k**2)*(beta**3)*(h*sy.cos(F)-k*sy.sin(F))/(1-beta)))
 m11 = 2*xDot/(n*n*a)
 m12 = 2*yDot/(n*n*a)
 m13 = 0
@@ -147,12 +147,19 @@ display(M.shape)
 rOverA = simpleBoringEquiElements.ROverA
 taDifeq = n*sy.sqrt(1-h**2-k**2)/(rOverA**2)
 aSy = sy.Function('A', commutative=True)(x, t)
-uSy = sy.Matrix([["u1", "u2", "u3"]]).transpose()
+u1 = sy.Symbol("u_1", real=True)
+u2 = sy.Symbol("u_2", real=True)
+u3 = sy.Symbol("u_3", real=True)
+uSy = sy.Matrix([[u1, u2, u3]]).transpose()
 accelSy = sy.Symbol('a', real=True, positive=True)
 zDot = M*uSy*accelSy + sy.Matrix([[0,0,0,0,0,taDifeq]]).transpose()
 
 #%%
-display(m61.subs(fullSubsDictionary).doit())
+jh.showEquation("m_{21}", m21)
+jh.showEquation("m_{21}", m21.subs(xDot, x1DotSimpleEqui))
+jh.showEquation("m_{21}", m21.subs(fullSubsDictionary).doit())
+#jh.showEquation("m_{21}", m21.subs(xDot, x1DotSimpleEqui).doit())
+#jh.showEquation("m_{21}", m21.subs(xDot, x1DotSimpleEqui).doit(deep=True))
 
 #%%
 
@@ -231,8 +238,8 @@ display(uOpt)
 # dHdu = SymbolicProblem.CreateHamiltonianControlExpressionsStatic(hamiltonin, uSy)
 # jh.showEquation("dh", dHdu)
 #display(controlSolved)
-optU = lambdas.transpose()*M
-optU = optU/optU.norm()
+optUOrg = lambdas.transpose()*M
+optU = optUOrg/optUOrg.norm()
 # jh.showEquation("u", optU.transpose())
 #%%
 #controlSolved = sy.solve(sy.Eq(0, dHdu), uSy)
@@ -277,7 +284,7 @@ for expr in lmdDotArray:
 
 # now we try to integrate
 #%%
-accelVal = 9.798*1e-5 
+accelVal = 9.8e-6
 fullSubsDictionary[accelSy] = accelVal
 fullSubsDictionary[mu]=muVal
 #fullSubsDictionary[eccentricLongitude] = 0
@@ -294,34 +301,42 @@ eoms = []
 for i in range(0, len(x)):
     theEq = sy.Eq(x[i].diff(t), zDot[i])
     eoms.append(theEq)
-    jh.showEquation(theEq)
+    #jh.showEquation(theEq)
 for i in range(0, len(lambdas)):
     eoms.append(sy.Eq(lambdas[i].diff(t), lmdDotArray[i]))
-
-
-
-# actualSubsDic = {}
-# for k,v in fullSubsDictionary.items() :
-#     for ki, vi in fullSubsDictionary.items() :
-#         if k!=ki :
-#             actualSubsDic[k] = SymbolicProblem.SafeSubs(v, {ki: vi})
-
-lmdHelper = OdeLambdifyHelperWithBoundaryConditions(t, sy.Symbol('t_0', real=True), sy.Symbol('t_f', real=True), eoms, [], [], fullSubsDictionary)
 #%%
+eom1 = eoms[0]
+jh.showEquation(eom1)
+
+actualSubsDic = {}
+for k,v in fullSubsDictionary.items() :
+    actualSubsDic[k] = SymbolicProblem.SafeSubs(v, fullSubsDictionary)
+fullSubsDictionary = actualSubsDic
+#jh.showEquation(eom1.lhs, eom1.rhs.subs(fullSubsDictionary))
+#jh.showEquation(eom1.lhs, eom1.rhs.expand().subs(fullSubsDictionary))
+#jh.showEquation(eom1.lhs, eom1.rhs.subs(actualSubsDic))
+# jh.showEquation("u1", optUOrg[0]/optU.norm())
+# jh.showEquation("u1", optUOrg[0]/optU.norm().subs(fullSubsDictionary))
+# jh.showEquation("u1", optUOrg[0]/optU.norm().subs(fullSubsDictionary).doit())
+
+
+#%%
+lmdHelper = OdeLambdifyHelperWithBoundaryConditions(t, sy.Symbol('t_0', real=True), sy.Symbol('t_f', real=True), eoms, [], [], fullSubsDictionary)
+
 z0 = SymbolicProblem.SafeSubs(z, {t: lmdHelper.t0})
 zF = SymbolicProblem.SafeSubs(z, {t: lmdHelper.tf})
 
 a0V = 7000
 h0V = 0.0
 k0V = 0
-p0V = 28.5*math.pi/180.0
-q0V = 0
-lon0= 0
+p0V = 0
+q0V = 28.5*math.pi/180.0
+lon0= -2.274742851
 t0V = 2444239.0 * 86400
 
 afV = 42000
 hfV = 0
-kfV = 0
+kfV = 0.001
 pfV = 1*math.pi/180.0
 qfV = 0
 tfV = 0
@@ -339,7 +354,7 @@ lmdHelper.BoundaryConditionExpressions.append(zF[4])
 #     zDotFinal = zDotFinal.subs(k, fullSubsDictionary[k])    
 # jh.showEquation("z", zDotFinal)
 
-#%%
+
 lmdGuess = [4.675229762, 5.413413947e-2, -9.202702084e-3, 1.778011878e1, -2.258455855e-4, -2.274742851]
 
 fullInitialState = [a0V, h0V, k0V, p0V, q0V]
@@ -353,7 +368,7 @@ dxAtStart = integratorCallback(0, initialState)
 display(dxAtStart)
 
 
-tArray = np.linspace(0.0, 0.4*86400, 1200)
+tArray = np.linspace(0.0, 48089.90058, 6000)
 solution = solve_ivp(integratorCallback, [tArray[0], tArray[-1]], initialState, t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
 print(solution)
 
