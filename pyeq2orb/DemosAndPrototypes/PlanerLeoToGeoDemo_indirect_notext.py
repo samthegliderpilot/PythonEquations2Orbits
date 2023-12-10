@@ -18,7 +18,7 @@ import sympy as sy
 from typing import List, Dict, Callable, Optional, Any
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
-
+from pyeq2orb.Symbolics.SymbolicUtilities import SafeSubs
 
 def plotSolution(helper, solution):
 
@@ -123,7 +123,7 @@ bc3 = 1-costateVariables[0].subs(ts, tfs)+0.5*costateVariables[2].subs(ts, tfs)*
 bc4 = costateVariables[3].subs(ts, tfs)
 newBcs = [bc3, bc4]
 helper.BoundaryConditionExpressions.extend(newBcs)
-helper.SymbolsToSolveForWithBoundaryConditions.extend(SymbolicProblem.SafeSubs(costateVariables, {ts: t0s}))
+helper.SymbolsToSolveForWithBoundaryConditions.extend(SafeSubs(costateVariables, {ts: t0s}))
 
 # From working the problem enough, we find that one of the costate variables is constant and 0. 
 # As such, the related BC can be removed, one of the costates can be made constant, an EOM removed, etc..
@@ -186,7 +186,7 @@ if scaleElements :
                                                           problem.StateVariables[1]: initialStateValues[2], 
                                                           problem.StateVariables[2]: initialStateValues[2], 
                                                           problem.StateVariables[3]: 1} , scaleTime) # note the int here for the scaling, not a float
-stateAtTf = SymbolicProblem.SafeSubs(problem.StateVariables, {problem.TimeSymbol: problem.TimeFinalSymbol})
+stateAtTf = SafeSubs(problem.StateVariables, {problem.TimeSymbol: problem.TimeFinalSymbol})
 # make the time array
 tArray = np.linspace(0.0, tfOrg, 1200)
 if scaleTime:
@@ -206,7 +206,7 @@ constantsSubsDict[baseProblem.Thrust] = thrust
 constantsSubsDict.update(zip(initialStateValues, [r0, u0, v0, lon0]))
 if scaleElements :
     # and reset the real initial values using tau_0 instead of time
-    initialValuesAtTau0 = SymbolicProblem.SafeSubs(initialStateValues, {baseProblem.TimeInitialSymbol: problem.TimeInitialSymbol})
+    initialValuesAtTau0 = SafeSubs(initialStateValues, {baseProblem.TimeInitialSymbol: problem.TimeInitialSymbol})
     constantsSubsDict.update(zip(initialValuesAtTau0, [r0, u0, v0, lon0]))
 
     r0= r0/r0
@@ -228,7 +228,7 @@ controlSolved = sy.solve(dHdu, problem.ControlVariables[0])[0] # something that 
 # you are in control of the order of integration variables and what equations of motion get evaluated, start updating the problem
 # NOTE that this call adds the lambdas to the integration state
 problem.EquationsOfMotion.update(zip(lambdas, lambdaDotExpressions))
-SymbolicProblem.SafeSubs(problem.EquationsOfMotion, {problem.ControlVariables[0]: controlSolved})
+SafeSubs(problem.EquationsOfMotion, {problem.ControlVariables[0]: controlSolved})
 # the trig simplification needs the deep=True for this problem to make the equations even cleaner
 for (key, value) in problem.EquationsOfMotion.items() :
     problem.EquationsOfMotion[key] = value.trigsimp(deep=True).simplify() # some simplification to make numerical code more stable later, and that is why this code forces us to do things somewhat manually.  There are often special things like this that we ought to do that you can't really automate.
@@ -370,12 +370,12 @@ print(initialFSolveStateGuess)
 
 
 stateForBoundaryConditions = []
-stateForBoundaryConditions.extend(SymbolicProblem.SafeSubs(problem.IntegrationSymbols, {problem.TimeSymbol: problem.TimeInitialSymbol}))
-stateForBoundaryConditions.extend(SymbolicProblem.SafeSubs(problem.IntegrationSymbols, {problem.TimeSymbol: problem.TimeFinalSymbol}))
+stateForBoundaryConditions.extend(SafeSubs(problem.IntegrationSymbols, {problem.TimeSymbol: problem.TimeInitialSymbol}))
+stateForBoundaryConditions.extend(SafeSubs(problem.IntegrationSymbols, {problem.TimeSymbol: problem.TimeFinalSymbol}))
 stateForBoundaryConditions.extend(lambdas)
 stateForBoundaryConditions.extend(otherArgs)
 
-fSolveCallback = ContinuousThrustCircularOrbitTransferProblem.createSolveIvpSingleShootingCallbackForFSolve(problem, problem.IntegrationSymbols, [r0, u0, v0, lon0], tArray, odeIntEomCallback, problem.BoundaryConditions, SymbolicProblem.SafeSubs(lambdas, {problem.TimeSymbol: problem.TimeInitialSymbol}), otherArgs)
+fSolveCallback = ContinuousThrustCircularOrbitTransferProblem.createSolveIvpSingleShootingCallbackForFSolve(problem, problem.IntegrationSymbols, [r0, u0, v0, lon0], tArray, odeIntEomCallback, problem.BoundaryConditions, SafeSubs(lambdas, {problem.TimeSymbol: problem.TimeInitialSymbol}), otherArgs)
 fSolveSol = fsolve(fSolveCallback, initialFSolveStateGuess, epsfcn=0.000001, full_output=True) # just to speed things up and see how the initial one works
 print(fSolveSol)
 

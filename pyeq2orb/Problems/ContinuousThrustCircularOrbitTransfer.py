@@ -10,6 +10,7 @@ import numpy as np
 from scipy.integrate import solve_ivp # type: ignore
 from pyeq2orb.Utilities.inherit import inherit_docstrings
 import numpy.typing as npt
+from pyeq2orb.Symbolics.SymbolicUtilities import SafeSubs
 
 @inherit_docstrings
 class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
@@ -103,8 +104,8 @@ class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
             _type_: A callback to feed into scipy's fsolve for a single shooting method.
         """
         stateForBoundaryConditions = []
-        stateForBoundaryConditions.extend(SymbolicProblem.SafeSubs(integrationStateVariableArray, {problem.TimeSymbol: problem.TimeInitialSymbol}))
-        stateForBoundaryConditions.extend(SymbolicProblem.SafeSubs(integrationStateVariableArray, {problem.TimeSymbol: problem.TimeFinalSymbol}))
+        stateForBoundaryConditions.extend(SafeSubs(integrationStateVariableArray, {problem.TimeSymbol: problem.TimeInitialSymbol}))
+        stateForBoundaryConditions.extend(SafeSubs(integrationStateVariableArray, {problem.TimeSymbol: problem.TimeFinalSymbol}))
         #stateForBoundaryConditions.extend(fSolveParametersToAppendToEom)
         stateForBoundaryConditions.extend(fSolveOnlyParameters)
         

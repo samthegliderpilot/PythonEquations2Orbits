@@ -402,6 +402,84 @@ class EquinoctialElementsHalfI :
 
         return [x1Dot, x2Dot]
 
+    def CreatePerturbationMatrixWithMeanLongitude(self, eccentricLongitude : sy.Expr, subsDict : Optional[Dict[sy.Expr, SymbolOrNumber]]=None) ->sy.Matrix:
+        p = self.InclinationSinTermP
+        q = self.InclinationCosTermQ
+        h = self.EccentricitySinTermH
+        k = self.EccentricityCosTermK
+        mu = self.GravitationalParameter
+        a = self.SemiMajorAxis
+        f = eccentricLongitude
+
+        b = self.Beta
+        n = self.N
+        rOverA = self.ROverA
+
+        x1Sy = sy.Function('X_1')(a, h, k, f)
+        x2Sy = sy.Function('X_2')(a, h, k, f)
+        x1DotSy = sy.Function(r'\dot{X_1}')(a, h, k, f)
+        x2DotSy = sy.Function(r'\dot{X_2}')(a, h, k, f)
+
+        [x1SimpleEqui, x2SimpleEqui] = self.RadiusInFgw(eccentricLongitude, subsDict)
+        [x1DotSimpleEqui, x2DotSimpleEqui] = self.VelocityInFgw(eccentricLongitude, subsDict)
+        x1SimpleEqui=cast(sy.Expr, x1SimpleEqui)
+        x2SimpleEqui=cast(sy.Expr, x2SimpleEqui)
+        x1DotSimpleEqui=cast(sy.Expr, x1DotSimpleEqui)
+        x2DotSimpleEqui=cast(sy.Expr, x2DotSimpleEqui)
+
+        if(subsDict != None) :          
+            subsDict = cast(dict, subsDict)  
+            bSy = self.BetaSy
+            nSy = self.NSy
+            rOverASy = self.ROverASy
+            subsDict[bSy] = b
+            subsDict[nSy] = n
+            subsDict[rOverASy] = rOverA
+            b = bSy
+            n = nSy
+            rOverA = rOverASy        
+            subsDict[x1Sy] =x1SimpleEqui
+            subsDict[x2Sy] =x2SimpleEqui
+            subsDict[x1DotSy] =x1DotSimpleEqui
+            subsDict[x2DotSy] =x2DotSimpleEqui
+            x1 = x1Sy
+            y1 = x2Sy
+            xDot = x1DotSy
+            yDot = x2DotSy
+        else:
+            x1 = x1SimpleEqui
+            y1 = x2SimpleEqui
+            xDot = x1DotSimpleEqui
+            yDot = x2DotSimpleEqui            
+        g = sy.sqrt(1-h**2-k**2)
+        dX1dh = x1.diff(h).doit()#a*(-h*beta*sy.cos(F)- (beta+(h**2)*beta**3)*(h*sy.cos(F)-k*sy.sin(F))/(1-beta))
+        dY1dh = y1.diff(h).doit()#a*( k*beta*sy.cos(F)-1      +h*k* (beta**3)*(h*sy.cos(F)-k*sy.sin(F))/(1-beta))
+        dX1dk = xDot.diff(k).doit()#a*( h*beta*sy.sin(F)-1      -h*k* (beta**3)*(h*sy.cos(F)-k*sy.sin(F))/(1-beta))
+        dY1dk = yDot.diff(h).doit()#a*(-k*beta*sy.sin(F)+beta+((k**2)*(beta**3)*(h*sy.cos(F)-k*sy.sin(F))/(1-beta)))
+        m11 = 2*xDot/(n*n*a)
+        m12 = 2*yDot/(n*n*a)
+        m13 = 0
+        m21 = (sy.sqrt(1-h**2-k**2)/(n*a**2))*(dX1dk+(xDot/n)*(sy.sin(f)-h*b))
+        m22 = (sy.sqrt(1-h**2-k**2)/(n*a**2))*(dY1dk+(yDot/n)*(sy.sin(f)-h*b))
+        m23 = k*(q*y1-p*x1)/(n*(a**2)*sy.sqrt(1-h**2-k**2))
+        m31 = -1*(sy.sqrt(1-h**2-k**2)/(n*a**2))*(dX1dh-(xDot/n)*(sy.cos(f)-k*b))
+        m32 = -1*(sy.sqrt(1-h**2-k**2)/(n*a**2))*(dY1dh-(yDot/n)*(sy.cos(f)-k*b))
+        m33 = -1*h*(q*y1-p*x1)/(n*(a**2)*sy.sqrt(1-h**2-k**2))
+        m41 = 0
+        m42 = 0
+        m43 = (1+p**2+q**2)*y1/(2*n*a**2*sy.sqrt(1-h**2-k**2))
+        m51 = 0
+        m52 = 0
+        m53 = (1+p**2+q**2)*x1/(2*n*a**2*sy.sqrt(1-h**2-k**2))
+
+        m61 = (-2*x1+g*(h*b*dX1dh+k*b*dX1dh))/(n*a**2)
+        m62 = (-2*y1+g*(h*b*dY1dh+k*b*dY1dh))/(n*a**2)
+        m63 = (q*y1-p*x1/(n*g*a**2))
+
+        #M = sy.Matrix([[m11, m12, m13], [m21, m22, m23],[m31, m32, m33],[m41, m42, m43],[m51, m52, m53]])
+        M = sy.Matrix([[m11, m12, m13], [m21, m22, m23],[m31, m32, m33],[m41, m42, m43],[m51, m52, m53],[m61, m62, m63]])   
+        return M     
+
     @staticmethod
     def InTermsOfX1And2AndTheirDots(x1:SymbolOrNumber, x2:SymbolOrNumber, x3:SymbolOrNumber, x1Dot:SymbolOrNumber, x2Dot:SymbolOrNumber, x3Dot:SymbolOrNumber, p:SymbolOrNumber, q:SymbolOrNumber, mu:SymbolOrNumber, subsDict :Optional[Dict[sy.Symbol, SymbolOrNumber]] = None, longitude :Optional[SymbolOrNumber]= 0.0) ->EquinoctialElementsHalfI:
         rotMat = sy.Matrix.eye(3,3)# EquinoctialElementsHalfI.CreateFgwToInertialAxesStatic(p, q)

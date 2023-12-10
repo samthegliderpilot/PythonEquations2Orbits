@@ -13,6 +13,7 @@ from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
 from pyeq2orb.Coordinates.KeplerianModule import KeplerianElements, CreateSymbolicElements
 import pyeq2orb.Coordinates.KeplerianModule as KepModule
 import pyeq2orb.Coordinates.ModifiedEquinoctialElementsModule as mee
+from pyeq2orb.Symbolics.SymbolicUtilities import SafeSubs
 from IPython.display import display
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 import scipyPaperPrinter as jh #type: ignore
@@ -56,7 +57,7 @@ A[4, 2] = f_y.diff(z)
 A[5, 0] = f_z.diff(x)
 A[5, 1] = f_z.diff(y)
 A[5, 2] = f_z.diff(z)
-display(A.applyfunc(lambda x : SymbolicProblem.SafeSubs(x, subs)))
+display(A.applyfunc(lambda x : SafeSubs(x, subs)))
 
 
 S = sy.Matrix([[0,0,0, 1, 0, 0],[0,0,0, 0, 1, 0], [0,0,0, 0, 0, 1],[-1,0,0, 0, 0, 0],[0,-1,0, 0, 0, 0],[0,0,-1, 0, 0, 0]])

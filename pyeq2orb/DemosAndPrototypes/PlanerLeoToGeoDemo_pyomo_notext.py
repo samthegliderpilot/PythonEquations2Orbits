@@ -73,7 +73,7 @@ constantsSubsDict[baseProblem.Thrust] = thrust
 constantsSubsDict.update(zip(initialStateValues, [r0, u0, v0, lon0]))
 if scale :
     # and reset the real initial values using tau_0 instead of time
-    initialValuesAtTau0 = SymbolicProblem.SafeSubs(initialStateValues, {baseProblem.TimeInitialSymbol: problem.TimeInitialSymbol})
+    initialValuesAtTau0 = SafeSubs(initialStateValues, {baseProblem.TimeInitialSymbol: problem.TimeInitialSymbol})
     constantsSubsDict.update(zip(initialValuesAtTau0, [r0, u0, v0, lon0]))
 
     r0 = r0/r0

@@ -6,6 +6,8 @@ from abc import ABC, abstractmethod
 import numpy as np
 from matplotlib.figure import Figure # type: ignore
 from collections import OrderedDict
+from pyeq2orb.Symbolics.SymbolicUtilities import SafeSubs
+import pyeq2orb
 # it is likely that this class will get split up into a problem definition and an 
 # indirect solver in the near future
 
@@ -185,7 +187,7 @@ class SymbolicProblem(ABC) :
         """
         if lambdasFinal == None :
             if self.CostateSymbols != None and len(self.CostateSymbols) > 0:
-                lambdasFinal = SymbolicProblem.SafeSubs(self.CostateSymbols, {self.TimeSymbol: self.TimeFinalSymbol})
+                lambdasFinal = SafeSubs(self.CostateSymbols, {self.TimeSymbol: self.TimeFinalSymbol})
             else :
                 raise Exception("No source of costate symbols.")
         lambdasFinal = cast(List[sy.Expr], lambdasFinal)
@@ -216,7 +218,7 @@ class SymbolicProblem(ABC) :
         """
         if lambdasFinal == None :
             if self.CostateSymbols != None and len(self.CostateSymbols) > 0:
-                lambdasFinal = SymbolicProblem.SafeSubs(self.CostateSymbols, {self.TimeSymbol: self.TimeFinalSymbol})
+                lambdasFinal = SafeSubs(self.CostateSymbols, {self.TimeSymbol: self.TimeFinalSymbol})
             else :
                 raise Exception("No source of costate symbols.")        
         lambdasFinal = cast(List[sy.Expr], lambdasFinal)
@@ -240,7 +242,7 @@ class SymbolicProblem(ABC) :
         # the optimal trajectory, then the variation vector for it is the symbol d_stateValue/d_tf, which 
         # for a well posed problem will give us several equations we can use as additional BC's when 
         # we build the entire transversality condition equation and solve for coefficients to be 0
-        finalSvs = self.SafeSubs(self.StateVariables, {self.TimeSymbol: self.TimeFinalSymbol})
+        finalSvs = SafeSubs(self.StateVariables, {self.TimeSymbol: self.TimeFinalSymbol})
         for sv in finalSvs :     
             if sv in lambdasFinal :
                 continue  
@@ -542,7 +544,7 @@ class SymbolicProblem(ABC) :
             same type as list of expressions: The expressions where the time variables has been set to the TimeInitialSymbol.
         """
         
-        return SymbolicProblem.SafeSubs(thingWithSymbols, {self.TimeSymbol: self.TimeInitialSymbol, self.TimeFinalSymbol:self.TimeInitialSymbol})
+        return SafeSubs(thingWithSymbols, {self.TimeSymbol: self.TimeInitialSymbol, self.TimeFinalSymbol:self.TimeInitialSymbol})
 
     def CreateVariablesAtTimeFinal(self, thingWithSymbols):
         """Substitutes the problems TimeSymbol and TimeInitialSymbol with the TimeFinalSymbol.
@@ -556,47 +558,47 @@ class SymbolicProblem(ABC) :
             same type as list of expressions: The expressions where the time variables has been set to the TimeFinalSymbol.
         """
         
-        return SymbolicProblem.SafeSubs(thingWithSymbols, {self.TimeSymbol: self.TimeFinalSymbol, self.TimeFinalSymbol:self.TimeFinalSymbol})
+        return SafeSubs(thingWithSymbols, {self.TimeSymbol: self.TimeFinalSymbol, self.TimeFinalSymbol:self.TimeFinalSymbol})
 
 
-    @staticmethod
-    def SafeSubs(thingWithSymbols, substitutionDictionary : Dict) :
-        """Safely substitute a dictionary into something with sympy expressions returning 
-        the same type as thingsWithSymbols.
+    # @staticmethod
+    # def SafeSubs(thingWithSymbols, substitutionDictionary : Dict) :
+    #     """Safely substitute a dictionary into something with sympy expressions returning 
+    #     the same type as thingsWithSymbols.
 
-        Args:
-            thingWithSymbols: Either a sympy Expression, or a List of expressions, or a sy.Matrix.  If this is a float, it will be returned
-            substitutionDictionary (Dict): The dictionary of things to substitution into thingWithSymbols
+    #     Args:
+    #         thingWithSymbols: Either a sympy Expression, or a List of expressions, or a sy.Matrix.  If this is a float, it will be returned
+    #         substitutionDictionary (Dict): The dictionary of things to substitution into thingWithSymbols
 
-        Raises:
-            Exception: If this function doesn't know how to do the substitution, an exception will be thrown.
+    #     Raises:
+    #         Exception: If this function doesn't know how to do the substitution, an exception will be thrown.
 
-        Returns:
-            (same type as thingWithSymbols) : thingWithSymbols substituted with substitutionDictionary
-        """
-        if isinstance(thingWithSymbols, Dict) :
-            for (k,v) in thingWithSymbols.items() :
-                thingWithSymbols[k] = SymbolicProblem.SafeSubs(v, substitutionDictionary)
-            return
+    #     Returns:
+    #         (same type as thingWithSymbols) : thingWithSymbols substituted with substitutionDictionary
+    #     """
+    #     if isinstance(thingWithSymbols, Dict) :
+    #         for (k,v) in thingWithSymbols.items() :
+    #             thingWithSymbols[k] = SafeSubs(v, substitutionDictionary)
+    #         return
 
-        if isinstance(thingWithSymbols, float) or isinstance(thingWithSymbols, int) or ((hasattr(thingWithSymbols, "is_Float") and thingWithSymbols.is_Float)):
-            return thingWithSymbols # it's float, send it back
+    #     if isinstance(thingWithSymbols, float) or isinstance(thingWithSymbols, int) or ((hasattr(thingWithSymbols, "is_Float") and thingWithSymbols.is_Float)):
+    #         return thingWithSymbols # it's float, send it back
 
-        if hasattr(thingWithSymbols, "subs") :
-            if thingWithSymbols in substitutionDictionary :
-                return substitutionDictionary[thingWithSymbols]
-            finalExp = thingWithSymbols
-            finalExp = finalExp.subs(substitutionDictionary).doit(deep=True)
-            # for k,v in substitutionDictionary.items() :
-            #     finalExp = finalExp.subs(k, v).doit(deep=True) # this makes a difference?!?
-            return finalExp
+    #     if hasattr(thingWithSymbols, "subs") :
+    #         if thingWithSymbols in substitutionDictionary :
+    #             return substitutionDictionary[thingWithSymbols]
+    #         finalExp = thingWithSymbols
+    #         finalExp = finalExp.subs(substitutionDictionary).doit(deep=True)
+    #         # for k,v in substitutionDictionary.items() :
+    #         #     finalExp = finalExp.subs(k, v).doit(deep=True) # this makes a difference?!?
+    #         return finalExp
         
-        if hasattr(thingWithSymbols, "__len__") :
-            tbr = []
-            for thing in thingWithSymbols :
-                tbr.append(SymbolicProblem.SafeSubs(thing, substitutionDictionary))
-            return tbr
-        raise Exception("Don't know how to do the subs")
+    #     if hasattr(thingWithSymbols, "__len__") :
+    #         tbr = []
+    #         for thing in thingWithSymbols :
+    #             tbr.append(SafeSubs(thing, substitutionDictionary))
+    #         return tbr
+    #     raise Exception("Don't know how to do the subs")
 
     def DescaleResults(self, resultsDictionary : Dict[sy.Expr, List[float]]) -> Dict[sy.Expr, List[float]] :
         """Returns the resultsDictionary.  Although there is a derived type that has scaling factors that can be applied, making 

@@ -7,6 +7,7 @@ from pyeq2orb.ScaledSymbolicProblem import ScaledSymbolicProblem
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 from pyeq2orb.Utilities.inherit import inherit_docstrings
 import sympy as sy
+from pyeq2orb.Symbolics.SymbolicUtilities import SafeSubs
 
 class NumericalProblemFromSymbolicProblem(NumericalOptimizerProblemBase) :
     def __init__(self, wrappedProblem : SymbolicProblem, functionMap : Dict) :
@@ -23,24 +24,24 @@ class NumericalProblemFromSymbolicProblem(NumericalOptimizerProblemBase) :
         if isinstance(wrappedProblem, ScaledSymbolicProblem) and wrappedProblem.ScaleTime :
             entireState.append(wrappedProblem.TimeFinalSymbolOriginal)
         
-        finalState = SymbolicProblem.SafeSubs(entireState, {wrappedProblem.TimeSymbol: wrappedProblem.TimeFinalSymbol})
+        finalState = SafeSubs(entireState, {wrappedProblem.TimeSymbol: wrappedProblem.TimeFinalSymbol}) 
         if wrappedProblem.TerminalCost == None or wrappedProblem.TerminalCost == 0 :
             self._terminalCost = 0.0
         else:
-            self._terminalCost = lambdify([finalState], SymbolicProblem.SafeSubs(wrappedProblem._terminalCost , wrappedProblem.SubstitutionDictionary).simplify(), functionMap)
+            self._terminalCost = lambdify([finalState], SafeSubs(wrappedProblem._terminalCost , wrappedProblem.SubstitutionDictionary).simplify(), functionMap)
         self._unIntegratedPathCost = lambda t, s: 0.0
         if wrappedProblem.UnIntegratedPathCost != None and wrappedProblem.UnIntegratedPathCost != 0.0 :
             self._unIntegratedPathCost = lambdify(entireState, wrappedProblem.UnIntegratedPathCost.subs(wrappedProblem.SubstitutionDictionary).simplify(), functionMap)
         self._equationOfMotionList = []
         for (sv, eom) in wrappedProblem.EquationsOfMotion.items() :
-            numericaEom = SymbolicProblem.SafeSubs(eom, wrappedProblem.SubstitutionDictionary)
+            numericaEom = SafeSubs(eom, wrappedProblem.SubstitutionDictionary)
             #if isinstance(numericaEom, Expr)  :
             #    numericaEom=numericaEom.simplify()
             eomCb = lambdify(entireState, numericaEom, functionMap)
             self._equationOfMotionList.append(eomCb) 
 
         for bc in wrappedProblem.BoundaryConditions :
-            numericaBc=SymbolicProblem.SafeSubs(bc, wrappedProblem.SubstitutionDictionary)
+            numericaBc=SafeSubs(bc, wrappedProblem.SubstitutionDictionary)
             if isinstance(numericaBc, Expr)  :
                 numericaBc=numericaBc.simplify().expand().simplify()
             bcCallback = lambdify([finalState], numericaBc, functionMap)

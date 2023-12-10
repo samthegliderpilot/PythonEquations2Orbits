@@ -1,1 +1,2 @@
-# still not sure the best way to use __init__ files...  
+from typing import Optional
+from .SymbolicUtilities import SafeSubs, MakeMatrixOfSymbols

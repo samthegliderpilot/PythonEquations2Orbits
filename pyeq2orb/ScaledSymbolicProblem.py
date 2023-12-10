@@ -1,8 +1,10 @@
 from matplotlib.figure import Figure # type: ignore
 import sympy as sy
 from typing import List, Dict, Optional, cast
+import pyeq2orb
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
+from pyeq2orb.Symbolics.SymbolicUtilities import SafeSubs
 import numpy as np
 
 """A Symbolic problem that has scaling factors over another problem.  Those 
@@ -38,8 +40,8 @@ class ScaledSymbolicProblem(SymbolicProblem) :
         for sv in wrappedProblem.StateVariables :
             self._scaledStateVariables.append(valuesToDivideStateVariablesWith[sv])
 
-        svAtTf=SymbolicProblem.SafeSubs(wrappedProblem.StateVariables, {wrappedProblem.TimeSymbol: wrappedProblem.TimeFinalSymbol})
-        newSvAtTf=SymbolicProblem.SafeSubs(newStateVariableSymbols, {wrappedProblem.TimeSymbol: wrappedProblem.TimeFinalSymbol})
+        svAtTf=SafeSubs(wrappedProblem.StateVariables, {wrappedProblem.TimeSymbol: wrappedProblem.TimeFinalSymbol})
+        newSvAtTf=SafeSubs(newStateVariableSymbols, {wrappedProblem.TimeSymbol: wrappedProblem.TimeFinalSymbol})
         svAtTfSubsDict = dict(zip(svAtTf, newSvAtTf))
         newSvsInTermsOfOldSvs = []
         counter=0
@@ -80,21 +82,21 @@ class ScaledSymbolicProblem(SymbolicProblem) :
         self._boundaryConditions = bcs
         
         # should the path cost get scaled?  I think so, but if you know better, or if it doesn't work...
-        self._unIntegratedPathCost = SymbolicProblem.SafeSubs(wrappedProblem.UnIntegratedPathCost, fullSubsDict)
+        self._unIntegratedPathCost = SafeSubs(wrappedProblem.UnIntegratedPathCost, fullSubsDict)
         #TODO: Scale the costs!  the way we are doing the transversality conditions are fine with them scaled here (I think)
-        self._terminalCost = SymbolicProblem.SafeSubs(wrappedProblem.TerminalCost, svAtTfSubsDict)
+        self._terminalCost = SafeSubs(wrappedProblem.TerminalCost, svAtTfSubsDict)
         if scaleTime :
             tf = wrappedProblem.TimeFinalSymbol
             tau = sy.Symbol(r'\tau')
             tauF = sy.Symbol(r'\tau_f')
             tau0 = sy.Symbol(r'\tau_0')
             timeSubs = {wrappedProblem.TimeInitialSymbol: tau0, wrappedProblem.TimeSymbol: tau, wrappedProblem.TimeFinalSymbol:tauF}
-            self._controlVariables = ScaledSymbolicProblem.SafeSubs(self._controlVariables, timeSubs)
+            self._controlVariables = SafeSubs(self._controlVariables, timeSubs)
             orgSv = self._stateVariables
-            self._stateVariables = ScaledSymbolicProblem.SafeSubs(self._stateVariables, timeSubs)
-            self._unIntegratedPathCost = ScaledSymbolicProblem.SafeSubs(self._unIntegratedPathCost, timeSubs)
-            self._terminalCost = ScaledSymbolicProblem.SafeSubs(self._terminalCost, timeSubs)
-            self._boundaryConditions = ScaledSymbolicProblem.SafeSubs(self._boundaryConditions, timeSubs)
+            self._stateVariables = SafeSubs(self._stateVariables, timeSubs)
+            self._unIntegratedPathCost = SafeSubs(self._unIntegratedPathCost, timeSubs)
+            self._terminalCost = SafeSubs(self._terminalCost, timeSubs)
+            self._boundaryConditions = SafeSubs(self._boundaryConditions, timeSubs)
 
             # the correct thing to do is to make your state and control variables functions of time in Sympy
             # myCv = sy.Function('Control')(t)
@@ -120,11 +122,11 @@ class ScaledSymbolicProblem(SymbolicProblem) :
             timeSubs = { wrappedProblem.TimeSymbol: tau*tf}
             for sv in orgSv :
                 # substitute in the dummy symbols in terms of something other than time or tau
-                realEom[self._stateVariables[i]] = ScaledSymbolicProblem.SafeSubs(self._equationsOfMotion[sv], toSimple)
+                realEom[self._stateVariables[i]] = SafeSubs(self._equationsOfMotion[sv], toSimple)
                 # substitute in the scaled values
-                realEom[self._stateVariables[i]] = ScaledSymbolicProblem.SafeSubs(realEom[self._stateVariables[i]], timeSubs)*wrappedProblem.TimeFinalSymbol
+                realEom[self._stateVariables[i]] = SafeSubs(realEom[self._stateVariables[i]], timeSubs)*wrappedProblem.TimeFinalSymbol
                 # substitute back in the state variables in terms of time
-                realEom[self._stateVariables[i]] = ScaledSymbolicProblem.SafeSubs(realEom[self._stateVariables[i]], fromSimple)
+                realEom[self._stateVariables[i]] = SafeSubs(realEom[self._stateVariables[i]], fromSimple)
                 i=i+1
             self._equationsOfMotion = realEom
             
@@ -184,7 +186,7 @@ class ScaledSymbolicProblem(SymbolicProblem) :
             sv = key
             if sv in self.StateVariables and counter < len(self.WrappedProblem.StateVariables):
                 originalSv = self.WrappedProblem.StateVariables[self.StateVariables.index(sv)]
-                convertedArray = np.array(value, copy=True)* SymbolicProblem.SafeSubs(self.ScalingValues[originalSv], self.SubstitutionDictionary)
+                convertedArray = np.array(value, copy=True)* SafeSubs(self.ScalingValues[originalSv], self.SubstitutionDictionary)
                 returnDict[originalSv] = convertedArray
                 counter = counter+1
             else :
@@ -235,7 +237,7 @@ class ScaledSymbolicProblem(SymbolicProblem) :
             simpleSubsDict[oldSv.subs(self.WrappedProblem.TimeSymbol, self.WrappedProblem.TimeFinalSymbol)] = sv.subs(self.TimeSymbol, self.TimeFinalSymbol)*self.ScalingValues[oldSv]
             counter=counter+1
 
-        return SymbolicProblem.SafeSubs(expressions, simpleSubsDict)
+        return SafeSubs(expressions, simpleSubsDict)
 
     def TransversalityConditionsByAugmentation(self, nus : List[sy.Symbol], lambdasFinal : Optional[List[sy.Expr]]=None) -> List[sy.Expr]:
         """Creates the transversality conditions by augmenting the terminal constraints to the terminal cost. Note that 
@@ -251,7 +253,7 @@ class ScaledSymbolicProblem(SymbolicProblem) :
         """
         if lambdasFinal == None :
             if self.CostateSymbols != None and len(self.CostateSymbols) > 0:
-                lambdasFinal = SymbolicProblem.SafeSubs(self.CostateSymbols, {self.TimeSymbol: self.TimeFinalSymbol})
+                lambdasFinal = SafeSubs(self.CostateSymbols, {self.TimeSymbol: self.TimeFinalSymbol})
             else :
                 raise Exception("No source of costate symbols.") 
 
@@ -273,7 +275,7 @@ class ScaledSymbolicProblem(SymbolicProblem) :
         """
         if lambdasFinal == None :
             if self.CostateSymbols != None and len(self.CostateSymbols) > 0:
-                lambdasFinal = SymbolicProblem.SafeSubs(self.CostateSymbols, {self.TimeSymbol: self.TimeFinalSymbol})
+                lambdasFinal = SafeSubs(self.CostateSymbols, {self.TimeSymbol: self.TimeFinalSymbol})
             else :
                 raise Exception("No source of costate symbols.") 
 

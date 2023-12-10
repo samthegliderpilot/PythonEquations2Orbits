@@ -154,11 +154,11 @@ class testSymbolicOptimizerProblem(unittest.TestCase) :
         b = sy.Symbol('c')
         expr = a+b
         expr2 = a*a
-        self.assertEqual(2, SymbolicProblem.SafeSubs(2, {a:b}), msg="int")
-        self.assertEqual(2.0, SymbolicProblem.SafeSubs(2.0, {a:b}), msg="float")
-        self.assertEqual(b, SymbolicProblem.SafeSubs(a, {a:b}), msg="just a symbol")
-        self.assertEqual(2*b, SymbolicProblem.SafeSubs(expr, {a:b}), msg="an expression")
-        self.assertEqual([2*b, b**2], SymbolicProblem.SafeSubs([expr, expr2], {a:b}), msg="list of expressions")
+        self.assertEqual(2, SafeSubs(2, {a:b}), msg="int")
+        self.assertEqual(2.0, SafeSubs(2.0, {a:b}), msg="float")
+        self.assertEqual(b, SafeSubs(a, {a:b}), msg="just a symbol")
+        self.assertEqual(2*b, SafeSubs(expr, {a:b}), msg="an expression")
+        self.assertEqual([2*b, b**2], SafeSubs([expr, expr2], {a:b}), msg="list of expressions")
 
     def testEvaluateHamiltonianAndItsFirstTwoDerivatives(self) :
         problem = ContinuousThrustCircularOrbitTransferProblem()

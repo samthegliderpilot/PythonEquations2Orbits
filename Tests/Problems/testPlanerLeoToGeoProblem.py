@@ -12,6 +12,7 @@ from pyeq2orb.Numerical.LambdifyHelpers import OdeLambdifyHelperWithBoundaryCond
 import pyeq2orb as pe2o
 import importlib
 from typing import List
+from pyeq2orb.Symbolics.SymbolicUtilities import SafeSubs
 
 class testPlanerLeoToGeoProblem(unittest.TestCase) :
     @staticmethod
@@ -67,7 +68,7 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
         constantsSubsDict.update(zip(initialStateValues, [r0, u0, v0, 1.0]))
         if scale :
             # and reset the real initial values using tau_0 instead of time
-            initialValuesAtTau0 = SymbolicProblem.SafeSubs(initialStateValues, {baseProblem.TimeInitialSymbol: problem.TimeInitialSymbol})
+            initialValuesAtTau0 = SafeSubs(initialStateValues, {baseProblem.TimeInitialSymbol: problem.TimeInitialSymbol})
             constantsSubsDict.update(zip(initialValuesAtTau0, [r0, u0, v0, 1.0]))
 
             r0= r0/r0
@@ -89,7 +90,7 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
         # you are in control of the order of integration variables and what EOM's get evaluated, start updating the problem
         # this line sets the lambdas in the equations of motion and integration state
         problem.EquationsOfMotion.update(zip(lambdas, lambdaDotExpressions))
-        SymbolicProblem.SafeSubs(problem.EquationsOfMotion, {problem.ControlVariables[0]: controlSolved})
+        SafeSubs(problem.EquationsOfMotion, {problem.ControlVariables[0]: controlSolved})
         # the trig simplification needs the deep=True for this problem to make the equations even cleaner
         for (key, value) in problem.EquationsOfMotion.items() :
             problem.EquationsOfMotion[key] = value.trigsimp(deep=True).simplify() # some simplification to make numerical code more stable later, and that is why this code forces us to do things somewhat manually.  There are often special things like this that we ought to do that you can't really automate.

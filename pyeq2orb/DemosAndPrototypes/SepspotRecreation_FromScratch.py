@@ -362,8 +362,8 @@ for i in range(0, len(lambdas)):
 #%%    
 lmdHelper = OdeLambdifyHelperWithBoundaryConditions(t, sy.Symbol('t_0', real=True), sy.Symbol('t_f', real=True), eoms, [], [F], fullSubsDictionary)
 
-z0 = SymbolicProblem.SafeSubs(z, {t: lmdHelper.t0})
-zF = SymbolicProblem.SafeSubs(z, {t: lmdHelper.tf})
+z0 = SafeSubs(z, {t: lmdHelper.t0})
+zF = SafeSubs(z, {t: lmdHelper.tf})
 
 a0V = 10509.0
 h0V = 0.325

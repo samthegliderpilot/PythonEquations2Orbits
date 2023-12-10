@@ -3,11 +3,11 @@ import sympy as sy
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 from pyeq2orb.Numerical import ScipyCallbackCreators
 
-
 import sympy as sy
 from typing import List, Dict, Callable, cast, Any, Union, Tuple
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
+from pyeq2orb.Symbolics.SymbolicUtilities import SafeSubs
 
 
 class LambdifyHelper :
@@ -83,7 +83,7 @@ class LambdifyHelper :
         return self._substitutionDictionary
 
     def Lambdify(self):
-        return sy.lambdify(self.LambdifyArguments, SymbolicProblem.SafeSubs(self.ExpressionsToLambdify, self.SubstitutionDictionary))
+        return sy.lambdify(self.LambdifyArguments, SafeSubs(self.ExpressionsToLambdify, self.SubstitutionDictionary))
 
     @staticmethod
     def CreateLambdifiedExpressions(stateExpressionList : List[sy.Expr], expressionsToLambdify : List[sy.Expr], constantsSubstitutionDictionary : Dict[sy.Expr, float]) ->Callable[..., float] :
@@ -102,7 +102,7 @@ class LambdifyHelper :
         """
         lambdifiedExpressions = []
         for exp in expressionsToLambdify :
-            bc = SymbolicProblem.SafeSubs(exp, constantsSubstitutionDictionary)
+            bc = SafeSubs(exp, constantsSubstitutionDictionary)
             lambdifiedExpressions.append(bc)
         return sy.lambdify(stateExpressionList, lambdifiedExpressions)    
     
@@ -118,7 +118,7 @@ class LambdifyHelper :
         return sy.Matrix([item for sublist in self.LambdifyArguments for item in sublist]) #type: ignore
 
     def ApplySubstitutionDictionaryToExpressions(self):
-        self._expressionsToGetLambdified = SymbolicProblem.SafeSubs(self._expressionsToGetLambdified, self.SubstitutionDictionary)
+        self._expressionsToGetLambdified = SafeSubs(self._expressionsToGetLambdified, self.SubstitutionDictionary)
 
 class OdeLambdifyHelper(LambdifyHelper):
     def __init__(self, time, equationsOfMotion, otherArgsList : List[sy.Symbol], substitutionDictionary : Dict) :
@@ -171,12 +171,12 @@ class OdeLambdifyHelper(LambdifyHelper):
         for thisEom in equationsOfMotion :
             # eom's could be constant equations.  Check, add if it doesn't have subs
             if(hasattr(thisEom, "subs")) :
-                thisEom = SymbolicProblem.SafeSubs(thisEom, self.SubstitutionDictionary).doit(deep=True)  
+                thisEom = SafeSubs(thisEom, self.SubstitutionDictionary).doit(deep=True)  
             eomList.append(thisEom)   
         # for thisEom in equationsOfMotion :
         #     # eom's could be constant equations.  Check, add if it doesn't have subs
         #     if(hasattr(thisEom, "subs")) :
-        #         thisEom = SymbolicProblem.SafeSubs(thisEom, self.SubstitutionDictionary).doit(deep=True)  
+        #         thisEom = SafeSubs(thisEom, self.SubstitutionDictionary).doit(deep=True)  
         odeArgs = self.LambdifyArguments
         if odeArgs[0] != self.Time :   
             odeArgs = [self.Time, cast(Union[sy.Symbol, List[sy.Symbol]], odeArgs)]
@@ -277,9 +277,9 @@ class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
     def CreateCallbackForBoundaryConditionsWithFullState(self) ->tuple[List[sy.Expr], Callable[..., float]]: 
         stateForBoundaryConditions = [] #type: List[sy.Expr]
         stateForBoundaryConditions.append(self.t0)
-        stateForBoundaryConditions.extend(SymbolicProblem.SafeSubs(self.NonTimeLambdifyArguments, {self.Time: self.t0}))
+        stateForBoundaryConditions.extend(SafeSubs(self.NonTimeLambdifyArguments, {self.Time: self.t0}))
         stateForBoundaryConditions.append(self.tf)
-        stateForBoundaryConditions.extend(SymbolicProblem.SafeSubs(self.NonTimeLambdifyArguments, {self.Time: self.tf}))
+        stateForBoundaryConditions.extend(SafeSubs(self.NonTimeLambdifyArguments, {self.Time: self.tf}))
         stateForBoundaryConditions.extend(self.OtherArguments) #even if things are repeated, that is ok
                 
         #stateForBoundaryConditions.extend(fSolveOnlyParameters)
@@ -295,7 +295,7 @@ class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
         for i in range(0, len(self.SymbolsToSolveForWithBoundaryConditions)) :
             mapForBcs.append(stateForBoundaryConditions.index(self.SymbolsToSolveForWithBoundaryConditions[i]))
             try :
-                indexForIntegrator = self.NonTimeLambdifyArguments.index(SymbolicProblem.SafeSubs(self.SymbolsToSolveForWithBoundaryConditions[i], {self.t0: self.Time})) #TODO: Do I need to do TF?
+                indexForIntegrator = self.NonTimeLambdifyArguments.index(SafeSubs(self.SymbolsToSolveForWithBoundaryConditions[i], {self.t0: self.Time})) #TODO: Do I need to do TF?
                 mapForIntegrator.append(indexForIntegrator)
             except ValueError:
                 pass

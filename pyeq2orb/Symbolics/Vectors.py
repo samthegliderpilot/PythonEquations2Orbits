@@ -3,7 +3,7 @@ from __future__ import annotations
 import sympy as sy
 from typing import NoReturn
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
-# due to monkey patching with this type, the typehint situation is difficult
+# due to monkey patching with this type, the type-hint situation is difficult
 
 class Vector(sy.Matrix) :
     """

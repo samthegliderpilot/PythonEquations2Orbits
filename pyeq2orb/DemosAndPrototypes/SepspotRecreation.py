@@ -21,6 +21,8 @@ from pyeq2orb.Graphics.Plotly2DModule import plot2DLines
 import pyeq2orb.Graphics.Primitives as prim
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
 from pyeq2orb.Graphics.PlotlyUtilities import PlotAndAnimatePlanetsWithPlotly
+from pyeq2orb import SafeSubs, MakeMatrixOfSymbols
+import pyeq2orb
 #jh.printMarkdown("# SEPSPOT Recreation")
 #jh.printMarkdown("In working my way up through low-thrust modeling for satellite maneuvers, it is inevitable to run into Dr. Edelbaum's work.  Newer work such as Jean Albert Kechichian's practically requires understanding SEPSPOT as a prerequesit.  This writeup will go through the basics of SEPSPOT's algorithsm as described in the references below.")
 
@@ -46,57 +48,12 @@ z = [simpleBoringEquiElements.SemiMajorAxis, simpleBoringEquiElements.Eccentrici
 beta = simpleBoringEquiElements.BetaSy
 betaExp = simpleBoringEquiElements.Beta
 eccentricLongitude = simpleBoringEquiElements.Longitude
-
-# #%%
-# someExp = beta*a*h**2
-# dExpDk = someExp.diff(k)
-# jh.showEquation("ddk", dExpDk)
-# jh.showEquation("ddk", dExpDk.subs({beta:betaExp}).doit())
-
-#%%%
-
-x1Sy = sy.Function('X_1')(a, h, k, eccentricLongitude)
-x2Sy = sy.Function('X_2')(a, h, k, eccentricLongitude)
-x1DotSy = sy.Function(r'\dot{X_1}')(a, h, k, eccentricLongitude)
-x2DotSy = sy.Function(r'\dot{X_2}')(a, h, k, eccentricLongitude)
-
-[x1SimpleEqui, x2SimpleEqui] = simpleBoringEquiElements.RadiusInFgw(eccentricLongitude, fullSubsDictionary)
-[x1DotSimpleEqui, x2DotSimpleEqui] = simpleBoringEquiElements.VelocityInFgw(eccentricLongitude, fullSubsDictionary)
-x1SimpleEqui=cast(sy.Expr, x1SimpleEqui)
-x2SimpleEqui=cast(sy.Expr, x2SimpleEqui)
-x1DotSimpleEqui=cast(sy.Expr, x1DotSimpleEqui)
-x2DotSimpleEqui=cast(sy.Expr, x2DotSimpleEqui)
-
-fullSubsDictionary[x1Sy] = x1SimpleEqui
-fullSubsDictionary[x2Sy] = x2SimpleEqui
-fullSubsDictionary[x1DotSy] = x1DotSimpleEqui
-fullSubsDictionary[x2DotSy] = x2DotSimpleEqui
-
-jh.showEquation(x1Sy, x1SimpleEqui)
-jh.showEquation(x2Sy, x1SimpleEqui)
-jh.showEquation(x1DotSy, x1SimpleEqui)
-jh.showEquation(x2DotSy, x1SimpleEqui)
-
-
-def makeMatrixOfSymbols(baseString : str, rows: int, cols : int,funcArgs : Optional[List[sy.Expr]]= None) :
-    endString = ''
-    if baseString.endswith('}') :
-        baseString = baseString[:-1]
-        endString = '}'
-    mat = sy.Matrix.zeros(rows, cols)
-    makeFuncs = funcArgs == None or len(cast(List[sy.Expr], funcArgs)) == 0
-    for r in range(0, rows) :
-        for c in range(0, cols):
-            if makeFuncs:
-                mat[r,c] = sy.Symbol(baseString + "_{" + str(r) + "," + str(c)+"}" + endString)
-            else:
-                mat[r,c] = sy.Function(baseString + "_{" + str(r) + "," + str(c)+"}"+ endString)(*funcArgs)
-    return mat
+f = eccentricLongitude
 
 rotMatrix = mee.EquinoctialElementsHalfI.CreateFgwToInertialAxesStatic(p, q)
-fHatSy = makeMatrixOfSymbols(r'\hat{f}', 3, 1, [p, q])
-gHatSy = makeMatrixOfSymbols(r'\hat{g}', 3, 1, [p, q])
-wHatSy = makeMatrixOfSymbols(r'\hat{w}', 3, 1, [p, q])
+fHatSy = MakeMatrixOfSymbols(r'\hat{f}', 3, 1, [p, q])
+gHatSy = MakeMatrixOfSymbols(r'\hat{g}', 3, 1, [p, q])
+wHatSy = MakeMatrixOfSymbols(r'\hat{w}', 3, 1, [p, q])
 display(fHatSy)
 for i in range(0, 3):
     fullSubsDictionary[fHatSy[i]] = rotMatrix.col(0)[i]
@@ -106,39 +63,7 @@ for i in range(0, 3):
 jh.showEquation(fHatSy, rotMatrix.col(0))
 jh.showEquation(gHatSy, rotMatrix.col(1))
 jh.showEquation(wHatSy, rotMatrix.col(2))
-
-
-x1 = x1Sy
-y1 = x2Sy
-xDot = x1DotSy
-yDot = x2DotSy
-g = sy.sqrt(1-h**2-k**2)
-dX1dh = x1.diff(h).doit()#a*(-h*beta*sy.cos(F)- (beta+(h**2)*beta**3)*(h*sy.cos(F)-k*sy.sin(F))/(1-beta))
-dY1dh = y1.diff(h).doit()#a*( k*beta*sy.cos(F)-1      +h*k* (beta**3)*(h*sy.cos(F)-k*sy.sin(F))/(1-beta))
-dX1dk = xDot.diff(k).doit()#a*( h*beta*sy.sin(F)-1      -h*k* (beta**3)*(h*sy.cos(F)-k*sy.sin(F))/(1-beta))
-dY1dk = yDot.diff(h).doit()#a*(-k*beta*sy.sin(F)+beta+((k**2)*(beta**3)*(h*sy.cos(F)-k*sy.sin(F))/(1-beta)))
-m11 = 2*xDot/(n*n*a)
-m12 = 2*yDot/(n*n*a)
-m13 = 0
-m21 = (sy.sqrt(1-h**2-k**2)/(n*a**2))*(dX1dk+(xDot/n)*(sy.sin(F)-h*betaExp))
-m22 = (sy.sqrt(1-h**2-k**2)/(n*a**2))*(dY1dk+(yDot/n)*(sy.sin(F)-h*betaExp))
-m23 = k*(q*y1-p*x1)/(n*(a**2)*sy.sqrt(1-h**2-k**2))
-m31 = -1*(sy.sqrt(1-h**2-k**2)/(n*a**2))*(dX1dh-(xDot/n)*(sy.cos(F)-k*betaExp))
-m32 = -1*(sy.sqrt(1-h**2-k**2)/(n*a**2))*(dY1dh-(yDot/n)*(sy.cos(F)-k*betaExp))
-m33 = -1*h*(q*y1-p*x1)/(n*(a**2)*sy.sqrt(1-h**2-k**2))
-m41 = 0
-m42 = 0
-m43 = (1+p**2+q**2)*y1/(2*n*a**2*sy.sqrt(1-h**2-k**2))
-m51 = 0
-m52 = 0
-m53 = (1+p**2+q**2)*x1/(2*n*a**2*sy.sqrt(1-h**2-k**2))
-
-m61 = (-2*x1+g*(h*betaExp*dX1dh+k*betaExp*dX1dh))/(n*a**2)
-m62 = (-2*y1+g*(h*betaExp*dY1dh+k*betaExp*dY1dh))/(n*a**2)
-m63 = (q*y1-p*x1/(n*g*a**2))
-
-#M = sy.Matrix([[m11, m12, m13], [m21, m22, m23],[m31, m32, m33],[m41, m42, m43],[m51, m52, m53]])
-M = sy.Matrix([[m11, m12, m13], [m21, m22, m23],[m31, m32, m33],[m41, m42, m43],[m51, m52, m53],[m61, m62, m63]])
+M = simpleBoringEquiElements.CreatePerturbationMatrixWithMeanLongitude(f, fullSubsDictionary)
 jh.showEquation("M", M)
 display(M.shape)
 
@@ -153,13 +78,6 @@ u3 = sy.Symbol("u_3", real=True)
 uSy = sy.Matrix([[u1, u2, u3]]).transpose()
 accelSy = sy.Symbol('a', real=True, positive=True)
 zDot = M*uSy*accelSy + sy.Matrix([[0,0,0,0,0,taDifeq]]).transpose()
-
-#%%
-jh.showEquation("m_{21}", m21)
-jh.showEquation("m_{21}", m21.subs(xDot, x1DotSimpleEqui))
-jh.showEquation("m_{21}", m21.subs(fullSubsDictionary).doit())
-#jh.showEquation("m_{21}", m21.subs(xDot, x1DotSimpleEqui).doit())
-#jh.showEquation("m_{21}", m21.subs(xDot, x1DotSimpleEqui).doit(deep=True))
 
 #%%
 
@@ -194,7 +112,7 @@ jh.printMarkdown("Staring with our x:")
 xSy = sy.MatrixSymbol('x', n, 1)
 jh.showEquation(xSy, x)
 jh.printMarkdown(r'We write our $\underline{\dot{x}}$ with the assumed optimal control vector $\underline{\hat{u}}$ as:')
-g1Sy = makeMatrixOfSymbols(r'g_{1}', n, 1, [t])
+g1Sy = MakeMatrixOfSymbols(r'g_{1}', n, 1, [t])
 
 display(mFullSymbol)
 #xDotSy = SymbolicProblem.CreateCoVector(x, r'\dot{x}', t)
@@ -310,7 +228,7 @@ jh.showEquation(eom1)
 
 actualSubsDic = {}
 for k,v in fullSubsDictionary.items() :
-    actualSubsDic[k] = SymbolicProblem.SafeSubs(v, fullSubsDictionary)
+    actualSubsDic[k] = SafeSubs(v, fullSubsDictionary)
 fullSubsDictionary = actualSubsDic
 #jh.showEquation(eom1.lhs, eom1.rhs.subs(fullSubsDictionary))
 #jh.showEquation(eom1.lhs, eom1.rhs.expand().subs(fullSubsDictionary))
@@ -323,8 +241,8 @@ fullSubsDictionary = actualSubsDic
 #%%
 lmdHelper = OdeLambdifyHelperWithBoundaryConditions(t, sy.Symbol('t_0', real=True), sy.Symbol('t_f', real=True), eoms, [], [], fullSubsDictionary)
 
-z0 = SymbolicProblem.SafeSubs(z, {t: lmdHelper.t0})
-zF = SymbolicProblem.SafeSubs(z, {t: lmdHelper.tf})
+z0 = SafeSubs(z, {t: lmdHelper.t0})
+zF = SafeSubs(z, {t: lmdHelper.tf})
 
 a0V = 7000
 h0V = 0.0
