@@ -1,11 +1,11 @@
 import __init__ #type: ignore
 import sympy as sy
-from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
+#from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 from pyeq2orb.Numerical import ScipyCallbackCreators
 
 import sympy as sy
 from typing import List, Dict, Callable, cast, Any, Union, Tuple
-from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
+#from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
 from pyeq2orb.Symbolics.SymbolicUtilities import SafeSubs
 

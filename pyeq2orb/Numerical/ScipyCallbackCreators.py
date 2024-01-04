@@ -1,7 +1,7 @@
 from collections import OrderedDict
 from typing import List, Dict,Any
 import sympy as sy
-from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
+#from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 
 def ConvertOdeIntResultsToDictionary(odeintSymbolicState : List[sy.Expr], odeintResults : List[Any]) ->Dict[sy.Expr, List[float]]:
     """Converts the results from an odeint call into a dictionary mapping the symbolic expressions to lists of floats.

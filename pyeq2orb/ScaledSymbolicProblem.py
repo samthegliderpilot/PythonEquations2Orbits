@@ -60,11 +60,12 @@ class ScaledSymbolicProblem(SymbolicProblem) :
         self._controlVariables = wrappedProblem.ControlVariables
         scaledEquationsOfMotion = {}
         counter = 0
-        for sv in wrappedProblem.StateVariables :
-            if hasattr(wrappedProblem.EquationsOfMotion[sv], "subs") :
-                scaledEquationsOfMotion[self._stateVariables[counter]] = wrappedProblem.EquationsOfMotion[sv].subs(fullSubsDict)*newSvsInTermsOfOldSvs[counter].diff(sv)
+        for i in range(0, len(wrappedProblem.StateVariables)) :
+            sv = self.StateVariables[i]
+            if hasattr(wrappedProblem.EquationsOfMotion[i], "subs") :
+                scaledEquationsOfMotion[self._stateVariables[counter]] = wrappedProblem.EquationsOfMotion[i].rhs.subs(fullSubsDict)*newSvsInTermsOfOldSvs[counter].diff(sv)
             else :
-                scaledEquationsOfMotion[self._stateVariables[counter]] = wrappedProblem.EquationsOfMotion[sv]*newSvsInTermsOfOldSvs[counter].diff(sv)
+                scaledEquationsOfMotion[self._stateVariables[counter]] = wrappedProblem.EquationsOfMotion[i].rhs*newSvsInTermsOfOldSvs[counter].diff(sv)
             counter=counter+1
         self._equationsOfMotion = scaledEquationsOfMotion
         
@@ -282,13 +283,3 @@ class ScaledSymbolicProblem(SymbolicProblem) :
         finalConditions = self.WrappedProblem.TransversalityConditionInTheDifferentialForm(hamiltonian, dtf, lambdasFinal)
         return self.ScaleExpressions(finalConditions)
 
-    def AddStandardResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[sy.Expr, List[float]], label : str) -> None:
-        """Adds the contents of dictionaryOfValueArraysKeyedOffState to the plot.
-
-        Args:
-            figure (matplotlib.figure.Figure): The figure the data is getting added to.
-            t (List[float]): The time corresponding to the data in dictionaryOfValueArraysKeyedOffState.
-            dictionaryOfValueArraysKeyedOffState (Dict[sy.Expr, List[float]]): The data to get added.  The keys must match the values in self.State and self.Control.
-            label (str): A label for the data to use in the plot legend.
-        """
-        self._wrappedProblem.AddStandardResultsToFigure(figure, t, dictionaryOfValueArraysKeyedOffState, label)       

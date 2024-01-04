@@ -1,6 +1,6 @@
 # Python Equations To Orbits
 
-A library to explore non-linear programming for small-to-medium scale optimization problems with a focus on orbital trajectories.  After a lot of studying and false starts, I decided that it shouldn't be THAT hard to do create a simple transcription and optimization routine for an optimal control problem. Additional, after finding Matthew Kelly's very helpful paper [An Introduction to Trajectory Optimization: How to Do Your Own Direct Collocation](https://epubs.siam.org/doi/pdf/10.1137/16M1062569) and going through Longuski's, Guzman's and Prussing's textbook Optimal Control with Aerospace Applications, I sat down and started to create this project.
+A library to explore non-linear programming for small-to-medium scale optimization problems with a focus on orbital trajectories. After a lot of studying and false starts, I decided that it shouldn't be THAT hard to do create a simple transcription and optimization routine for an optimal control problem. Additional, after finding Matthew Kelly's very helpful paper [An Introduction to Trajectory Optimization: How to Do Your Own Direct Collocation](https://epubs.siam.org/doi/pdf/10.1137/16M1062569) and going through Longuski's, Guzman's and Prussing's textbook Optimal Control with Aerospace Applications, I sat down and started to create this project.
 
 What's more, during my masters degree I became very comfortable with using sympy and taking those equations and automatically turning them into code that can be run numerically with significantly more performance than just substituting values into the symbolic expressions.  One frustration that I have with many other packages is how opaque they are to the math you are trying to work with, but this let's me work with the math symbolically when it makes sense to, and convert them to evaluating expressions at the right time.  Again, that helps with understanding the math and process.
 
@@ -11,10 +11,10 @@ This is clearly a work in progress, interfaces will almost certainly change and 
 The way I've been setting up my environments has been with these conda/pip commands.  Note that in all cases, I have a C++ compiler on my computer (Visual Studio 2022 Community is installed on Windows, gcc on Linux).  Cmake can find it, and it is probably required for setting up pyomo all the way:
 
 ```
-conda create --name Py130OptFun python=3.10
-conda activate Py310OptFun
+conda create --name py310OptFun python=3.10
+conda activate py310OptFun
 conda install -c conda-forge sympy numpy pandas scipy plotly matplotlib jupyter pygmo pyomo cmake pytest plotly p2j pandoc networkx openpyxl pint pymysql pyodbc pyro4 xlrd cyipopt pandoc mypy vispy setuptools
-conda install -c conda-forge ipopt glpk
+pip install mypy pylint
 pyomo download-extensions
 pyomo build-extensions
 python setup.py dependencies --extra optional 

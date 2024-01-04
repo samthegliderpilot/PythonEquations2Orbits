@@ -28,32 +28,6 @@ class OneDWorkSymbolicProblem(SymbolicProblem) :
     def ConstantSymbols(self) -> List[sy.Symbol] :
         return self._constantSymbols
 
-    def AddStandardResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[sy.Expr, List[float]], label : str) :
-        """Adds the contents of dictionaryOfValueArraysKeyedOffState to the plot.
-
-        Args:
-            figure (matplotlib.figure.Figure): The figure the data is getting added to.
-            t (List[float]): The time corresponding to the data in dictionaryOfValueArraysKeyedOffState.
-            dictionaryOfValueArraysKeyedOffState (Dict[sy.Expr, List[float]]): The x, v, and u to be plotted.
-            label (str): A label for the data to use in the plot legend.
-        """
-        xAct = dictionaryOfValueArraysKeyedOffState[self._stateVariables[0]] #TODO: I don't like how this line knows that the 0th element is X (and the next two too)
-        vAct = dictionaryOfValueArraysKeyedOffState[self._stateVariables[1]]
-        uAct = dictionaryOfValueArraysKeyedOffState[self._controlVariables[0]]
-        plt.subplot(311)
-        plt.title("1D Work Problem")
-        plt.plot(t, xAct, label=label)
-        plt.ylabel('x')
-
-        plt.subplot(312)
-        plt.plot(t, vAct, label=label)
-        plt.ylabel('v_x')
-
-        plt.subplot(313)
-        plt.plot(t, uAct, label=label)
-        plt.ylabel('u')
-        plt.legend()
-
 class OneDWorkProblem(NumericalOptimizerProblemBase) :
     """A very simple and straight forward optimal control problem.  Although there is an analytical solution 
     to be had, this is great for testing plumbing and connections between types.  As such, this type is 

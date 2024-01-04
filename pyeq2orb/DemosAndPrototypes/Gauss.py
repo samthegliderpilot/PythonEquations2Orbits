@@ -32,7 +32,7 @@ keplerianEquationsOfMotion =  KepModule.GaussianEquationsOfMotionVallado(kepElem
 display(keplerianEquationsOfMotion.EccentricityDot)
 display(keplerianEquationsOfMotion.ArgumentOfPeriapsisDot)
 
-subsDict = {kepElements.Eccentricity: 0.35, kepElements.SemiMajorAxis:42162000, kepElements.GravitationalParameter:3.986004418e14, accel[2]:1}
+subsDict = {kepElements.Eccentricity: 0.5, kepElements.SemiMajorAxis:32162000, kepElements.GravitationalParameter:3.986004418e14, accel[2]:1}
 eccCb = sy.lambdify(kepElements.TrueAnomaly, keplerianEquationsOfMotion.EccentricityDot.subs(subsDict))
 aopCb = sy.lambdify(kepElements.TrueAnomaly, keplerianEquationsOfMotion.ArgumentOfPeriapsisDot.subs(subsDict))
 taRange = np.arange(0.0, 2*math.pi, 0.01)

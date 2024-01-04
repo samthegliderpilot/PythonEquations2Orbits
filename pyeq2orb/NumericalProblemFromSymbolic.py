@@ -33,10 +33,8 @@ class NumericalProblemFromSymbolicProblem(NumericalOptimizerProblemBase) :
         if wrappedProblem.UnIntegratedPathCost != None and wrappedProblem.UnIntegratedPathCost != 0.0 :
             self._unIntegratedPathCost = lambdify(entireState, wrappedProblem.UnIntegratedPathCost.subs(wrappedProblem.SubstitutionDictionary).simplify(), functionMap)
         self._equationOfMotionList = []
-        for (sv, eom) in wrappedProblem.EquationsOfMotion.items() :
-            numericaEom = SafeSubs(eom, wrappedProblem.SubstitutionDictionary)
-            #if isinstance(numericaEom, Expr)  :
-            #    numericaEom=numericaEom.simplify()
+        for i in range(0, len(wrappedProblem.EquationsOfMotion)) :
+            numericaEom = SafeSubs(wrappedProblem.EquationsOfMotion[i], wrappedProblem.SubstitutionDictionary)
             eomCb = lambdify(entireState, numericaEom, functionMap)
             self._equationOfMotionList.append(eomCb) 
 
@@ -98,7 +96,3 @@ class NumericalProblemFromSymbolicProblem(NumericalOptimizerProblemBase) :
     @inherit_docstrings
     def TerminalCost(self, tf, finalStateAndControl) :
         return self._terminalCost([*finalStateAndControl, tf])
-
-    @inherit_docstrings
-    def AddResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[Expr, List[float]], label : str) -> None:
-        self._wrappedProblem.AddStandardResultsToFigure(figure, t, dictionaryOfValueArraysKeyedOffState, label)

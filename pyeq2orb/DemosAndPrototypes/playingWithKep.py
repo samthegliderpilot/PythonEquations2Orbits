@@ -45,10 +45,10 @@ display(rhs)
 
 #%%
 
-lhs0 = sy.Matrix([[42164, 0.35, 0.01]]).transpose()
+lhs0 = sy.Matrix([[42164, 0.55, 0.01]]).transpose()
 step = 1800
 tF = 3600
-lhsP1Guess = sy.Matrix([[42180, 0.36, 10*math.pi/180.0]]).transpose()
+lhsP1Guess = sy.Matrix([[42180, 0.56, 10*math.pi/180.0]]).transpose()
 stateArray = sy.Matrix([[kepElements.SemiMajorAxis, kepElements.Eccentricity, kepElements.TrueAnomaly]]).transpose()
 display(stateArray)
 dydx = sy.lambdify(stateArray, rhs, 'sympy')
@@ -72,9 +72,9 @@ def toSolve(guess) :
     trapAnswer = (step*0.5)*(f0+fPlus1)
     print("trap answer is " + str(trapAnswer))
     return [trapAnswer[0]-daGuess, trapAnswer[1]-deGuess, trapAnswer[2]-dtaGuess]
-display(dydx(42164, 0.35, math.pi/2.0))
-root = root(toSolve, [42170, 0.36, 10*math.pi/180.0], method='hybr', tol=1e-5)
-#root = fsolve(toSolve, [42170, 0.36, 10*math.pi/180.0])
+display(dydx(42164, 0.55, math.pi/2.0))
+root = root(toSolve, [42170, 0.56, 10*math.pi/180.0], method='hybr', tol=1e-5)
+#root = fsolve(toSolve, [42170, 0.56, 10*math.pi/180.0])
 print(root)
 
 # this might not seem like much, but I finally answered a huge question I've had, how do I 

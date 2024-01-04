@@ -1,4 +1,7 @@
 #%%
+#import sys
+#sys.path.append('..\\')
+#sys.path.append('..\..\\')
 from IPython.display import display
 from scipy.integrate import solve_ivp #type: ignore
 import matplotlib.pyplot as plt#type: ignore
@@ -32,7 +35,6 @@ def plotSolution(helper, solution):
         xyz[i,1] = y
         xyz[i,2] = 0
 
-
     df = DataFrame(xyz)
 
     xf = np.array(xyz[:,0])
@@ -51,79 +53,90 @@ mu = 3.986004418e14
 thrust = 20.0
 isp = 6000.0
 m0 = 1500.0
+# and their symbols
+gSy = sy.Symbol('g', real=True, positive=True)
+muSy = sy.Symbol(r'\mu', real=True, positive=True)
+thrustSy = sy.Symbol('T', real=True, positive=True)
+ispSy = sy.Symbol('I_{sp}', real=True, positive=True)
+m0Sy = sy.Symbol('m_0', real=True, positive=True)
+# start populating the substitution dictionary
 
-# initial values
-r0 = 6678000.0
-u0 = 0.0
-v0 = sy.sqrt(mu/r0) # circular
-lon0 = 0.0
 # I know from many previous runs that this is the time needed to go from LEO to GEO.
 # However, below works well wrapped in another fsolve to control the final time for a desired radius.
 tfVal  = 3600*3.97152*24 
 tfOrg = tfVal
 tArray = np.linspace(0.0, tfOrg, 1200)
-#if scaleTime:
-#    tfVal = 1.0
-#    tArray = np.linspace(0.0, 1.0, 1200)
-    
+tSy = sy.Symbol('t', real=True)
+t0Sy = sy.Symbol('t_0', real=True)
+tfSy = sy.Symbol('t_f', real=True, positive=True)
 
-# your choice of the nu vector here controls which transversality condition we use
-nus = [sy.Symbol('B_{u_f}'), sy.Symbol('B_{v_f}')]
-#nus = []
+# initial values
+r0 = 6678000.0
+u0 = 0.0
+v0 = float(sy.sqrt(mu/r0)) # circular
+lon0 = 0.0
 
-mus = sy.Symbol(r'\mu', real=True, positive=True)
-thrusts = sy.Symbol('T', real=True, positive=True)
-m0s = sy.Symbol('m_0', real=True, positive=True)
+# start making the equations of motion
+rSy = sy.Function('r', real=True, positive=True)(tSy)
+uSy = sy.Function('u', real=True, nonnegative=True)(tSy)
+vSy = sy.Function('v', real=True, nonnegative=True)(tSy)
+lonSy =  sy.Function(r'\theta', real=True, nonnegative=True)(tSy)
+mSy = sy.Function('m', real=True, nonnegative=True)(tSy)
 
-gs = sy.Symbol('g', real=True, positive=True)
+# the control variable
+alpSy = sy.Function(r'\alpha', real=True)(tSy)
 
-ispS = sy.Symbol('I_{sp}', real=True, positive=True)
-ts = sy.Symbol('t', real=True)
-t0s = sy.Symbol('t_0', real=True)
-tfs = sy.Symbol('t_f', real=True, positive=True)
+rDot = uSy
+uDot = vSy*vSy/rSy - muSy/(rSy**2) + thrustSy*sy.sin(alpSy)/mSy
+vDot = -vSy*uSy/rSy + thrustSy*sy.cos(alpSy)/mSy
+lonDot = vSy/rSy
+mDot = -1*thrustSy/(ispSy*gSy)
 
-rs = sy.Function('r', real=True, positive=True)(ts)
-us = sy.Function('u', real=True, nonnegative=True)(ts)
-vs = sy.Function('v', real=True, nonnegative=True)(ts)
-lonS =  sy.Function(r'\theta', real=True, nonnegative=True)(ts)
+rEquationUnScaled = sy.Eq(rSy.diff(tSy), rDot)
+uEquationUnScaled = sy.Eq(uSy.diff(tSy), uDot)
+vEquationUnScaled = sy.Eq(vSy.diff(tSy), vDot)
+lonEquationUnScaled = sy.Eq(lonSy.diff(tSy), lonDot)
+mDotEquationUnscaled = sy.Eq(mSy.diff(tSy), mDot)
 
-alps = sy.Function(r'\alpha', real=True)(ts)
+# problem specific boundary conditions, =0
+bc1 = uSy.subs(tSy, tfSy)
+bc2 = vSy.subs(tSy, tfSy)-sy.sqrt(muSy/rSy.subs(tSy, tfSy))
 
-bc1 = us.subs(ts, tfs)
-bc2 = vs.subs(ts, tfs)-sy.sqrt(mu/rs.subs(ts, tfs))
+terminalCost = rSy.subs(tSy, tfSy) # maximization problem
+unintegratedPathCost = 0
+# group things into the common pieces of data needed
+eoms = [rEquationUnScaled, uEquationUnScaled, vEquationUnScaled, lonEquationUnScaled, mDotEquationUnscaled]
+x = [rSy, uSy, vSy, lonSy]
+x0=SafeSubs([rSy, uSy, vSy, lonSy], {tSy: t0Sy})
+xf=SafeSubs([rSy, uSy, vSy, lonSy], {tSy: tfSy})
+bcs = [bc1, bc2]
+initialLambdaGuesses = [1, 0, 1, 0]
+substitutionDictionary = {gSy:g, ispSy:isp, m0Sy: m0, thrustSy:thrust, muSy:mu}
+scaleDictionary = {rSy:r0, uSy:3, vSy:3, lonSy:1, mSy:1}
+initialValues = [r0, u0, v0, lon0, m0]
+controlSymbols = [alpSy]
 
-terminalCost = rs.subs(ts, tfs) # maximization problem
-
-mFlowRate = -1*thrusts/(ispS*gs)
-mEq = m0s+ts*mFlowRate
-
-rEom = us
-uEom = vs*vs/rs - mus/(rs*rs) + thrusts*sy.sin(alps)/mEq
-vEom = -vs*us/rs + thrusts*sy.cos(alps)/mEq
-lonEom = vs/rs
 
 
-rEquation = sy.Eq(rs.diff(ts), rEom)
-uEquation = sy.Eq(us.diff(ts), uEom)
-vEquation = sy.Eq(vs.diff(ts), vEom)
-lonEquation = sy.Eq(lonS.diff(ts), lonEom)
 
-helper = OdeLambdifyHelperWithBoundaryConditions(ts, t0s, tfs, [rEquation, uEquation, vEquation, lonEquation], [bc1, bc2], [], {gs:g, ispS:isp, m0s: m0, thrusts:thrust, mus:mu})
+helper = OdeLambdifyHelperWithBoundaryConditions(tSy, t0Sy, tfSy, eoms, bcs, [],substitutionDictionary)
 
-costateVariables = SymbolicProblem.CreateCoVector(helper.NonTimeLambdifyArguments, None, ts)
-hamiltonian = SymbolicProblem.CreateHamiltonianStatic(helper.NonTimeLambdifyArguments, ts, helper.GetExpressionToLambdifyInMatrixForm(), 0, costateVariables)
-lambdaEquationsOfMotion = SymbolicProblem.CreateLambdaDotEquationsStatic(hamiltonian, ts, helper.NonTimeArgumentsArgumentsInMatrixForm(), costateVariables)
+costateVariables = SymbolicProblem.CreateCoVector(x, None, tSy)
+hamiltonian = SymbolicProblem.CreateHamiltonianStatic(x, tSy, helper.GetExpressionToLambdifyInMatrixForm(), 0, costateVariables)
+lambdaEquationsOfMotion = SymbolicProblem.CreateLambdaDotEquationsStatic(hamiltonian, tSy, helper.NonTimeArgumentsArgumentsInMatrixForm(), costateVariables)
+
 helper.AddMoreEquationsOfMotion(lambdaEquationsOfMotion)
-dHdu = SymbolicProblem.CreateHamiltonianControlExpressionsStatic(hamiltonian, alps)
-controlSolved = sy.solve(dHdu, alps)[0] 
-helper.SubstitutionDictionary[alps] =  controlSolved
+optU = SymbolicProblem.CreateControlExpressionsFromHamiltonian(hamiltonian, controlSymbols)
+for (k,v) in optU.items() :
+    helper.SubstitutionDictionary[k] =  v
 
 #TODO: Get the transversality conditions more generally
-bc3 = 1-costateVariables[0].subs(ts, tfs)+0.5*costateVariables[2].subs(ts, tfs)*sy.sqrt(1/(rs.subs(ts, tfs)**3))
-bc4 = costateVariables[3].subs(ts, tfs)
+SymbolicProblem.TransversalityConditionInTheDifferentialForm(hamiltonian, sy.Symbol(r'dt_f'))
+bc3 = 1-costateVariables[0].subs(tSy, tfSy)+0.5*costateVariables[2].subs(tSy, tfSy)*sy.sqrt(1/(rSy.subs(tSy, tfSy)**3))
+bc4 = costateVariables[3].subs(tSy, tfSy)
 newBcs = [bc3, bc4]
 helper.BoundaryConditionExpressions.extend(newBcs)
-helper.SymbolsToSolveForWithBoundaryConditions.extend(SafeSubs(costateVariables, {ts: t0s}))
+helper.SymbolsToSolveForWithBoundaryConditions.extend(SafeSubs(costateVariables, {tSy: t0Sy}))
 
 # From working the problem enough, we find that one of the costate variables is constant and 0. 
 # As such, the related BC can be removed, one of the costates can be made constant, an EOM removed, etc..
@@ -134,8 +147,8 @@ del helper.EquationsOfMotion[-1]
 del helper.ExpressionsToLambdify[-1]
 del helper.SymbolsToSolveForWithBoundaryConditions[-1]
 helper.SubstitutionDictionary[costateVariables[3]] =0
-helper.SubstitutionDictionary[costateVariables[3].subs(ts, tfs)]=0
-helper.SubstitutionDictionary[costateVariables[3].subs(ts, t0s)]=0
+helper.SubstitutionDictionary[costateVariables[3].subs(tSy, tfSy)]=0
+helper.SubstitutionDictionary[costateVariables[3].subs(tSy, t0Sy)]=0
 
 
 ipvCallback = helper.CreateSimpleCallbackForSolveIvp()

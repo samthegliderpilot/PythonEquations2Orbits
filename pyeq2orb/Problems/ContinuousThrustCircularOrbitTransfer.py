@@ -216,13 +216,3 @@ class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
         initialFSolveStateGuess = [lambdaR0Value, float(ansForLambdaU), 1.0]
         return initialFSolveStateGuess        
     
-    def AddStandardResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[sy.Expr, List[float]], label : str) -> None:
-        """Adds the contents of dictionaryOfValueArraysKeyedOffState to the plot.
-
-        Args:
-            figure (matplotlib.figure.Figure): The figure the data is getting added to.
-            t (List[float]): The time corresponding to the data in dictionaryOfValueArraysKeyedOffState.
-            dictionaryOfValueArraysKeyedOffState (Dict[sy.Expr, List[float]]): The data to get added.  The keys must match the values in self.State and self.Control.
-            label (str): A label for the data to use in the plot legend.
-        """
-        pass        

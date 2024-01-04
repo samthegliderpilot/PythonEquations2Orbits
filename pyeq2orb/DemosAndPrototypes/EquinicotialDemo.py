@@ -1,6 +1,9 @@
 #%%
 import __init__  #type: ignore
 import sympy as sy
+import sys
+sys.path.append('..\\')
+sys.path.append('..\..\\')
 from pyeq2orb.ForceModels.TwoBodyForce import CreateTwoBodyMotionMatrix, CreateTwoBodyListForModifiedEquinoctialElements
 from pyeq2orb.ScaledSymbolicProblem import ScaledSymbolicProblem
 from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
@@ -72,16 +75,16 @@ class HowManyImpulses(SymbolicProblem) :
 
         elementsList = elements.ToArray()
         for i in range(0, len(elementsList)) :
-            self.EquationsOfMotion[elementsList[i]] = equationsOfMotion[i]
-            self.StateVariables.append(elementsList[i])
-        self.EquationsOfMotion[m]=-1*thrust*throttle/(isp*g)
+            self.EquationsOfMotion.append(sy.Eq(elementsList[i].diff(t), equationsOfMotion[i]))
+            self.StateVariables.append(elements[i])
+        self.EquationsOfMotion.append(sy.Eq(m.diff(t), -1*thrust*throttle/(isp*g)))
         self.StateVariables.append(m)
         self.ControlVariables.append(azi)
         self.ControlVariables.append(elv)
         self.ControlVariables.append(throttle)
         self._unIntegratedPathCost = throttle* thrust/c
         self._terminalCost = 0
-        self.CostateSymbols.extend(SymbolicProblem.CreateCoVector(self.IntegrationSymbols, None, t))
+        self.CostateSymbols.extend(SymbolicProblem.CreateCoVector(self.StateVariables, None, t))
         #self.EquationsOfMotion[self.CostateSymbols[0]] = 
         #self.Hamiltonian = self.CreateHamiltonian(self.CostateSymbols)
 
@@ -132,9 +135,6 @@ class HowManyImpulses(SymbolicProblem) :
     def Mu(self) :
         return self._mu
 
-    def AddStandardResultsToFigure(self, figure: Figure, t: List[float], dictionaryOfValueArraysKeyedOffState: Dict[sy.Expr, List[float]], label: str) -> None:
-        pass
-
     def AddFinalConditions(self, pF, fF, gF, hF, kF, lF) :
         elementsAtF = self.CreateVariablesAtTimeFinal(self.StateVariables)
         self.BoundaryConditions.append(elementsAtF[0] - pF)
@@ -146,9 +146,10 @@ class HowManyImpulses(SymbolicProblem) :
 
     def flattenEquationsOfMotion(self) :
         auxValues = self.modifiedEquinoctialElements.AuxiliarySymbolsDict()
-        for sym, eom in self.EquationsOfMotion.items() :
-            self.EquationsOfMotion[sym] = SafeSubs(eom, auxValues)
+        for i in range(0, len(self.EquationsOfMotion)) :
+            self.EquationsOfMotion[i] = SafeSubs(self.EquationsOfMotion[i], auxValues)
 
+HowManyImpulses()
 # Earth to Mars demo
 tfVal = 793*86400.0
 m0Val = 2000.0
@@ -156,7 +157,7 @@ isp = 3000.0
 nRev = 2.0
 thrustVal =  0.1997*1.2
 g = 9.8065 
-n = 301
+n = 303
 tSpace = np.linspace(0.0, tfVal, n)
 
 Au = 149597870700.0
@@ -247,8 +248,8 @@ for sv in baseProblem.StateVariables :
 trivialScalingDic[baseProblem.StateVariables[0]] = Au/10.0
 trivialScalingDic[baseProblem.StateVariables[5]] = 1.0
 print("making scaled problem")
-for sv, eom in baseProblem.EquationsOfMotion.items() :
-    jh.showEquation(sy.diff(sv, baseProblem.TimeSymbol), eom)
+for i in range(0,len(baseProblem.EquationsOfMotion)) :
+    jh.showEquation(baseProblem.EquationsOfMotion[i])
 baseProblem.flattenEquationsOfMotion()
 scaledProblem = ScaledSymbolicProblem(baseProblem, baseProblem.StateVariables, trivialScalingDic, True)
 asNumericalProblem = NumericalProblemFromSymbolicProblem(scaledProblem, lambdifyFunctionMap)
@@ -329,13 +330,13 @@ problemForOneOffPropagation = baseProblem
 
 odeHelper = OdeHelperModule.OdeHelper(problemForOneOffPropagation.TimeSymbol)
 initialStateSymbols = SafeSubs(problemForOneOffPropagation.StateVariables, {problemForOneOffPropagation.TimeSymbol: problemForOneOffPropagation.TimeInitialSymbol})
-odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[0], problemForOneOffPropagation.EquationsOfMotion[problemForOneOffPropagation.StateVariables[0]], initialStateSymbols[0])
-odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[1], problemForOneOffPropagation.EquationsOfMotion[problemForOneOffPropagation.StateVariables[1]], initialStateSymbols[1])
-odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[2], problemForOneOffPropagation.EquationsOfMotion[problemForOneOffPropagation.StateVariables[2]], initialStateSymbols[2])
-odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[3], problemForOneOffPropagation.EquationsOfMotion[problemForOneOffPropagation.StateVariables[3]], initialStateSymbols[3])
-odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[4], problemForOneOffPropagation.EquationsOfMotion[problemForOneOffPropagation.StateVariables[4]], initialStateSymbols[4])
-odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[5], problemForOneOffPropagation.EquationsOfMotion[problemForOneOffPropagation.StateVariables[5]], initialStateSymbols[5])
-odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[6], problemForOneOffPropagation.EquationsOfMotion[problemForOneOffPropagation.StateVariables[6]], initialStateSymbols[6])
+odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[0], problemForOneOffPropagation.EquationsOfMotion[0].rhs, initialStateSymbols[0])
+odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[1], problemForOneOffPropagation.EquationsOfMotion[1].rhs, initialStateSymbols[1])
+odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[2], problemForOneOffPropagation.EquationsOfMotion[2].rhs, initialStateSymbols[2])
+odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[3], problemForOneOffPropagation.EquationsOfMotion[3].rhs, initialStateSymbols[3])
+odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[4], problemForOneOffPropagation.EquationsOfMotion[4].rhs, initialStateSymbols[4])
+odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[5], problemForOneOffPropagation.EquationsOfMotion[5].rhs, initialStateSymbols[5])
+odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[6], problemForOneOffPropagation.EquationsOfMotion[6].rhs, initialStateSymbols[6])
 odeHelper.lambdifyParameterSymbols.append(baseProblem.Azimuth)
 odeHelper.lambdifyParameterSymbols.append(baseProblem.Elevation)
 odeHelper.lambdifyParameterSymbols.append(baseProblem.Throttle)
@@ -486,7 +487,7 @@ sim.initialize_model()
 print("running the pyomo model")
 solver = poenv.SolverFactory('cyipopt')
 solver.config.options['tol'] = 1e-6
-solver.config.options['max_iter'] = 2000
+solver.config.options['max_iter'] = 3000
 
 try :
     solver.solve(model, tee=True)
