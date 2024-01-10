@@ -4,8 +4,8 @@ import sympy as sy
 from pyeq2orb.Numerical import ScipyCallbackCreators
 
 import sympy as sy
-from typing import List, Dict, Callable, cast, Any, Union, Tuple
-#from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
+from typing import Optional, List, Dict, Callable, cast, Any, Union, Tuple
+from pyeq2orb.ProblemBase import Problem
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
 from pyeq2orb.Symbolics.SymbolicUtilities import SafeSubs
 
@@ -40,12 +40,14 @@ class LambdifyHelper :
         if substitutionDictionary == None:
             substitutionDictionary = {}
 
+        self._functionRedirectionArray={} #type: Dict[str, Callable]
+
         self._lambdifyArguments = lambdifyArguments
         self._expressionsToGetLambdified = expressionsToLambdify
         i=0
         for exp in self._expressionsToGetLambdified :
             if isinstance(exp, sy.Eq) :
-                self._expressionsToGetLambdified[i] = exp.rhs
+                self._expressionsToGetLambdified[i] = exp.rhs #TODO: Throw here at some point...
             i=i+1
         self._substitutionDictionary = substitutionDictionary
 
@@ -73,6 +75,10 @@ class LambdifyHelper :
         return self._expressionsToGetLambdified
 
     @property 
+    def FunctionRedirectionArray(self) -> Dict[str, Callable]:
+        return self._functionRedirectionArray
+
+    @property 
     def SubstitutionDictionary(self) -> Dict :
         """Constants that should be substituted into the expressions to lambdify before lambdify'ing them.
         This is never None, but it may be empty.
@@ -86,7 +92,7 @@ class LambdifyHelper :
         return sy.lambdify(self.LambdifyArguments, SafeSubs(self.ExpressionsToLambdify, self.SubstitutionDictionary))
 
     @staticmethod
-    def CreateLambdifiedExpressions(stateExpressionList : List[sy.Expr], expressionsToLambdify : List[sy.Expr], constantsSubstitutionDictionary : Dict[sy.Expr, float]) ->Callable[..., float] :
+    def CreateLambdifiedExpressions(stateExpressionList : List[sy.Expr], expressionsToLambdify : List[sy.Expr], constantsSubstitutionDictionary : Dict[sy.Expr, float], functionRedirectionArray : Optional[List[Callable]] = None) ->Callable[..., float] :
         """ A helper function to create a lambdified callback of some expressions while also substituting in constant values into the expressions. One common problem that 
         might come up is if the constantsSubstitutionDictionary contains an independent variable of one of the symbols in the state (for example, if one of your state 
         variables is x(t) and you put a constant value of t into the constantsSubstitutionDictionary, this turns x(t) into x(2) and things get confusing quickly). Generally
@@ -104,7 +110,8 @@ class LambdifyHelper :
         for exp in expressionsToLambdify :
             bc = SafeSubs(exp, constantsSubstitutionDictionary)
             lambdifiedExpressions.append(bc)
-        return sy.lambdify(stateExpressionList, lambdifiedExpressions)    
+        
+        return sy.lambdify(stateExpressionList, lambdifiedExpressions, functionRedirectionArray)    
     
     def GetExpressionToLambdifyInMatrixForm(self) -> sy.Matrix:
         return sy.Matrix(self.ExpressionsToLambdify)
@@ -120,21 +127,34 @@ class LambdifyHelper :
     def ApplySubstitutionDictionaryToExpressions(self):
         self._expressionsToGetLambdified = SafeSubs(self._expressionsToGetLambdified, self.SubstitutionDictionary)
 
+
+    def CheckAllParametersArePresent(self) ->List[sy.Basic] :
+        missingArgs = []
+        for exper in self.ExpressionsToLambdify :
+            allArgs =  [x for x in exper.atoms(sy.Function) if hasattr(x, 'name')]
+            allArgs.extend(exper.atoms(sy.Symbol))
+            for arg in allArgs:
+                found =  arg in self.SubstitutionDictionary.keys() #or arg in self.OtherArguments
+                for lmdArg in self.LambdifyArguments :
+                    found = found or lmdArg == arg or (hasattr(lmdArg, "__len__")) and arg in cast(List[sy.Symbol], lmdArg)
+                if not found and not arg in missingArgs:
+                    missingArgs.append(arg)
+        return missingArgs         
+
+
+
+
 class OdeLambdifyHelper(LambdifyHelper):
-    def __init__(self, time, equationsOfMotion, otherArgsList : List[sy.Symbol], substitutionDictionary : Dict) :
-        self._nonTimeStateVariables = [] #type: List[sy.Symbol]
-        self._equationsOfMotion = equationsOfMotion
+    def __init__(self, time, stateVariables, firstOrderDynamicExpressions, otherArgsList : List[sy.Symbol], substitutionDictionary : Dict) :
+        self._nonTimeStateVariables = stateVariables
+        self._firstOrderStateDynamics = firstOrderDynamicExpressions
         self._time = time
-        expressionsOfMotion = []
-        for eom in self._equationsOfMotion :
-            expressionsOfMotion.append(eom.rhs)
-            self._nonTimeStateVariables.append(eom.lhs.expr)
 
         if otherArgsList == None :
             otherArgsList = []
 
         self._otherArgs = otherArgsList
-        LambdifyHelper.__init__(self, [time, self._nonTimeStateVariables], expressionsOfMotion, substitutionDictionary)
+        LambdifyHelper.__init__(self, [time, self._nonTimeStateVariables], self._firstOrderStateDynamics, substitutionDictionary)
 
     @property
     def Time(self) -> sy.Symbol:
@@ -179,11 +199,12 @@ class OdeLambdifyHelper(LambdifyHelper):
         #         thisEom = SafeSubs(thisEom, self.SubstitutionDictionary).doit(deep=True)  
         odeArgs = self.LambdifyArguments
         if odeArgs[0] != self.Time :   
-            odeArgs = [self.Time, cast(Union[sy.Symbol, List[sy.Symbol]], odeArgs)]
+            odeArgs = [self.Time, cast(Union[sy.Symbol, List[sy.Symbol]], List(odeArgs))]
         if self.OtherArguments != None and len(self.OtherArguments) >0 :
             odeArgs.append(self.OtherArguments)
-        eomCallback = sy.lambdify(odeArgs, eomList, modules=['scipy'], cse=True)
         
+        eomCallback = sy.lambdify(odeArgs, eomList, modules=['scipy'], cse=True)
+        #TODO: This cant call lambdify directly, it must call base class
 
         # don't need the next wrapper if there are no other args
         if self.OtherArguments == None or len(self.OtherArguments) == 0 :            
@@ -193,6 +214,39 @@ class OdeLambdifyHelper(LambdifyHelper):
         def callbackFunc(t, y, *args) :
             return eomCallback(t, y,args)
         return callbackFunc        
+
+    def CreateListOfStateVariableCallbacksTimeFirst(self) ->List[Callable]:
+        # if odeState == None :
+        #     odeState = self.CreateDefaultState()
+        equationsOfMotion = self.ExpressionsToLambdify
+        eomList = []
+        odeArgs = self.LambdifyArguments
+        if odeArgs[0] != self.Time :   
+            odeArgs = [self.Time, cast(Union[sy.Symbol, List[sy.Symbol]], odeArgs)]
+        if self.OtherArguments != None and len(self.OtherArguments) >0 :
+            odeArgs.append(self.OtherArguments)        
+        for thisEom in equationsOfMotion :
+            # eom's could be constant equations.  Check, add if it doesn't have subs
+            if(hasattr(thisEom, "subs")) :
+                thisEom = SafeSubs(thisEom, self.SubstitutionDictionary).doit(deep=True)  
+            #eomList.append(thisEom)   
+        # for thisEom in equationsOfMotion :
+        #     # eom's could be constant equations.  Check, add if it doesn't have subs
+        #     if(hasattr(thisEom, "subs")) :
+        #         thisEom = SafeSubs(thisEom, self.SubstitutionDictionary).doit(deep=True)  
+            modules = ['scipy']
+            if self.FunctionRedirectionArray != None and len(self.FunctionRedirectionArray) >0 : 
+                moduels = self.FunctionRedirectionArray
+            eomCallback = sy.lambdify(odeArgs, thisEom, modules=moduels, cse=True)
+        # don't need the next wrapper if there are no other args
+            if not (self.OtherArguments == None or len(self.OtherArguments) == 0) :            
+                # if there are other arguments, handle that
+                def callbackFunc(t, y, *args) :
+                    return eomCallback(t, y,args)
+                eomCallback = callbackFunc
+            eomList.append(eomCallback)
+        return eomList        
+
 
     def CreateSimpleCallbackForOdeint(self) -> Callable : 
         """Creates a lambdified expression of the (assumed) equations of motion in ExpressionsToLambdify.
@@ -218,11 +272,14 @@ class OdeLambdifyHelper(LambdifyHelper):
     def NonTimeLambdifyArguments(self) :
         return self.LambdifyArguments[1]
 
-    def AddMoreEquationsOfMotion(self, newEquationsOfMotion : List[sy.Eq]):
-        for i in range(0, len(newEquationsOfMotion)) :
-            self.NonTimeLambdifyArguments.append(newEquationsOfMotion[i].lhs.expr)
-            self.ExpressionsToLambdify.append(newEquationsOfMotion[i].rhs)
-            self._equationsOfMotion.append(newEquationsOfMotion[i])
+    def AddStateVariable(self, stateVariable : sy.Symbol, firstOrderStateVariableDynamic : sy.Expr):
+        self.NonTimeLambdifyArguments.append(stateVariable)
+        self.ExpressionsToLambdify.append(firstOrderStateVariableDynamic)
+        self._firstOrderStateDynamics.append(firstOrderStateVariableDynamic)
+
+    def AddStateVariables(self, stateVariables : List[sy.Symbol], stateVariableDynamics : List[sy.Expr]) :
+        for i in range(0, len(stateVariables)) :
+            self.AddStateVariable(stateVariables[i], stateVariableDynamics[i])
 
     def NonTimeArgumentsArgumentsInMatrixForm(self) -> sy.Matrix :
         return sy.Matrix(self.NonTimeLambdifyArguments)
@@ -238,17 +295,26 @@ class OdeLambdifyHelper(LambdifyHelper):
         return self._otherArgs
 
     @property
-    def EquationsOfMotion(self) -> List[sy.Eq] :
-        return self._equationsOfMotion
+    def EquationsOfMotion(self) -> List[sy.Expr] :
+        return self._firstOrderStateDynamics
 
 
+# the line between this and a problem is VERY fuzzy.  There is little keeping us from making the relevant code here 
+# just be member items on Problem, BUT, I want to keep separate the responsibility between managing and helping 
+# make the content of a Problem, and lambdifying it
 class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
-    def __init__(self, time : sy.Symbol, t0: sy.Symbol, tf: sy.Symbol, equationsOfMotion : List[sy.Eq], boundaryConditionEquations : List[sy.Expr], otherArgsList : List[sy.Symbol], substitutionDictionary : Dict) :
-        OdeLambdifyHelper.__init__(self, time, equationsOfMotion, otherArgsList, substitutionDictionary)
+    
+    def __init__(self, time : sy.Symbol, t0: sy.Symbol, tf: sy.Symbol, stateVariables : List[sy.Symbol], dynamicExpressions : List[sy.Expr], boundaryConditionEquations : List[sy.Expr], otherArgsList : List[sy.Symbol], substitutionDictionary : Dict) :
+        OdeLambdifyHelper.__init__(self, time, stateVariables, dynamicExpressions, otherArgsList, substitutionDictionary)
         self._t0 = t0 #type: sy.Symbol
         self._tf = tf #type: sy.Symbol
         self._boundaryConditions = boundaryConditionEquations
         self._symbolsToSolveForWithBcs = [] #type: List[sy.Symbol]
+
+    @staticmethod
+    def CreateFromProblem(problem : Problem) :
+        stateAndControl = [*problem.StateVariables, *problem.ControlVariables]
+        return OdeLambdifyHelperWithBoundaryConditions(problem.TimeSymbol, problem.TimeInitialSymbol, problem.TimeFinalSymbol, stateAndControl, problem.StateVariableDynamic, problem.BoundaryConditions, [], problem.SubstitutionDictionary)
 
     @property
     def t0(self) -> sy.Symbol :

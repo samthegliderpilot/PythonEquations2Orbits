@@ -8,13 +8,12 @@ The goal with this project is to create an easy-to-understand set of types to as
 
 This is clearly a work in progress, interfaces will almost certainly change and there is no real verification or validation.  Some of the tests are pretty weak and I have a list of things to refactor after rushing to get this good enough for a release by my personal deadline.
 
-The way I've been setting up my environments has been with these conda/pip commands.  Note that in all cases, I have a C++ compiler on my computer (Visual Studio 2022 Community is installed on Windows, gcc on Linux).  Cmake can find it, and it is probably required for setting up pyomo all the way:
+I have tried to make a virtual environment, however it is still something I'm figuring out.  If you want to make the environment from scratch... the way I've been setting up my environments has been with these conda/pip commands.  Note that in all cases, I have a C++ compiler on my computer (Visual Studio 2022 Community is installed on Windows, gcc on Linux).  Cmake can find it, and it is probably required for setting up pyomo all the way:
 
 ```
 conda create --name py310OptFun python=3.10
 conda activate py310OptFun
-conda install -c conda-forge sympy numpy pandas scipy plotly matplotlib jupyter pygmo pyomo cmake pytest plotly p2j pandoc networkx openpyxl pint pymysql pyodbc pyro4 xlrd cyipopt pandoc mypy vispy setuptools
-pip install mypy pylint
+conda install -c conda-forge sympy numpy pandas scipy plotly matplotlib jupyter pygmo pyomo cmake pytest plotly p2j pandoc networkx openpyxl pint pymysql pyodbc pyro4 xlrd cyipopt pandoc mypy vispy setuptools mypy pylint
 pyomo download-extensions
 pyomo build-extensions
 python setup.py dependencies --extra optional 

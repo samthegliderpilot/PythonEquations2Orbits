@@ -74,8 +74,7 @@ class ScipyDiscretizationMinimizeWrapper:
 
     
     def ConvertScipyOptimizerOutputToDictionary(self, optStruct: OptimizeResult) ->Dict[sy.Expr, List[float]]:
-        """After evaluating a set of results, this will take those results and put them into a form that NumericalOptimizerProblemBase.AddResultsToFigure 
-        expects."
+        """Turn the results into a simpler dictionary of list of floats keyed  on the state variables.
 
         Args:
             optStruct (OptimizeResult): The results from a scipy.optimize.minimize call.
@@ -86,8 +85,7 @@ class ScipyDiscretizationMinimizeWrapper:
         return self.ConvertDiscretizedStateToDict(optStruct.x)
 
     def ConvertDiscretizedStateToDict(self, z :List[float]) ->Dict[sy.Expr, List[float]]: 
-        """With a discretized optimizer state, this will that state and put them into a form that NumericalOptimizerProblemBase.AddResultsToFigure 
-        expects."
+        """Turn the results into a simpler dictionary of list of floats keyed  on the state variables.
 
         Args:
             z (List[float]): The optimizer state.

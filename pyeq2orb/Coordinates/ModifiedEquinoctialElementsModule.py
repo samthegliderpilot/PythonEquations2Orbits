@@ -213,10 +213,11 @@ class ModifiedEquinoctialElements:
             return self.InclinationSinTermK
         elif i == 5:
             return self.TrueLongitude
-        raise Exception('Index of {i} is too high')
+        raise IndexError("Index {i} is too high")
 
     def __len__(self):
         return 6
+
 
 def ConvertKeplerianToEquinoctial(keplerianElements : KeplerianElements, nonModdedLongitude : Optional[bool]= True) ->ModifiedEquinoctialElements :
     a = keplerianElements.SemiMajorAxis
@@ -261,16 +262,6 @@ def CreateSymbolicElements(elementOf :Optional[SymbolOrNumber]= None, mu : Optio
         l = sy.Function('L', real=True)(elementOf)
     
     return ModifiedEquinoctialElements(p, f, g, h, k, l, mu)
-
-
-
-# def TwoBodyGravityForceOnElements(elements : ModifiedEquinoctialElements, useSymbolsForAuxiliaryElements = False) ->sy.Matrix:
-#     if useSymbolsForAuxiliaryElements :
-#         w = elements.WSymbol
-#     else :
-#         w = elements.W
-#     return sy.Matrix([[0],[0],[0],[0],[0],[sy.sqrt(elements.GravitationalParameter*elements.SemiParameter)*(w/elements.SemiParameter)**2]])
-
 
 
 

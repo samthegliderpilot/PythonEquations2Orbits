@@ -1,9 +1,9 @@
 #%%
 import __init__  #type: ignore
 import sympy as sy
-import sys
-sys.path.append('..\\')
-sys.path.append('..\..\\')
+# import sys
+# sys.path.append('..\\')
+# sys.path.append('..\..\\')
 from pyeq2orb.ForceModels.TwoBodyForce import CreateTwoBodyMotionMatrix, CreateTwoBodyListForModifiedEquinoctialElements
 from pyeq2orb.ScaledSymbolicProblem import ScaledSymbolicProblem
 from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
@@ -11,7 +11,7 @@ from pyeq2orb.Coordinates.KeplerianModule import KeplerianElements
 from pyeq2orb.Coordinates.ModifiedEquinoctialElementsModule import ModifiedEquinoctialElements, CreateSymbolicElements
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
-from pyeq2orb.Numerical.LambdifyHelpers import LambdifyHelper, OdeLambdifyHelper
+from pyeq2orb.Numerical.LambdifyHelpers import LambdifyHelper, OdeLambdifyHelper, OdeLambdifyHelperWithBoundaryConditions
 from typing import List, Dict, cast, Any
 from matplotlib.figure import Figure #type: ignore
 import scipyPaperPrinter as jh#type: ignore
@@ -69,15 +69,15 @@ class HowManyImpulses(SymbolicProblem) :
         throttle = sy.Function('\delta', real=True)(t)
         #overallThrust = B*alp
         overallThrust = thrust*B*alp*(throttle)/(m) 
-        equationsOfMotion = f + overallThrust
+        stateDynamics = f + overallThrust
         isp = sy.Symbol("I_{sp}")
         c = isp * g
 
         elementsList = elements.ToArray()
         for i in range(0, len(elementsList)) :
-            self.EquationsOfMotion.append(sy.Eq(elementsList[i].diff(t), equationsOfMotion[i]))
+            self.StateVariableDynamic.append(stateDynamics[i])
             self.StateVariables.append(elements[i])
-        self.EquationsOfMotion.append(sy.Eq(m.diff(t), -1*thrust*throttle/(isp*g)))
+        self.StateVariableDynamic.append(-1*thrust*throttle/(isp*g))
         self.StateVariables.append(m)
         self.ControlVariables.append(azi)
         self.ControlVariables.append(elv)
@@ -85,7 +85,7 @@ class HowManyImpulses(SymbolicProblem) :
         self._unIntegratedPathCost = throttle* thrust/c
         self._terminalCost = 0
         self.CostateSymbols.extend(SymbolicProblem.CreateCoVector(self.StateVariables, None, t))
-        #self.EquationsOfMotion[self.CostateSymbols[0]] = 
+        #self.StateVariableDynamic[self.CostateSymbols[0]] = 
         #self.Hamiltonian = self.CreateHamiltonian(self.CostateSymbols)
 
         self._gravity = g
@@ -95,7 +95,7 @@ class HowManyImpulses(SymbolicProblem) :
         self._alphas = alp
         self._isp = isp
         self._mu = elements.GravitationalParameter
-
+        
         #NEED TO DO BC's
 
     @property
@@ -146,8 +146,8 @@ class HowManyImpulses(SymbolicProblem) :
 
     def flattenEquationsOfMotion(self) :
         auxValues = self.modifiedEquinoctialElements.AuxiliarySymbolsDict()
-        for i in range(0, len(self.EquationsOfMotion)) :
-            self.EquationsOfMotion[i] = SafeSubs(self.EquationsOfMotion[i], auxValues)
+        for i in range(0, len(self.StateVariableDynamic)) :
+            self.StateVariableDynamic[i] = SafeSubs(self.StateVariableDynamic[i], auxValues)
 
 HowManyImpulses()
 # Earth to Mars demo
@@ -224,7 +224,7 @@ h0 = initialElements.InclinationSinTermK
 lon0 = initialElements.TrueLongitude
 print("making base base problem")
 baseProblem = HowManyImpulses()
-newSvs = ScaledSymbolicProblem.CreateBarVariables(baseProblem.StateVariables, baseProblem.TimeSymbol)
+newSvs = SymbolicProblem.CreateBarVariables(baseProblem.StateVariables, baseProblem.TimeSymbol)
 baseProblem.SubstitutionDictionary[baseProblem.Mu] = cast(float, initialElements.GravitationalParameter)
 baseProblem.SubstitutionDictionary[baseProblem.Isp] = isp
 baseProblem.SubstitutionDictionary[baseProblem.Mass] = m0Val
@@ -248,11 +248,16 @@ for sv in baseProblem.StateVariables :
 trivialScalingDic[baseProblem.StateVariables[0]] = Au/10.0
 trivialScalingDic[baseProblem.StateVariables[5]] = 1.0
 print("making scaled problem")
-for i in range(0,len(baseProblem.EquationsOfMotion)) :
-    jh.showEquation(baseProblem.EquationsOfMotion[i])
+
+for eom in baseProblem.EquationsOfMotionAsEquations:
+    jh.showEquation(eom)
 baseProblem.flattenEquationsOfMotion()
-scaledProblem = ScaledSymbolicProblem(baseProblem, baseProblem.StateVariables, trivialScalingDic, True)
-asNumericalProblem = NumericalProblemFromSymbolicProblem(scaledProblem, lambdifyFunctionMap)
+#%%
+scaledProblem = baseProblem.ScaleProblem(baseProblem.StateVariables, trivialScalingDic, baseProblem.TimeFinalSymbol)
+
+asNumericalProblem = OdeLambdifyHelperWithBoundaryConditions.CreateFromProblem(scaledProblem)
+for (k,v) in lambdifyFunctionMap.items() :
+    asNumericalProblem.FunctionRedirectionArray[k] =v
 print("scaled and numerical problems made")
 
 
@@ -306,7 +311,7 @@ def createScattersForThrustVectors(ephemeris : prim.EphemerisArrays, inertialThr
 
 
 twoBodyMatrix = CreateTwoBodyListForModifiedEquinoctialElements(symbolicElements)
-simpleTwoBodyLambdifyCreator = OdeLambdifyHelper(t, twoBodyMatrix, [], {symbolicElements.GravitationalParameter: muVal})
+simpleTwoBodyLambdifyCreator = OdeLambdifyHelper(t, symbolicElements, twoBodyMatrix, [], {symbolicElements.GravitationalParameter: muVal})
 odeCallback =simpleTwoBodyLambdifyCreator.CreateSimpleCallbackForSolveIvp()
 print("propagating earth and mars")
 earthSolution = solve_ivp(odeCallback, [0.0, tfVal], initialElements.ToArray(), args=tuple(), t_eval=np.linspace(0.0, tfVal,n), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
@@ -330,13 +335,13 @@ problemForOneOffPropagation = baseProblem
 
 odeHelper = OdeHelperModule.OdeHelper(problemForOneOffPropagation.TimeSymbol)
 initialStateSymbols = SafeSubs(problemForOneOffPropagation.StateVariables, {problemForOneOffPropagation.TimeSymbol: problemForOneOffPropagation.TimeInitialSymbol})
-odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[0], problemForOneOffPropagation.EquationsOfMotion[0].rhs, initialStateSymbols[0])
-odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[1], problemForOneOffPropagation.EquationsOfMotion[1].rhs, initialStateSymbols[1])
-odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[2], problemForOneOffPropagation.EquationsOfMotion[2].rhs, initialStateSymbols[2])
-odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[3], problemForOneOffPropagation.EquationsOfMotion[3].rhs, initialStateSymbols[3])
-odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[4], problemForOneOffPropagation.EquationsOfMotion[4].rhs, initialStateSymbols[4])
-odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[5], problemForOneOffPropagation.EquationsOfMotion[5].rhs, initialStateSymbols[5])
-odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[6], problemForOneOffPropagation.EquationsOfMotion[6].rhs, initialStateSymbols[6])
+odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[0], problemForOneOffPropagation.StateVariableDynamic[0], initialStateSymbols[0])
+odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[1], problemForOneOffPropagation.StateVariableDynamic[1], initialStateSymbols[1])
+odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[2], problemForOneOffPropagation.StateVariableDynamic[2], initialStateSymbols[2])
+odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[3], problemForOneOffPropagation.StateVariableDynamic[3], initialStateSymbols[3])
+odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[4], problemForOneOffPropagation.StateVariableDynamic[4], initialStateSymbols[4])
+odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[5], problemForOneOffPropagation.StateVariableDynamic[5], initialStateSymbols[5])
+odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[6], problemForOneOffPropagation.StateVariableDynamic[6], initialStateSymbols[6])
 odeHelper.lambdifyParameterSymbols.append(baseProblem.Azimuth)
 odeHelper.lambdifyParameterSymbols.append(baseProblem.Elevation)
 odeHelper.lambdifyParameterSymbols.append(baseProblem.Throttle)
@@ -401,7 +406,7 @@ class PyomoHelperFunctions :
         model = self.Model
         model.add_component(name, poenv.Var(bounds=(lowerBound, upperBound), initialize=float(initialGuess)))
         component = model.component(name)
-        component.fix(float(initialGuess))
+        #component.fix(float(initialGuess))
         return component
 
     def addControlVariable(self, name, lowerBound, upperBound) :
@@ -443,18 +448,25 @@ indexToStateMap = {
 5: lambda m, t : m.lon[t],
 6: lambda m, t : m.mass[t],
 }
+#%%
+def mapPyomoStateToProblemState(m, t, expression) :    
+    state = [t, [m.perRad[t], m.f[t], m.g[t],m.h[t], m.k[t], m.lon[t], m.mass[t], m.controlAzimuth[t], m.controlElevation[t], m.throttle[t], m.tf]]    
+    return expression(*state)
 
-def mapPyomoStateToProblemState(m, t, expression) :
-    state = [t, m.perRad[t], m.f[t], m.g[t],m.h[t], m.k[t], m.lon[t], m.mass[t], m.controlAzimuth[t], m.controlElevation[t], m.throttle[t], m.tf]
-    return expression(state)
 
-model.perEom = poenv.Constraint(model.t, rule =lambda m, t2: m.perDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 0)))
-model.fEom = poenv.Constraint(model.t, rule =lambda m, t2: m.fDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 1)))
-model.gEom = poenv.Constraint(model.t, rule =lambda m, t2: m.gDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 2)))
-model.hEom = poenv.Constraint(model.t, rule =lambda m, t2: m.hDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 3)))
-model.kEom = poenv.Constraint(model.t, rule =lambda m, t2: m.kDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 4)))
-model.lonEom = poenv.Constraint(model.t, rule =lambda m, t2: m.lonDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 5)))
-model.massEom = poenv.Constraint(model.t, rule =lambda m, t2: m.mDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 6)))
+
+display(CheckAllParametersArePresent(asNumericalProblem))
+display(asNumericalProblem.LambdifyArguments)
+
+listOfEomCallback = asNumericalProblem.CreateListOfStateVariableCallbacksTimeFirst()
+
+model.perEom = poenv.Constraint(model.t, rule =lambda m, t2: m.perDot[t2] == mapPyomoStateToProblemState(m, t2, listOfEomCallback[0]))
+model.fEom = poenv.Constraint(model.t, rule =lambda m, t2: m.fDot[t2] == mapPyomoStateToProblemState(m, t2, listOfEomCallback[1]))
+model.gEom = poenv.Constraint(model.t, rule =lambda m, t2: m.gDot[t2] == mapPyomoStateToProblemState(m, t2, listOfEomCallback[2]))
+model.hEom = poenv.Constraint(model.t, rule =lambda m, t2: m.hDot[t2] == mapPyomoStateToProblemState(m, t2, listOfEomCallback[3]))
+model.kEom = poenv.Constraint(model.t, rule =lambda m, t2: m.kDot[t2] == mapPyomoStateToProblemState(m, t2, listOfEomCallback[4]))
+model.lonEom = poenv.Constraint(model.t, rule =lambda m, t2: m.lonDot[t2] == mapPyomoStateToProblemState(m, t2, listOfEomCallback[5]))
+model.massEom = poenv.Constraint(model.t, rule =lambda m, t2: m.mDot[t2] == mapPyomoStateToProblemState(m, t2, listOfEomCallback[6]))
 
 model.bc1 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[0](mod1, 1.0) - float(finalElements.SemiParameter/trivialScalingDic[baseProblem.StateVariables[0]]))
 model.bc2 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[1](mod1, 1.0) - float(finalElements.EccentricityCosTermF))
@@ -474,7 +486,7 @@ sim = podae.Simulator(model, package='scipy')
 model.var_input = poenv.Suffix(direction=poenv.Suffix.IMPORT)
 model.var_input[model.controlAzimuth] = {0.0: math.pi/2.0}
 model.var_input[model.controlElevation] = {0.0: 0.0}
-model.var_input[model.throttle] = {0.0: 0.7}
+model.var_input[model.throttle] = {0.0: 1.0}
 tSim, profiles = sim.simulate(numpoints=n, varying_inputs=model.var_input, integrator='dop853')
 
 #poenv.TransformationFactory('dae.finite_difference').apply_to(model, wrt=model.t, nfe=n, scheme='BACKWARD')
@@ -579,3 +591,4 @@ plot2DLines([azimuthPlotData, elevationPlotData], "Thrust angles (deg)")
 
 throttle = prim.XAndYPlottableLineData(time, dictSolution[stateSymbols[9]], "throttle", '#FF0000', 2)
 plot2DLines([throttle], "Throttle (0 to 1)")
+

@@ -22,7 +22,7 @@ class NumericalProblemFromSymbolicProblem(NumericalOptimizerProblemBase) :
         entireState = [wrappedProblem.TimeSymbol, *wrappedProblem.StateVariables, *wrappedProblem.ControlVariables] #type: List[sy.Expr]
         
         if isinstance(wrappedProblem, ScaledSymbolicProblem) and wrappedProblem.ScaleTime :
-            entireState.append(wrappedProblem.TimeFinalSymbolOriginal)
+            entireState.append(wrappedProblem.TimeFinalSymbol)
         
         finalState = SafeSubs(entireState, {wrappedProblem.TimeSymbol: wrappedProblem.TimeFinalSymbol}) 
         if wrappedProblem.TerminalCost == None or wrappedProblem.TerminalCost == 0 :
@@ -33,8 +33,8 @@ class NumericalProblemFromSymbolicProblem(NumericalOptimizerProblemBase) :
         if wrappedProblem.UnIntegratedPathCost != None and wrappedProblem.UnIntegratedPathCost != 0.0 :
             self._unIntegratedPathCost = lambdify(entireState, wrappedProblem.UnIntegratedPathCost.subs(wrappedProblem.SubstitutionDictionary).simplify(), functionMap)
         self._equationOfMotionList = []
-        for i in range(0, len(wrappedProblem.EquationsOfMotion)) :
-            numericaEom = SafeSubs(wrappedProblem.EquationsOfMotion[i], wrappedProblem.SubstitutionDictionary)
+        for i in range(0, len(wrappedProblem.StateVariableDynamic)) :
+            numericaEom = SafeSubs(wrappedProblem.StateVariableDynamic[i].rhs, wrappedProblem.SubstitutionDictionary)
             eomCb = lambdify(entireState, numericaEom, functionMap)
             self._equationOfMotionList.append(eomCb) 
 
@@ -46,27 +46,6 @@ class NumericalProblemFromSymbolicProblem(NumericalOptimizerProblemBase) :
             self.BoundaryConditionCallbacks.append(bcCallback)        
         self._controlCallback = None
 
-    #initial guess callback
-    #initial conditions
-    #final conditions
-
-    # @property
-    # def ContolValueAtTCallbackForInitialGuess(self) -> Callable:
-    #     """Gets the callback to evaluate initial guesses for the problem.
-
-    #     Returns:
-    #         Callable: The callback
-    #     """
-    #     return self._controlCallback
-
-    # @ContolValueAtTCallbackForInitialGuess.setter
-    # def setContolValueAtTCallbackForInitialGuess(self, callback : Callable) :
-    #     """Sets the control callback for initial guesses.
-
-    #     Args:
-    #         callback (Callable): The callback to set.
-    #     """
-    #     self._controlCallback = callback
 
     @inherit_docstrings
     #@abstractmethod
@@ -82,11 +61,11 @@ class NumericalProblemFromSymbolicProblem(NumericalOptimizerProblemBase) :
 
     @inherit_docstrings
     def SingleEquationOfMotion(self, t : float, stateAndControlAtT : List[float], indexOfEom : int) -> float :
-        return self._equationOfMotionList[indexOfEom](t, *stateAndControlAtT) # This is clearly not as efficient as it could be, but it is ok for a default implementation
+        return self.StateVariableDynamic[indexOfEom](t, *stateAndControlAtT) # This is clearly not as efficient as it could be, but it is ok for a default implementation
 
     @inherit_docstrings
     def SingleEquationOfMotionWithTInState(self, state, indexOfEom) :
-        return self._equationOfMotionList[indexOfEom](state[0], *state[1:])
+        return self.StateVariableDynamic[indexOfEom](state[0], *state[1:])
 
     @inherit_docstrings
     def UnIntegratedPathCost(self, t, stateAndControl) :
