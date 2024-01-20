@@ -197,13 +197,14 @@ class OdeLambdifyHelper(LambdifyHelper):
         #     # eom's could be constant equations.  Check, add if it doesn't have subs
         #     if(hasattr(thisEom, "subs")) :
         #         thisEom = SafeSubs(thisEom, self.SubstitutionDictionary).doit(deep=True)  
-        odeArgs = self.LambdifyArguments
+        odeArgs = []
+        odeArgs.extend(self.LambdifyArguments)
         if odeArgs[0] != self.Time :   
             odeArgs = [self.Time, cast(Union[sy.Symbol, List[sy.Symbol]], List(odeArgs))]
         if self.OtherArguments != None and len(self.OtherArguments) >0 :
             odeArgs.append(self.OtherArguments)
         
-        eomCallback = sy.lambdify(odeArgs, eomList, modules=['scipy'], cse=True)
+        eomCallback = sy.lambdify(odeArgs, eomList, modules=['scipy'], cse=False)
         #TODO: This cant call lambdify directly, it must call base class
 
         # don't need the next wrapper if there are no other args
@@ -275,7 +276,7 @@ class OdeLambdifyHelper(LambdifyHelper):
     def AddStateVariable(self, stateVariable : sy.Symbol, firstOrderStateVariableDynamic : sy.Expr):
         self.NonTimeLambdifyArguments.append(stateVariable)
         self.ExpressionsToLambdify.append(firstOrderStateVariableDynamic)
-        self._firstOrderStateDynamics.append(firstOrderStateVariableDynamic)
+        #self._firstOrderStateDynamics.append(firstOrderStateVariableDynamic)
 
     def AddStateVariables(self, stateVariables : List[sy.Symbol], stateVariableDynamics : List[sy.Expr]) :
         for i in range(0, len(stateVariables)) :
@@ -314,8 +315,11 @@ class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
     @staticmethod
     def CreateFromProblem(problem : Problem) :
         stateAndControl = [*problem.StateVariables, *problem.ControlVariables]
-        return OdeLambdifyHelperWithBoundaryConditions(problem.TimeSymbol, problem.TimeInitialSymbol, problem.TimeFinalSymbol, stateAndControl, problem.StateVariableDynamic, problem.BoundaryConditions, [], problem.SubstitutionDictionary)
+        helper = OdeLambdifyHelperWithBoundaryConditions(problem.TimeSymbol, problem.TimeInitialSymbol, problem.TimeFinalSymbol, stateAndControl, problem.StateVariableDynamic, problem.BoundaryConditions, [], problem.SubstitutionDictionary)
+        if problem.ScaleTime and isinstance(problem.TimeScaleFactor, sy.Symbol):
+            helper.OtherArguments.append(problem.TimeScaleFactor)
 
+        return helper
     @property
     def t0(self) -> sy.Symbol :
         return self._t0
@@ -347,7 +351,8 @@ class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
         stateForBoundaryConditions.append(self.tf)
         stateForBoundaryConditions.extend(SafeSubs(self.NonTimeLambdifyArguments, {self.Time: self.tf}))
         stateForBoundaryConditions.extend(self.OtherArguments) #even if things are repeated, that is ok
-                
+        #if not self.tf in stateForBoundaryConditions:
+        #    stateForBoundaryConditions.append(self.tf)# This maybe shouldn't be needed, poorly formed problem if this happens
         #stateForBoundaryConditions.extend(fSolveOnlyParameters)
 
         boundaryConditionEvaluationCallbacks = LambdifyHelper.CreateLambdifiedExpressions(stateForBoundaryConditions, self.BoundaryConditionExpressions, self.SubstitutionDictionary)    

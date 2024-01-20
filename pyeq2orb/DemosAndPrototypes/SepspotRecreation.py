@@ -2,8 +2,8 @@
 import sympy as sy
 import os
 import sys
-sys.path.append('..\\')
-sys.path.append('..\..\\')
+sys.path.append('../')
+sys.path.append('../../')
 import math
 from collections import OrderedDict
 sy.init_printing()
@@ -38,21 +38,20 @@ muVal = 3.986004418e5
 #kepElements = KepModule.CreateSymbolicElements(t, mu)
 fullSubsDictionary = OrderedDict() #type: dict[sy.Expr, SymbolOrNumber]
 
-simpleBoringEquiElements = mee.EquinoctialElementsHalfI.CreateSymbolicElements(t, mu)
+simpleBoringEquiElements = mee.EquinoctialElementsHalfITrueLongitude.CreateSymbolicElements(t, mu)
 a = cast(sy.Expr, simpleBoringEquiElements.SemiMajorAxis)
 h = cast(sy.Expr, simpleBoringEquiElements.EccentricitySinTermH)
 k = cast(sy.Expr, simpleBoringEquiElements.EccentricityCosTermK)
 p = cast(sy.Expr, simpleBoringEquiElements.InclinationSinTermP)
 q = cast(sy.Expr, simpleBoringEquiElements.InclinationCosTermQ)
-F = cast(sy.Expr, simpleBoringEquiElements.EccentricLongitude)
+F = cast(sy.Expr, simpleBoringEquiElements.TrueLongitude)
 n = sy.sqrt(mu/(a**3))
 x = sy.Matrix([[simpleBoringEquiElements.SemiMajorAxis, simpleBoringEquiElements.EccentricitySinTermH, simpleBoringEquiElements.EccentricityCosTermK, simpleBoringEquiElements.InclinationSinTermP, simpleBoringEquiElements.InclinationCosTermQ, simpleBoringEquiElements.TrueLongitude]]).transpose()
 z = [simpleBoringEquiElements.SemiMajorAxis, simpleBoringEquiElements.EccentricitySinTermH, simpleBoringEquiElements.EccentricityCosTermK, simpleBoringEquiElements.InclinationSinTermP, simpleBoringEquiElements.InclinationCosTermQ, simpleBoringEquiElements.TrueLongitude]
 beta = simpleBoringEquiElements.BetaSy
 betaExp = simpleBoringEquiElements.Beta
-eccentricLongitude = simpleBoringEquiElements.EccentricLongitude
 
-rotMatrix = mee.EquinoctialElementsHalfI.CreateFgwToInertialAxesStatic(p, q)
+rotMatrix = mee.EquinoctialElementsHalfITrueLongitude.CreateFgwToInertialAxesStatic(p, q)
 fHatSy = MakeMatrixOfSymbols(r'\hat{f}', 3, 1, [p, q])
 gHatSy = MakeMatrixOfSymbols(r'\hat{g}', 3, 1, [p, q])
 wHatSy = MakeMatrixOfSymbols(r'\hat{w}', 3, 1, [p, q])
@@ -234,11 +233,10 @@ def UnperturbedTrueLongitudeTimeDerivative(eelm, subsDict : Optional[Dict[sy.Exp
     k = eelm.EccentricityCosTermK
     mu = eelm.GravitationalParameter
     a = eelm.SemiMajorAxis
-    f = eelm.EccentricLongitude
     l = eelm.TrueLongitude 
     n = eelm.N
-    sl = sy.sin(eelm.TrueLongitude)
-    cl = sy.cos(eelm.TrueLongitude)
+    sl = sy.sin(l)
+    cl = sy.cos(l)
     return (n*(1+h*sl+k*cl)**2)/(1-h**2-k**2)**(3/2)
 
 def UnperturbedTrueLongitudeTimeDerivativeWithWeirdRadius(eelm, subsDict : Dict[sy.Expr, SymbolOrNumber]) ->sy.Expr :
@@ -364,8 +362,6 @@ fullSubsDictionary[mu]=muVal
 
 eoms = []
 
-
-
 for i in range(0, len(x)):
     theEq = sy.Eq(x[i].diff(t), zDot[i])
     eoms.append(theEq)
@@ -382,14 +378,11 @@ for k,v in fullSubsDictionary.items() :
 fullSubsDictionary = actualSubsDic
 
 
-lmdHelper = OdeLambdifyHelperWithBoundaryConditions(t, sy.Symbol('t_0', real=True), sy.Symbol('t_f', real=True), eoms, [], [], fullSubsDictionary)
 
-z0 = SafeSubs(z, {t: lmdHelper.t0})
-zF = SafeSubs(z, {t: lmdHelper.tf})
 
 initialKepElements = KeplerianElements(7000, 0.0, 28.5*math.pi/180.0, 0, 0, -2.274742851, muVal)
 initialModifiedEquiElements = mee.ConvertKeplerianToEquinoctial(initialKepElements)
-initialEquiElements = mee.EquinoctialElementsHalfI.FromModifiedEquinoctialElements(initialModifiedEquiElements)
+initialEquiElements = mee.EquinoctialElementsHalfITrueLongitude.FromModifiedEquinoctialElements(initialModifiedEquiElements)
 a0V = float(initialEquiElements.SemiMajorAxis)
 h0V = float(initialEquiElements.EccentricitySinTermH)
 k0V = float(initialEquiElements.EccentricityCosTermK)
@@ -405,13 +398,52 @@ pfV = math.tan((1*math.pi/180.0)/2)
 qfV = 0
 tfV = 0
 
-lmdHelper.BoundaryConditionExpressions.append(zF[0]-afV)
-lmdHelper.BoundaryConditionExpressions.append(zF[1]-hfV)
-lmdHelper.BoundaryConditionExpressions.append(zF[2]-kfV)
-lmdHelper.BoundaryConditionExpressions.append(zF[3]-pfV)
-lmdHelper.BoundaryConditionExpressions.append(zF[4]-qfV)
-lmdHelper.BoundaryConditionExpressions.append(zF[5]*0)
-lmdHelper.SymbolsToSolveForWithBoundaryConditions.append(z0[5])
+
+
+#%%
+
+
+problem = SymbolicProblem()
+problem.TimeSymbol = t
+problem.TimeInitialSymbol = sy.Symbol('t_0', real=True)
+problem.TimeFinalSymbol = sy.Symbol('t_f', real=True)
+z0 = SafeSubs(z, {t: problem.TimeInitialSymbol})
+zF = SafeSubs(z, {t: problem.TimeFinalSymbol})
+problem.StateVariables.extend(x)
+problem.StateVariables.extend(lambdas)
+problem.StateVariableDynamic.extend(zDot)
+problem.StateVariableDynamic.extend(lmdDotArray)
+
+problem.BoundaryConditions.append(zF[0]-afV)
+problem.BoundaryConditions.append(zF[1]-hfV)
+problem.BoundaryConditions.append(zF[2]-kfV)
+problem.BoundaryConditions.append(zF[3]-pfV)
+problem.BoundaryConditions.append(zF[4]-qfV)
+problem.BoundaryConditions.append(zF[5]*0)
+for (k,v) in fullSubsDictionary.items():
+    problem.SubstitutionDictionary[k] =v
+
+scaleDict = {}
+for sv in problem.StateVariables :
+    scaleDict[sv] = 1.0
+originalProblem = problem
+problem = problem.ScaleProblem(problem.StateVariables, scaleDict, problem.TimeFinalSymbol)
+
+lmdHelper = OdeLambdifyHelperWithBoundaryConditions.CreateFromProblem(problem)
+
+#lmdHelper.OtherArguments.append(originalProblem.TimeFinalSymbol)
+lmdHelper.SubstitutionDictionary[originalProblem.TimeFinalSymbol] = originalProblem.TimeFinalSymbol
+#lmdHelper = OdeLambdifyHelperWithBoundaryConditions(t, sy.Symbol('t_0', real=True), sy.Symbol('t_f', real=True), list(x), list(zDot), [], [], fullSubsDictionary)
+
+
+
+# lmdHelper.BoundaryConditionExpressions.append(zF[0]-afV)
+# lmdHelper.BoundaryConditionExpressions.append(zF[1]-hfV)
+# lmdHelper.BoundaryConditionExpressions.append(zF[2]-kfV)
+# lmdHelper.BoundaryConditionExpressions.append(zF[3]-pfV)
+# lmdHelper.BoundaryConditionExpressions.append(zF[4]-qfV)
+# lmdHelper.BoundaryConditionExpressions.append(zF[5]*0)
+lmdHelper.SymbolsToSolveForWithBoundaryConditions.append(z0[5].subs(originalProblem.TimeInitialSymbol, lmdHelper.t0))
 lmdHelper.SymbolsToSolveForWithBoundaryConditions.append(lambdas[0].subs(t, lmdHelper.t0))
 lmdHelper.SymbolsToSolveForWithBoundaryConditions.append(lambdas[1].subs(t, lmdHelper.t0))
 lmdHelper.SymbolsToSolveForWithBoundaryConditions.append(lambdas[2].subs(t, lmdHelper.t0))
@@ -425,17 +457,20 @@ lmdHelper.SymbolsToSolveForWithBoundaryConditions.append(lambdas[4].subs(t, lmdH
 #     display(k)
 #     zDotFinal = zDotFinal.subs(k, fullSubsDictionary[k])    
 # jh.showEquation("z", zDotFinal)
-
+# for i in range(0, len(lambdas)):
+#     lmdHelper.AddStateVariable(lambdas[i], lmdDotArray[i])
 
 lmdGuess = [4.675229762, 5.413413947e2, -9.202702084e3, 1.778011878e1, -2.268455855e4, -2.274742851]#-2.2747428]
 #lmdGuess = [4.675229762, 8.413413947e2, -9.202702084e3, 1.778011878e1, -2.260455855e4, -2.2747428]
 fullInitialState = [a0V, h0V, k0V, p0V, q0V]
 fullInitialState.extend(lmdGuess)
 print("read to lambdify")
-
-tArray = np.linspace(0.0, 58089.9005, 800)
+#%%
+tArray = np.linspace(0.0, 1.0, 800)
 initialState = [a0V, h0V,k0V, p0V, q0V, lon0 ]
 initialState.extend(lmdGuess)
+tfV = 58089.9005
+initialState.append(tfV)
 from pyeq2orb.Numerical import ScipyCallbackCreators #type: ignore
 
 ipvCallback = lmdHelper.CreateSimpleCallbackForSolveIvp()
@@ -452,7 +487,7 @@ solverCb = lmdHelper.createCallbackToSolveForBoundaryConditions(realIpvCallback,
 #print(ipvCallback(0, [r0, u0, v0, lon0, 1.0, 0.001, 0.001, 0.0]))
 #solution = solve_ivp(ipvCallback, [tArray[0], tArray[-1]], initialState, t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
 
-fSolveSol = fsolve(solverCb, initialState[5:11], epsfcn=0.0001, full_output=True, factor=0.01)
+fSolveSol = fsolve(solverCb, initialState[5:12], epsfcn=0.0001, full_output=True, factor=0.01)
 
 print(fSolveSol)
 
@@ -506,12 +541,12 @@ plot2DLines([prim.XAndYPlottableLineData(graphTArray, solution.y[11], r'\lambda_
 
 equiElements = []
 for i in range(0, len(tArray)):    
-    temp = mee.EquinoctialElementsHalfI(solution.y[0][i], solution.y[1][i], solution.y[2][i],solution.y[3][i],solution.y[4][i],solution.y[5][i],  muVal, 0, 0)
+    temp = mee.EquinoctialElementsHalfITrueLongitude(solution.y[0][i], solution.y[1][i], solution.y[2][i],solution.y[3][i],solution.y[4][i],solution.y[5][i],  muVal)
     
     #realEqui = scaleEquinoctialElements(temp, 1.0, 1.0)
     equiElements.append(temp)
 finalKepElements = kep = equiElements[-1].ConvertToModifiedEquinoctial().ToKeplerian()
-motions = mee.EquinoctialElementsHalfI.CreateEphemeris(equiElements)
+motions = mee.EquinoctialElementsHalfITrueLongitude.CreateEphemeris(equiElements)
 satEphemeris = prim.EphemerisArrays()
 satEphemeris.InitFromMotions(tArray, motions)
 satPath = prim.PathPrimitive(satEphemeris)

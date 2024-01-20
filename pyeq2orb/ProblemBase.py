@@ -50,7 +50,7 @@ class Problem(ABC) :
         return baredVariables
 
     @property
-    def SubstitutionDictionary(self) -> Dict[sy.Expr, float] :
+    def SubstitutionDictionary(self) -> Dict[sy.Expr, SymbolOrNumber] :
         """The dictionary that should be used to store constant values that may appear 
         in the various expressions.  Many helper functions elsewhere want this dictionary 
         passed to it.
@@ -351,7 +351,7 @@ class Problem(ABC) :
         self._timeScaleFactor = value
 
 
-    def ScaleProblem(self, newStateVariableSymbols : List[sy.Expr], valuesToDivideStateVariablesWith : Dict[sy.Symbol, SymbolOrNumber], timeScaleFactor : Optional[SymbolOrNumber] = None):
+    def ScaleProblem(self, newStateVariableSymbols : List[sy.Symbol], valuesToDivideStateVariablesWith : Dict[sy.Symbol, SymbolOrNumber], timeScaleFactor : Optional[SymbolOrNumber] = None):
         newProblem = Problem()
         wrappedProblem = self
         newProblem._wrappedProblem = wrappedProblem #TODO: Want to get rid of this...
@@ -405,7 +405,6 @@ class Problem(ABC) :
         bcs = []
         
         for bc in wrappedProblem.BoundaryConditions :
-
             bcs.append(bc.subs(bcSubsDict))
         newProblem._boundaryConditions = bcs
         
@@ -447,7 +446,7 @@ class Problem(ABC) :
                 fromSimple[toSimple[adjustedCv]] = cv
                 
             realEom = []
-            timeSubs = { wrappedProblem.TimeSymbol: tau*timeScaleFactor}
+            #timeSubs = { wrappedProblem.TimeSymbol: tau*timeScaleFactor}
             for i in range(0, len(newProblem.StateVariableDynamic)) :
                 # substitute in the dummy symbols in terms of something other than time or tau
                 thisUpdatedEom = SafeSubs(newProblem.StateVariableDynamic[i], toSimple)
@@ -462,7 +461,17 @@ class Problem(ABC) :
             newProblem._timeSymbol = tau 
             newProblem._timeInitialSymbol = tau0
             newProblem._timeFinalSymbol = tauF       
-            newProblem.ControlVariables.append(cast(sy.Symbol, timeScaleFactor))
+            #newProblem.ControlVariables.append(cast(sy.Symbol, timeScaleFactor))
+        updatedSubsDict = {}
+        updatedSubsDict[tauF] = 1
+        updatedSubsDict[tau0] = 0
+        for (k,v) in newProblem.SubstitutionDictionary.items():
+            newK = SafeSubs(k,timeSubs)
+            newV = SafeSubs(v, timeSubs)
+            updatedSubsDict[newK] = newV
+            #newProblem.SubstitutionDictionary[newK] = newV
+        for (k,v) in updatedSubsDict.items() :
+            newProblem.SubstitutionDictionary[k]=v
         return newProblem
 
     def ScaleExpressions(self, expressions : List[sy.Expr]) -> List[sy.Expr]:
