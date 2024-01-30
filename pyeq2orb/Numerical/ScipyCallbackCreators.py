@@ -39,7 +39,7 @@ def ConvertSolveIvpResultsToDictionary(integrationState : List[sy.Expr], solveIv
         i=i+1
     return asDict
 
-def ConvertEitherIntegratorResultsToDictionary(integrationState : List[sy.Expr], integratorResults) ->Dict[sy.Expr, List[float]]:
+def ConvertEitherIntegratorResultsToDictionary(integrationState : List[sy.Expr], integratorResults) ->Dict[sy.Symbol, List[float]]:
     """Converts either an odeint results or a solve_ivp results to a dictionary of history of values keyed off of the 
     passed in integration values.
 

@@ -38,6 +38,7 @@ import pyeq2orb.Coordinates.OrbitFunctions as orb
 from pyeq2orb.Numerical import OdeHelperModule
 from collections import OrderedDict
 from pyeq2orb import SafeSubs
+from IPython.display import display
 #import plotly.io as pio
 #pio.renderers.default = "vscode"
 
@@ -84,7 +85,7 @@ class HowManyImpulses(SymbolicProblem) :
         self.ControlVariables.append(throttle)
         self._unIntegratedPathCost = throttle* thrust/c
         self._terminalCost = 0
-        self.CostateSymbols.extend(SymbolicProblem.CreateCoVector(self.StateVariables, None, t))
+        self.StateVariables.extend(SymbolicProblem.CreateCoVector(self.StateVariables, None, t))
         #self.StateVariableDynamics[self.CostateSymbols[0]] = 
         #self.Hamiltonian = self.CreateHamiltonian(self.CostateSymbols)
 
@@ -242,7 +243,7 @@ arguments = [baseProblem.Azimuth, baseProblem.Elevation, baseProblem.Throttle, b
 
 lambdifyFunctionMap = {'sqrt': poenv.sqrt, 'sin': poenv.sin, 'cos':poenv.cos} #TODO: MOARE!!!!
 
-trivialScalingDic = {} # type: Dict[sy.Expr, SymbolOrNumber]
+trivialScalingDic = {} # type: Dict[sy.Symbol, SymbolOrNumber]
 for sv in baseProblem.StateVariables :
     trivialScalingDic[sv]=1
 trivialScalingDic[baseProblem.StateVariables[0]] = Au/10.0

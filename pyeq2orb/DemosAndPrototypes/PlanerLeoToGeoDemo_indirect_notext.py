@@ -231,8 +231,8 @@ if scaleElements :
     constantsSubsDict.update(zip(initialScaledStateValues, [r0, u0, v0, lon0])) 
     
 # this next block does most of the problem, pretty standard optimal control actions
-problem.Lambdas.extend(problem.CreateCoVector(problem.StateVariables, r'\lambda', problem.TimeSymbol))
-lambdas = problem.Lambdas
+lambdas = CreateCoVector(problem.StateVariables, r'\lambda', problem.TimeSymbol)
+problem.StateVariables.extend(lambdas)
 hamiltonian = problem.CreateHamiltonian(lambdas)
 lambdaDotExpressions = problem.CreateLambdaDotCondition(hamiltonian)
 dHdu = problem.CreateHamiltonianControlExpressions(hamiltonian)[0]
@@ -240,11 +240,11 @@ controlSolved = sy.solve(dHdu, problem.ControlVariables[0])[0] # something that 
 
 # you are in control of the order of integration variables and what equations of motion get evaluated, start updating the problem
 # NOTE that this call adds the lambdas to the integration state
-problem.EquationsOfMotion.update(zip(lambdas, lambdaDotExpressions))
-SafeSubs(problem.EquationsOfMotion, {problem.ControlVariables[0]: controlSolved})
+problem.StateVariableDynamics.extend(lambdaDotExpressions)
+SafeSubs(problem.StateVariableDynamics, {problem.ControlVariables[0]: controlSolved})
 # the trig simplification needs the deep=True for this problem to make the equations even cleaner
-for (key, value) in problem.EquationsOfMotion.items() :
-    problem.EquationsOfMotion[key] = value.trigsimp(deep=True).simplify() # some simplification to make numerical code more stable later, and that is why this code forces us to do things somewhat manually.  There are often special things like this that we ought to do that you can't really automate.
+for i in range(0, len(problem.StateVariableDynamics)) :
+    problem.StateVariableDynamics[i] = problem.StateVariableDynamics[i].trigsimp(deep=True).simplify() # some simplification to make numerical code more stable later, and that is why this code forces us to do things somewhat manually.  There are often special things like this that we ought to do that you can't really automate.
 
 ## Start with the boundary conditions
 if scaleTime : # add BC if we are working with the final time (kind of silly for this example, but we need an equal number of in's and out's for fsolve later)
@@ -348,15 +348,15 @@ class OdeHelper :
         return self._createParameterOptionalWrapperOfLambdifyCallback(baseLambdifyCallback)
 
 thisOdeHelper = OdeHelper(problem.TimeSymbol)
-for key, value in problem.EquationsOfMotion.items() :
-    thisOdeHelper.setStateElement(key, value, key.subs(problem.TimeSymbol, problem.TimeInitialSymbol) )
+for i in range(0, len(problem.StateVariableDynamics)) :
+    thisOdeHelper.setStateElement(problem.StateVariables[i], problem.StateVariableDynamics[i], key.subs(problem.TimeSymbol, problem.TimeInitialSymbol) )
 
 if scaleTime:
     thisOdeHelper.lambdifyParameterSymbols.append(baseProblem.TimeFinalSymbol)
 
 if len(nus) != 0:
-    thisOdeHelper.lambdifyParameterSymbols.append(problem.CostateSymbols[1])
-    thisOdeHelper.lambdifyParameterSymbols.append(problem.CostateSymbols[2])
+    thisOdeHelper.lambdifyParameterSymbols.append(problem.StateVariables[5])
+    thisOdeHelper.lambdifyParameterSymbols.append(problem.StateVariables[6])
 
 thisOdeHelper.constants = problem.SubstitutionDictionary
 display(thisOdeHelper.makeStateForLambdifiedFunction())

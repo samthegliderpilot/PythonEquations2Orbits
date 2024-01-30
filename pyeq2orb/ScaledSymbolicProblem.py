@@ -12,7 +12,7 @@ factors can be constants, or symbols themselves that are in the substitution
 dictionary that get used by various solvers.
 """
 class ScaledSymbolicProblem(SymbolicProblem) :
-    def __init__(self, wrappedProblem : SymbolicProblem, newStateVariableSymbols : List[sy.Expr], valuesToDivideStateVariablesWith : Dict[sy.Expr, SymbolOrNumber], scaleTime : bool) :        
+    def __init__(self, wrappedProblem : SymbolicProblem, newStateVariableSymbols : List[sy.Symbol], valuesToDivideStateVariablesWith : Dict[sy.Expr, SymbolOrNumber], scaleTime : bool) :        
         """Initializes a new instance.
 
         Args:

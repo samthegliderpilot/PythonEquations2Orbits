@@ -390,7 +390,7 @@ class Problem(ABC) :
 
         newProblem._controlVariables = wrappedProblem.ControlVariables
         scaledEquationsOfMotion = []
-        for i in range(0, len(wrappedProblem.StateVariables)) :
+        for i in range(0, len(wrappedProblem.StateVariableDynamics)) :
             sv = wrappedProblem.StateVariables[i]
             newLhs = wrappedProblem.StateVariableDynamics[i].subs(valuesToDivideStateVariablesWith)
             if hasattr(wrappedProblem.StateVariableDynamics[i], "subs") :
@@ -469,8 +469,8 @@ class Problem(ABC) :
             newProblem._timeFinalSymbol = tauF       
             #newProblem.ControlVariables.append(cast(sy.Symbol, timeScaleFactor))
         
-            updatedSubsDict[tauF] = 1
-            updatedSubsDict[tau0] = 0
+            #updatedSubsDict[tauF] = 1
+            #updatedSubsDict[tau0] = 0
             for (k,v) in newProblem.SubstitutionDictionary.items():
                 newK = SafeSubs(k,timeSubs)
                 newV = SafeSubs(v, timeSubs)
@@ -501,17 +501,19 @@ class Problem(ABC) :
 
         return SafeSubs(expressions, simpleSubsDict)        
 
-    def DescaleResults(self, resultsDictionary : Dict[sy.Symbol, List[float]]) -> Dict[sy.Expr, List[float]] :
+    def DescaleResults(self, resultsDictionary : Dict[sy.Symbol, List[float]]) -> Dict[sy.Symbol, List[float]] :
         """After evaluating the problem numerically, descale the results to be back in terms of the original units.
 
         Args:
-            resultsDictionary (Dict[sy.Expr, List[float]]): The results dictionary.
+            resultsDictionary (Dict[sy.Symbol, List[float]]): The results dictionary.
 
         Returns:
-            Dict[sy.Expr, List[float]]: A new dictionary where the values are descaled AND the keys are the wrappedProblems's 
+            Dict[sy.Symbol, List[float]]: A new dictionary where the values are descaled AND the keys are the wrappedProblems's 
             state variables.
         """
-        returnDict = {} #type: Dict[sy.Expr, List[float]]
+        if not hasattr(self, '_wrappedProblem '):
+            return resultsDictionary
+        returnDict = {} #type: Dict[sy.Symbol, List[float]]
         counter = 0
         for key, value in resultsDictionary.items() :
             sv = key

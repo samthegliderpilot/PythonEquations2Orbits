@@ -23,8 +23,8 @@ class SymbolicProblem(Problem) :
         """Initialize a new instance. 
         """
         super().__init__()
-        self._costateSymbols = []
-        self._costateDynamics = []
+        # self._costateSymbols = []
+        # self._costateDynamics = []
 
     @staticmethod
     def CreateCoVector(y, name : Optional[str] = None, t : Optional[sy.Symbol]=None) -> Vector:
@@ -125,7 +125,7 @@ class SymbolicProblem(Problem) :
                 valuesAtEndSymbols.append(expr)
 
         # create the variation vector
-        # If BC's are such that the final optimal value of the sv at tf is fixed (its derivative is a float)
+        # If BC's are such that the final optimal value of the sv at tf is fixed (its value is a float and derivative is 0)
         # then the variation vector must be 0 for that final value.
         # If however, BC's are such that the final value of the state variable can be different along 
         # the optimal trajectory, then the variation vector for it is the symbol d_stateValue/d_tf, which 
@@ -153,7 +153,7 @@ class SymbolicProblem(Problem) :
 
         variationVector = Vector.fromArray(variationVector)    
         lambdasFinalVector = Vector.fromArray(lambdasFinal)
-        overallCond = hamiltonian*dtf - (lambdasFinalVector.transpose()[0,0]*variationVector)[0,0] + valuesAtEndDiffTerm
+        overallCond = hamiltonian*dtf - (lambdasFinalVector.transpose()*variationVector)[0,0] + valuesAtEndDiffTerm
         overallCond = overallCond.expand()
         
         for vv in variationVector :
@@ -221,7 +221,7 @@ class SymbolicProblem(Problem) :
         u = self.ControlVariablesInMatrixForm()
         return SymbolicProblem.CreateHamiltonianControlExpressionsStatic(hamiltonian, u)
 
-    def TransversalityConditionsByAugmentation(self, nus : List[sy.Symbol], lambdasFinal : Optional[List[sy.Expr]] = None) -> List[sy.Expr]:
+    def TransversalityConditionsByAugmentation(self, nus : List[sy.Symbol], lambdasFinal : List[sy.Expr]) -> List[sy.Expr]:
         """Creates the transversality conditions by augmenting the terminal constraints to the terminal cost.
 
         Args:
@@ -233,11 +233,6 @@ class SymbolicProblem(Problem) :
             List[sy.Expr]: The list of transversality conditions, that ought to be treated like normal boundary conditions. It is assumed that these 
             expressions should be solved such that they equal 0
         """
-        if lambdasFinal == None :
-            if self.CostateSymbols != None and len(self.CostateSymbols) > 0:
-                lambdasFinal = SafeSubs(self.CostateSymbols, {self.TimeSymbol: self.TimeFinalSymbol})
-            else :
-                raise Exception("No source of costate symbols.")
         lambdasFinal = cast(List[sy.Expr], lambdasFinal)
         termFunc = self.TerminalCost.subs(self.TimeSymbol, self.TimeFinalSymbol) + (Vector.fromArray(nus).transpose()*Vector.fromArray(self.BoundaryConditions))[0,0]
         finalConditions = []
@@ -252,14 +247,18 @@ class SymbolicProblem(Problem) :
 
         return finalConditions
 
-    def TransversalityConditionInTheDifferentialForm(self, hamiltonian : sy.Expr, dtf, lambdasFinal : Optional[List[sy.Symbol]]= None) ->List[sy.Expr]:
+    def TransversalityConditionInTheDifferentialForm(self, hamiltonian : sy.Expr, dtf, lambdasFinal : List[sy.Symbol]) ->List[sy.Expr]:
         problemToWorkWith = self
-        if self._wrappedProblem != None :
-            problemToWorkWith = self._wrappedProblem
-        if lambdasFinal == None:
-            lambdasFinal = SafeSubs(self.CostateSymbols, {self.TimeSymbol: self.TimeFinalSymbol})        
-        lambdasFinal = cast(List[sy.Symbol], lambdasFinal)
-        transversalityConditions = SymbolicProblem.TransversalityConditionInTheDifferentialFormStatic(hamiltonian, dtf, lambdasFinal, problemToWorkWith.TerminalCost, problemToWorkWith.TimeFinalSymbol, problemToWorkWith.BoundaryConditions, SafeSubs(problemToWorkWith.StateVariables, {problemToWorkWith.TimeSymbol: problemToWorkWith.TimeFinalSymbol}))
+        # if self._wrappedProblem != None :
+        #     problemToWorkWith = self._wrappedProblem                
+        finalSvs = SafeSubs(problemToWorkWith.StateVariables, {problemToWorkWith.TimeSymbol: problemToWorkWith.TimeFinalSymbol})
+        for lmd in lambdasFinal :
+            if lmd in finalSvs :
+                finalSvs.remove(lmd)
+        bcsToUse = problemToWorkWith.BoundaryConditions
+        if problemToWorkWith.TimeScaleFactor != None:
+            bcsToUse = bcsToUse[:-1]
+        transversalityConditions = SymbolicProblem.TransversalityConditionInTheDifferentialFormStatic(hamiltonian, dtf, lambdasFinal, problemToWorkWith.TerminalCost, problemToWorkWith.TimeFinalSymbol, bcsToUse, finalSvs)
         if self._wrappedProblem != None :
             transversalityConditions = self.ScaleExpressions(transversalityConditions)
         return transversalityConditions
@@ -278,9 +277,9 @@ class SymbolicProblem(Problem) :
         x = self.StateVariablesInMatrixForm()
         return SymbolicProblem.CreateLambdaDotConditionStatic(hamiltonian, x)
 
-    @property
-    def CostateSymbols(self) :
-        return self._costateSymbols
+    # @property
+    # def CostateSymbols(self) :
+    #     return self._costateSymbols
 
     def EvaluateHamiltonianAndItsFirstTwoDerivatives(self, solution : Dict[sy.Expr, List[float]], tArray: Collection[float], hamiltonian : sy.Expr, controlSolved :Dict[sy.Expr, sy.Expr], moreSubs :Dict[sy.Symbol, float]) ->List[List[float]]:
         """Evaluates the Hamiltonian and its first 2 derivatives.  This is useful to 
@@ -297,7 +296,7 @@ class SymbolicProblem(Problem) :
             List[List[float]]: The values of the Hamiltonian, its first derivative and second derivative for the entered solution.
         """
 
-        stateForEom = [self.TimeSymbol, *self.StateVariables, *self.CostateSymbols]
+        stateForEom = [self.TimeSymbol, *self.StateVariables]
 
         constantsSubsDict = self.SubstitutionDictionary
 
@@ -309,8 +308,8 @@ class SymbolicProblem(Problem) :
         solArray = []
         for sv in self.StateVariables :
             solArray.append(np.array(solution[sv]))
-        for sv in self.CostateSymbols :
-            solArray.append(np.array(solution[sv]))
+        # for sv in self.CostateSymbols :
+        #     solArray.append(np.array(solution[sv]))
         hamiltonianValues = hamiltonianExpression(tArray, *solArray)
         dhduExp = sy.lambdify(stateForEom, dHdu.subs(controlSolved).subs(moreSubs).trigsimp(deep=True).subs(constantsSubsDict))
         
@@ -323,7 +322,7 @@ class SymbolicProblem(Problem) :
 
     def ScaleProblem(self, newStateVariableSymbols : List[sy.Symbol], valuesToDivideStateVariablesWith : Dict[sy.Symbol, SymbolOrNumber], timeScaleFactor : Optional[SymbolOrNumber] = None):
         newProblem = SymbolicProblem()
-        newProblem.CostateSymbols.extend(self.CostateSymbols)
+        #newProblem.CostateSymbols.extend(self.CostateSymbols)
         newProblem._scaleProblem(self, newStateVariableSymbols, valuesToDivideStateVariablesWith, timeScaleFactor)
         return newProblem
 

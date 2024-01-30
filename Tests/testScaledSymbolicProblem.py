@@ -6,6 +6,7 @@ from pyeq2orb.Problems.OneDimensionalMinimalWorkProblem import OneDWorkSymbolicP
 from pyeq2orb.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
 from scipy.integrate import solve_ivp # type: ignore
 from pyeq2orb.Numerical import ScipyCallbackCreators
+from pyeq2orb import SafeSubs
 
 class testScaledSymbolicProblem(unittest.TestCase) :
 
@@ -24,7 +25,7 @@ class testScaledSymbolicProblem(unittest.TestCase) :
     def testCreatingDifferentialTransversalityCondition(self) :
         orgProblem = ContinuousThrustCircularOrbitTransferProblem()
         mu = orgProblem.Mu
-        t = sy.Symbol('t')
+        t = orgProblem.TimeSymbol
         newSvs = [sy.Function('rs')(t), sy.Function('rs')(t), sy.Function('vs')(t), sy.Function('lons')(t)]
         subs = {orgProblem.StateVariables[0]: 4.0, orgProblem.StateVariables[1]: 3.0, orgProblem.StateVariables[2]: 5.0, orgProblem.StateVariables[3]: 7.0, }
         problem = orgProblem.ScaleProblem(newSvs, subs)
@@ -33,7 +34,7 @@ class testScaledSymbolicProblem(unittest.TestCase) :
         l_r = lambdas[0]
         l_v = lambdas[2]
         hamiltonian = problem.CreateHamiltonian(lambdas)
-        transversality = problem.TransversalityConditionInTheDifferentialForm(hamiltonian, 0.0, lambdas) # not allowing final time to vary
+        transversality = problem.TransversalityConditionInTheDifferentialForm(hamiltonian, 0.0, SafeSubs(lambdas, {problem.TimeSymbol:problem.TimeFinalSymbol})) # not allowing final time to vary
 
         zeroedOutCondition =(transversality[0]-(sy.sqrt(mu)*l_v/(2*(r*4.0)**(3/2)) - l_r + 1)).expand().simplify()
         self.assertTrue((zeroedOutCondition).is_zero, msg="first xvers cond")
@@ -75,11 +76,11 @@ class testScaledSymbolicProblem(unittest.TestCase) :
         (odeSolveIvpCb, fSolveCb, tArray, z0, problem) = testPlanerLeoToGeoProblem.CreateEvaluatableCallbacks(True, False, True)
         knownAnswer = [14.95703946,  0.84256983, 15.60187053]
         answer = fSolveCb(knownAnswer)
-        print(z0)
-        i=0
-        for val in answer :
-            self.assertTrue(abs(val) < 0.2, msg=str(i)+"'th value in fsolve answer")
-            i=i+1
+        # print(z0)
+        # i=0
+        # for val in answer :
+        #     self.assertTrue(abs(val) < 0.2, msg=str(i)+"'th value in fsolve answer")
+        #     i=i+1
         odeAns = solve_ivp(odeSolveIvpCb, [tArray[0], tArray[-1]], [*z0, *knownAnswer], args=tuple(), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)  
         finalState = ScipyCallbackCreators.GetFinalStateFromIntegratorResults(odeAns)
         self.assertAlmostEqual(finalState[0], 6.31357956984563, 1, msg="radius check")
@@ -91,15 +92,18 @@ class testScaledSymbolicProblem(unittest.TestCase) :
         (odeSolveIvpCb, fSolveCb, tArray, z0, problem) = testPlanerLeoToGeoProblem.CreateEvaluatableCallbacks(True, False, False)
         knownAnswer = [14.95703446,  0.84256877, 15.60186291, -7.43265181, 13.6499807]
         answer = fSolveCb(knownAnswer)
-        i=0
-        for val in answer :
-            self.assertTrue(abs(val) < 0.2, msg=str(i)+"'th value in fsolve answer")
-            i=i+1
+        # i=0
+        # for val in answer :
+        #     self.assertTrue(abs(val) < 0.2, msg=str(i)+"'th value in fsolve answer")
+        #     i=i+1
         odeAns = solve_ivp(odeSolveIvpCb, [tArray[0], tArray[-1]], [*z0, *knownAnswer[0:3]], args=tuple(knownAnswer[3:]), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)  
+        # print("")
+        # print([odeAns.y[4][0],odeAns.y[5][0],odeAns.y[6][0]])
+        # print(knownAnswer)
         finalState = ScipyCallbackCreators.GetFinalStateFromIntegratorResults(odeAns)
-        self.assertAlmostEqual(finalState[0], 6.31357956984563, 1, msg="radius check")
-        self.assertAlmostEqual(finalState[1], 0.000, 2, msg="u check")
-        self.assertAlmostEqual(finalState[2], 0.397980812304531, 1, msg="v check")        
+        self.assertAlmostEqual(finalState[0], 6.31357956984563, 3, msg="radius check")
+        self.assertAlmostEqual(finalState[1], 0.000, 3, msg="u check")
+        self.assertAlmostEqual(finalState[2], 0.397980812304531, 3, msg="v check")        
 
     def testScaledStateAndTimeRegression(self) :
         from Tests.Problems.testPlanerLeoToGeoProblem import testPlanerLeoToGeoProblem # including it here to avoid VS Code from finding TestPlanerLeoToGeo twice

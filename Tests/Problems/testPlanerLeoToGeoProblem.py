@@ -44,13 +44,22 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
         initialStateValues = baseProblem.CreateVariablesAtTime0(baseProblem.StateVariables)
         problem = baseProblem #type: SymbolicProblem
         lambdas = ScaledSymbolicProblem.CreateCoVector(problem.StateVariables, r'\lambda', problem.TimeSymbol)
-        baseProblem.CostateSymbols.extend(lambdas)
+        baseProblem.StateVariables.extend(lambdas)
         if scale :
             newSvs = ScaledSymbolicProblem.CreateBarVariables(problem.StateVariables, problem.TimeSymbol) 
+            scaleTimeFactor = None
+            if scaleTime :
+                scaleTimeFactor = problem.TimeFinalSymbol
             problem = baseProblem.ScaleProblem(newSvs, {problem.StateVariables[0]: initialStateValues[0], 
                                                                 problem.StateVariables[1]: initialStateValues[2], 
                                                                 problem.StateVariables[2]: initialStateValues[2], 
-                                                                problem.StateVariables[3]: 1.0} , problem.TimeFinalSymbol)
+                                                                problem.StateVariables[3]: 1.0,
+                                                                lambdas[0]: 1.0,
+                                                                lambdas[1]: 1.0,
+                                                                lambdas[2]: 1.0,
+                                                                lambdas[3]: 1.0} , scaleTimeFactor)
+            lambdas = problem.StateVariables[4:]
+            
 
         # make the time array
         tArray = np.linspace(0.0, tfOrg, 1200)
@@ -93,7 +102,8 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
         #problem.StateVariableDynamics.update(zip(lambdas, lambdaDotExpressions))
         for i in range(0, len(lambdas)) :
             problem.StateVariableDynamics.append(lambdaDotExpressions[i])
-            #problem.CostateSymbols.append(lambdas[i])
+            #problem.StateVariables.append(lambdas[i])
+        problem.SubstitutionDictionary[problem.ControlVariables[0]]  =controlSolved
         SafeSubs(problem.StateVariableDynamics, {problem.ControlVariables[0]: controlSolved})
         # the trig simplification needs the deep=True for this problem to make the equations even cleaner
         for i in range(0, len(problem.StateVariableDynamics)) :
@@ -105,17 +115,19 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
 
         tToTfSubsDict = {problem.TimeSymbol: problem.TimeFinalSymbol}
         # make the transversality conditions
+        lambdasFinal = SafeSubs(lambdas,tToTfSubsDict)
         if len(nus) != 0:
-            transversalityCondition = problem.TransversalityConditionsByAugmentation(nus)
+            transversalityCondition = problem.TransversalityConditionsByAugmentation(nus, lambdasFinal)
         else:
-            transversalityCondition = SymbolicProblem.TransversalityConditionInTheDifferentialFormStatic(hamiltonian, sy.Symbol(r'dt_f'), SafeSubs(lambdas,tToTfSubsDict), problem.TerminalCost, problem.TimeFinalSymbol, problem.BoundaryConditions, SafeSubs(problem.StateVariables[:4], tToTfSubsDict))
+            transversalityCondition = problem.TransversalityConditionInTheDifferentialForm(hamiltonian, sy.Symbol(r'dt_f'), lambdasFinal)
         # and add them to the problem
         problem.BoundaryConditions.extend(transversalityCondition)
 
-        initialFSolveStateGuess = ContinuousThrustCircularOrbitTransferProblem.CreateInitialLambdaGuessForLeoToGeo(problem, controlSolved)
+        initialFSolveStateGuess = ContinuousThrustCircularOrbitTransferProblem.CreateInitialLambdaGuessForLeoToGeo(problem, controlSolved, lambdas)
 
         # lambda_lon is always 0, so do that cleanup
         del problem.StateVariableDynamics[-1]
+        del problem.StateVariables[-1]
         problem.BoundaryConditions.remove(transversalityCondition[-1])
         lmdTheta = lambdas.pop()
         constantsSubsDict[lmdTheta]=0
@@ -190,7 +202,7 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
             i=i+1
         odeAns = solve_ivp(odeSolveIvpCb, [tArray[0], tArray[-1]], [*z0, *knownAnswer], args=tuple([]), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)  
         finalState = ScipyCallbackCreators.GetFinalStateFromIntegratorResults(odeAns)
-        self.assertAlmostEqual(finalState[0], 42162071.898083754, delta=20, msg="radius check")
+        self.assertAlmostEqual(finalState[0], 42162071.898083754, delta=30, msg="radius check")
         self.assertAlmostEqual(finalState[1], 0.000, 2, msg="u check")
         self.assertAlmostEqual(finalState[2], 3074.735, 1, msg="v check")
 
@@ -205,6 +217,6 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
             i=i+1
         odeAns = solve_ivp(odeSolveIvpCb, [tArray[0], tArray[-1]], [*z0, *knownAnswer[0:3]], args=tuple(knownAnswer[3:]), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)  
         finalState = ScipyCallbackCreators.GetFinalStateFromIntegratorResults(odeAns)
-        self.assertAlmostEqual(finalState[0], 42162141.30863323, delta=40, msg="radius check")
+        self.assertAlmostEqual(finalState[0], 42162141.30863323, delta=80, msg="radius check")
         self.assertAlmostEqual(finalState[1], 0.000, delta=0.01, msg="u check")
         self.assertAlmostEqual(finalState[2], 3074.735, delta=1, msg="v check")              

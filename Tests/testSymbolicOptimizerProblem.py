@@ -163,16 +163,16 @@ class testSymbolicOptimizerProblem(unittest.TestCase) :
 
     def testEvaluateHamiltonianAndItsFirstTwoDerivatives(self) :
         problem = ContinuousThrustCircularOrbitTransferProblem()
-        problem.CostateSymbols.extend(SymbolicProblem.CreateCoVector(problem.StateVariables, 'l', problem.TimeSymbol))
+        problem.StateVariables.extend(SymbolicProblem.CreateCoVector(problem.StateVariables, 'l', problem.TimeSymbol))
         problem.StateVariableDynamics.extend([0.0,0.0,0.0,0.0])
         a = sy.Symbol('a')
         fakeHamiltonian = 3.0*sy.cos(problem.ControlVariables[0] * problem.StateVariables[0]*2.0*a)
         answer = {problem.StateVariables[0] : [0.0, math.pi/8.0], problem.StateVariables[1] : [0.0, 0.0], problem.StateVariables[2] : [0.0, 0.0], problem.StateVariables[3] : [0.0, 0.0] }
-        answer[problem.CostateSymbols[0]] = [1.0, 1.0]
-        answer[problem.CostateSymbols[1]] = [0.0, 0.0]
-        answer[problem.CostateSymbols[2]] = [0.0, 0.0]
-        answer[problem.CostateSymbols[3]] = [0.0, 0.0]
-        [h, dh, ddh] = problem.EvaluateHamiltonianAndItsFirstTwoDerivatives(answer, [0.0, 1.0], fakeHamiltonian, {problem.ControlVariables[0]: (problem.CostateSymbols[0]+problem.CostateSymbols[1])}, {a: 2.0})
+        answer[problem.StateVariables[4]] = [1.0, 1.0]
+        answer[problem.StateVariables[5]] = [0.0, 0.0]
+        answer[problem.StateVariables[6]] = [0.0, 0.0]
+        answer[problem.StateVariables[7]] = [0.0, 0.0]
+        [h, dh, ddh] = problem.EvaluateHamiltonianAndItsFirstTwoDerivatives(answer, [0.0, 1.0], fakeHamiltonian, {problem.ControlVariables[0]: (problem.StateVariables[4]+problem.StateVariables[5])}, {a: 2.0})
         self.assertAlmostEqual(3.0, h[0], places=10,msg="h0")
         self.assertAlmostEqual(0.0, h[1], places=10, msg="h1")
         self.assertAlmostEqual(0.0, dh[0], places=10,msg="dh0")        
@@ -201,7 +201,7 @@ class testSymbolicOptimizerProblem(unittest.TestCase) :
         problem.AddStateVariable(x, dxdt)
         problem.ControlVariables.append(u)
 
-        problem.CostateSymbols.append(sy.Function(r'\lambda{x}', real=True)(problem.TimeFinalSymbol))
+        problem.StateVariables.append(sy.Function(r'\lambda{x}', real=True)(problem.TimeFinalSymbol))
 
         bc = x.subs(problem.TimeSymbol, problem.TimeFinalSymbol) - 5
         problem.BoundaryConditions.append(bc)
