@@ -33,8 +33,8 @@ class NumericalProblemFromSymbolicProblem(NumericalOptimizerProblemBase) :
         if wrappedProblem.UnIntegratedPathCost != None and wrappedProblem.UnIntegratedPathCost != 0.0 :
             self._unIntegratedPathCost = lambdify(entireState, wrappedProblem.UnIntegratedPathCost.subs(wrappedProblem.SubstitutionDictionary).simplify(), functionMap)
         self._equationOfMotionList = []
-        for i in range(0, len(wrappedProblem.StateVariableDynamic)) :
-            numericaEom = SafeSubs(wrappedProblem.StateVariableDynamic[i].rhs, wrappedProblem.SubstitutionDictionary)
+        for i in range(0, len(wrappedProblem.StateVariableDynamics)) :
+            numericaEom = SafeSubs(wrappedProblem.StateVariableDynamics[i], wrappedProblem.SubstitutionDictionary)
             eomCb = lambdify(entireState, numericaEom, functionMap)
             self._equationOfMotionList.append(eomCb) 
 
@@ -61,11 +61,11 @@ class NumericalProblemFromSymbolicProblem(NumericalOptimizerProblemBase) :
 
     @inherit_docstrings
     def SingleEquationOfMotion(self, t : float, stateAndControlAtT : List[float], indexOfEom : int) -> float :
-        return self.StateVariableDynamic[indexOfEom](t, *stateAndControlAtT) # This is clearly not as efficient as it could be, but it is ok for a default implementation
+        return self._equationOfMotionList[indexOfEom](t, *stateAndControlAtT) # This is clearly not as efficient as it could be, but it is ok for a default implementation
 
     @inherit_docstrings
     def SingleEquationOfMotionWithTInState(self, state, indexOfEom) :
-        return self.StateVariableDynamic[indexOfEom](state[0], *state[1:])
+        return self._equationOfMotionList[indexOfEom](state[0], *state[1:])
 
     @inherit_docstrings
     def UnIntegratedPathCost(self, t, stateAndControl) :

@@ -33,7 +33,7 @@ class Problem(ABC) :
         self._wrappedProblem = None #TODO: I want to get rid of this...
 
     @staticmethod
-    def CreateBarVariables(orgVariables : List[sy.Symbol], timeSymbol :sy.Symbol) ->List[sy.Expr] :
+    def CreateBarVariables(orgVariables : List[sy.Symbol], timeSymbol :sy.Symbol) ->List[sy.Symbol] :
         """A helper function to make a 
 
         Args:
@@ -127,7 +127,7 @@ class Problem(ABC) :
         self._unIntegratedPathCost = value
 
     @property
-    def StateVariableDynamic(self) -> List[sy.Expr]:
+    def StateVariableDynamics(self) -> List[sy.Expr]:
         """Gets the expression of the dynamics of the state variables (generally, the rhs of the equations of motion)
         for each of the state variables. (for example, the rhs of the expression dm/dt = mDot*t, as symbols).  It is 
         assumed the every dynamical expression is only a first derivative, (d2m/dt2 is not supported).
@@ -222,7 +222,7 @@ class Problem(ABC) :
 
     def AddStateVariable(self, stateVariable, stateVariableDynamics):
         self.StateVariables.append(stateVariable)
-        self.StateVariableDynamic.append(stateVariableDynamics)
+        self.StateVariableDynamics.append(stateVariableDynamics)
 
     @property
     def EquationsOfMotionAsEquations(self) -> List[sy.Eq] :
@@ -234,7 +234,7 @@ class Problem(ABC) :
         """
         equations = []
         for i in range(0, len(self.StateVariables)):
-            equations.append(sy.Eq(self.StateVariables[i].diff(self.TimeSymbol), self.StateVariableDynamic[i]))
+            equations.append(sy.Eq(self.StateVariables[i].diff(self.TimeSymbol), self.StateVariableDynamics[i]))
         return equations
 
     def CreateEquationOfMotionsAsEquations(self) -> List[sy.Eq] :
@@ -245,7 +245,7 @@ class Problem(ABC) :
         """
         tempArray = []
         for i in range(0, len(self.StateVariables)) :
-            tempArray.append(sy.Eq(self.StateVariables[i].diff(self.TimeSymbol), self.StateVariableDynamic[i]))
+            tempArray.append(sy.Eq(self.StateVariables[i].diff(self.TimeSymbol), self.StateVariableDynamics[i]))
         return tempArray
 
     def CreateCostFunctionAsEquation(self, lhs : Optional[sy.Expr]=None) -> sy.Eq :
@@ -269,7 +269,7 @@ class Problem(ABC) :
         """
         tempArray = []
         for i in range(0, len(self.StateVariables)) :
-            tempArray.append(self.StateVariableDynamic[i])
+            tempArray.append(self.StateVariableDynamics[i])
         return Vector.fromArray(tempArray)
 
     def StateVariablesInMatrixForm(self) -> sy.Matrix :
@@ -308,7 +308,6 @@ class Problem(ABC) :
         for lm in lambdas :
             subsDict[lm.subs(self.TimeSymbol, self.TimeInitialSymbol)] = initialValuesArray[i]
             i = i+1
-
 
     def CreateVariablesAtTime0(self, thingWithSymbols):
         """Substitutes the problems TimeSymbol and TimeFinalSymbol with the TimeInitialSymbol.
@@ -353,7 +352,12 @@ class Problem(ABC) :
 
     def ScaleProblem(self, newStateVariableSymbols : List[sy.Symbol], valuesToDivideStateVariablesWith : Dict[sy.Symbol, SymbolOrNumber], timeScaleFactor : Optional[SymbolOrNumber] = None):
         newProblem = Problem()
-        wrappedProblem = self
+        newProblem._scaleProblem(self, newStateVariableSymbols, valuesToDivideStateVariablesWith, timeScaleFactor)
+        return newProblem
+
+    def _scaleProblem(self, originalProblem, newStateVariableSymbols : List[sy.Symbol], valuesToDivideStateVariablesWith : Dict[sy.Symbol, SymbolOrNumber], timeScaleFactor : Optional[SymbolOrNumber] = None):
+        wrappedProblem = originalProblem
+        newProblem = self
         newProblem._wrappedProblem = wrappedProblem #TODO: Want to get rid of this...
         newProblem._timeFinalSymbol = wrappedProblem.TimeFinalSymbol
         newProblem._timeInitialSymbol = wrappedProblem.TimeInitialSymbol
@@ -388,11 +392,11 @@ class Problem(ABC) :
         scaledEquationsOfMotion = []
         for i in range(0, len(wrappedProblem.StateVariables)) :
             sv = wrappedProblem.StateVariables[i]
-            newLhs = wrappedProblem.StateVariableDynamic[i].subs(valuesToDivideStateVariablesWith)
-            if hasattr(wrappedProblem.StateVariableDynamic[i], "subs") :
-                scaledEquation = wrappedProblem.StateVariableDynamic[i].subs(fullSubsDict)*newSvsInTermsOfOldSvs[i].diff(sv)
+            newLhs = wrappedProblem.StateVariableDynamics[i].subs(valuesToDivideStateVariablesWith)
+            if hasattr(wrappedProblem.StateVariableDynamics[i], "subs") :
+                scaledEquation = wrappedProblem.StateVariableDynamics[i].subs(fullSubsDict)*newSvsInTermsOfOldSvs[i].diff(sv)
             else :
-                scaledEquation = wrappedProblem.StateVariableDynamic[i]*newSvsInTermsOfOldSvs[i].diff(sv)
+                scaledEquation = wrappedProblem.StateVariableDynamics[i]*newSvsInTermsOfOldSvs[i].diff(sv)
             scaledEquationsOfMotion.append(scaledEquation)
         newProblem._stateVariableDynamics = scaledEquationsOfMotion
         
@@ -408,6 +412,8 @@ class Problem(ABC) :
             bcs.append(bc.subs(bcSubsDict))
         newProblem._boundaryConditions = bcs
         
+        updatedSubsDict = {}
+
         # should the path cost get scaled?  I think so, but if you know better, or if it doesn't work...
         newProblem._unIntegratedPathCost = SafeSubs(wrappedProblem.UnIntegratedPathCost, fullSubsDict)
         #TODO: Scale the costs!  the way we are doing the transversality conditions are fine with them scaled here (I think)
@@ -447,9 +453,9 @@ class Problem(ABC) :
                 
             realEom = []
             #timeSubs = { wrappedProblem.TimeSymbol: tau*timeScaleFactor}
-            for i in range(0, len(newProblem.StateVariableDynamic)) :
+            for i in range(0, len(newProblem.StateVariableDynamics)) :
                 # substitute in the dummy symbols in terms of something other than time or tau
-                thisUpdatedEom = SafeSubs(newProblem.StateVariableDynamic[i], toSimple)
+                thisUpdatedEom = SafeSubs(newProblem.StateVariableDynamics[i], toSimple)
                 # substitute in the scaled values
                 thisUpdatedEom = SafeSubs(thisUpdatedEom, timeSubs)*timeScaleFactor
                 # substitute back in the state variables in terms of time
@@ -462,17 +468,18 @@ class Problem(ABC) :
             newProblem._timeInitialSymbol = tau0
             newProblem._timeFinalSymbol = tauF       
             #newProblem.ControlVariables.append(cast(sy.Symbol, timeScaleFactor))
-        updatedSubsDict = {}
-        updatedSubsDict[tauF] = 1
-        updatedSubsDict[tau0] = 0
-        for (k,v) in newProblem.SubstitutionDictionary.items():
-            newK = SafeSubs(k,timeSubs)
-            newV = SafeSubs(v, timeSubs)
-            updatedSubsDict[newK] = newV
-            #newProblem.SubstitutionDictionary[newK] = newV
+        
+            updatedSubsDict[tauF] = 1
+            updatedSubsDict[tau0] = 0
+            for (k,v) in newProblem.SubstitutionDictionary.items():
+                newK = SafeSubs(k,timeSubs)
+                newV = SafeSubs(v, timeSubs)
+                updatedSubsDict[newK] = newV
+                #newProblem.SubstitutionDictionary[newK] = newV
         for (k,v) in updatedSubsDict.items() :
             newProblem.SubstitutionDictionary[k]=v
-        return newProblem
+
+        #return newProblem
 
     def ScaleExpressions(self, expressions : List[sy.Expr]) -> List[sy.Expr]:
         """For some expression (or list of expressions), 

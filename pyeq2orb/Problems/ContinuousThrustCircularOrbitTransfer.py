@@ -63,10 +63,10 @@ class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
         self.MassFlowRate = -1*thrust/(isp*g)
         self.MassEquation = m0+self._timeSymbol*self.MassFlowRate
 
-        self._equationsOfMotion[rs] = us
-        self._equationsOfMotion[us] = vs*vs/rs - mu/(rs*rs) + thrust*sy.sin(control)/self.MassEquation
-        self._equationsOfMotion[vs] = -vs*us/rs + thrust*sy.cos(control)/self.MassEquation
-        self._equationsOfMotion[longS] = vs/rs
+        self.StateVariableDynamics.append(us)
+        self.StateVariableDynamics.append(vs*vs/rs - mu/(rs*rs) + thrust*sy.sin(control)/self.MassEquation)
+        self.StateVariableDynamics.append(-vs*us/rs + thrust*sy.cos(control)/self.MassEquation)
+        self.StateVariableDynamics.append(vs/rs)
    
     def AppendConstantsToSubsDict(self, existingDict : dict[sy.Expr, float], muVal : float, gVal : float, thrustVal : float, m0Val : float, ispVal : float) :
         """Helper function to make the substitution dictionary that is often needed when lapidifying 
@@ -191,8 +191,9 @@ class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
         # my intuition pays off and we find a solution later
         # We want initial alpha to be 0 (or really close to it) per intuition
         # We can choose lmdv and solve for lmdu.  Start with lmdv to be 1
-        # solve for lmdu with those assumptions        
-        lambdasAtT0 = problem.CreateVariablesAtTime0(problem.CostateSymbols)    
+        # solve for lmdu with those assumptions      
+        lambdas = problem.CostateSymbols 
+        lambdasAtT0 = problem.CreateVariablesAtTime0(lambdas)
         constantsForLmdGuesses = problem.SubstitutionDictionary.copy()
         constantsForLmdGuesses[lambdasAtT0[2]] = 1.0 
 
@@ -208,9 +209,9 @@ class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
         constantsForLmdGuesses[lambdasAtT0[1]] = float(ansForLambdaU)
 
         # if we assume that we always want to keep alpha small (0), we can solve dlmd_u/dt=0 for lmdr_0
-        lmdUDotAtT0 = problem.CreateVariablesAtTime0(problem.EquationsOfMotion[problem.CostateSymbols[1]])
+        lmdUDotAtT0 = problem.CreateVariablesAtTime0(problem.StateVariableDynamics[5])
         lmdUDotAtT0 = lmdUDotAtT0.subs(constantsForLmdGuesses)
-        inter=sy.solve(sy.Eq(lmdUDotAtT0, 0), lambdasAtT0[0])
+        inter=sy.solve(sy.Eq(lmdUDotAtT0, 0), SafeSubs(lambdasAtT0[0], {problem.TimeInitialSymbol: 0}))
         lambdaR0Value = float(inter[0].subs(constantsForLmdGuesses)) # we know there is just 1
         constantsForLmdGuesses[lambdasAtT0[0]] = lambdaR0Value # later on, arrays will care that this MUST be a float
         initialFSolveStateGuess = [lambdaR0Value, float(ansForLambdaU), 1.0]

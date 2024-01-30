@@ -92,7 +92,7 @@ class LambdifyHelper :
         return sy.lambdify(self.LambdifyArguments, SafeSubs(self.ExpressionsToLambdify, self.SubstitutionDictionary))
 
     @staticmethod
-    def CreateLambdifiedExpressions(stateExpressionList : List[sy.Expr], expressionsToLambdify : List[sy.Expr], constantsSubstitutionDictionary : Dict[sy.Expr, float], functionRedirectionArray : Optional[List[Callable]] = None) ->Callable[..., float] :
+    def CreateLambdifiedExpressions(stateExpressionList : List[sy.Expr], expressionsToLambdify : List[sy.Expr], constantsSubstitutionDictionary : Dict[sy.Expr, SymbolOrNumber], functionRedirectionArray : Optional[List[Callable]] = None) ->Callable[..., float] :
         """ A helper function to create a lambdified callback of some expressions while also substituting in constant values into the expressions. One common problem that 
         might come up is if the constantsSubstitutionDictionary contains an independent variable of one of the symbols in the state (for example, if one of your state 
         variables is x(t) and you put a constant value of t into the constantsSubstitutionDictionary, this turns x(t) into x(2) and things get confusing quickly). Generally
@@ -315,7 +315,7 @@ class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
     @staticmethod
     def CreateFromProblem(problem : Problem) :
         stateAndControl = [*problem.StateVariables, *problem.ControlVariables]
-        helper = OdeLambdifyHelperWithBoundaryConditions(problem.TimeSymbol, problem.TimeInitialSymbol, problem.TimeFinalSymbol, stateAndControl, problem.StateVariableDynamic, problem.BoundaryConditions, [], problem.SubstitutionDictionary)
+        helper = OdeLambdifyHelperWithBoundaryConditions(problem.TimeSymbol, problem.TimeInitialSymbol, problem.TimeFinalSymbol, stateAndControl, problem.StateVariableDynamics, problem.BoundaryConditions, [], problem.SubstitutionDictionary)
         if problem.ScaleTime and isinstance(problem.TimeScaleFactor, sy.Symbol):
             helper.OtherArguments.append(problem.TimeScaleFactor)
 

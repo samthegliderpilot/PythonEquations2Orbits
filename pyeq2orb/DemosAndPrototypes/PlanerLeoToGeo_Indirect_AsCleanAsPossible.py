@@ -83,18 +83,18 @@ x0=SafeSubs([rSy, uSy, vSy, lonSy], {tSy: t0Sy})
 xf=SafeSubs([rSy, uSy, vSy, lonSy], {tSy: tfSy})
 bcs = [bc1, bc2]
 initialLambdaGuesses = [1, 0, 1, 0]
-substitutionDictionary = {gSy:g, ispSy:isp, m0Sy: m0, thrustSy:thrust, muSy:mu}
+substitutionDictionary = {gSy:g, ispSy:isp, m0Sy: m0, thrustSy:thrust, muSy:mu} #type: Dict[sy.Expr, SymbolOrNumber]
 scaleDictionary = {rSy:r0, uSy:3, vSy:3, lonSy:1, mSy:1}
 initialValues = [r0, u0, v0, lon0, m0]
 controlSymbols = [alpSy]
 
 
 # this is the code I need to write/refactor to be this simple/general
-costateVariables = SymbolicProblem.CreateCoVector(x) #type: Dict[sy.Symbol, sy.Symbol]
+costateVariables = SymbolicProblem.CreateCoVector(x) #type: Vector
 hamiltonian = SymbolicProblem.CreateHamiltonianStatic(x[0:4], tSy, eoms[0:4], unintegratedPathCost, costateVariables) #type: sy.Expr
-optimalControl = SymbolicProblem.CreateControlExpressionsFromHamiltonian(hamiltonian, controlSymbols)
+optimalControl = SymbolicProblem.CreateControlExpressionsFromHamiltonian(hamiltonian, controlSymbols) # an expression for the control variables
 substitutionDictionary[alpSy] = optimalControl[alpSy] # loop
-createCostateDifferentialEquations = SymbolicProblem.CreateLambdaDotEquationsStatic(hamiltonian,t, x[0:4]) #type: sy.Eq
+createCostateDifferentialEquations = SymbolicProblem.CreateLambdaDotEquationsStatic(hamiltonian,t, x[0:4], costateVariables) #type: sy.Eq
 
 costateBoundaryConditions = SymbolicProblem.CreateLambdaDotConditionStatic(hamiltonian, xf[0:4])
 [transversalityCondition, extraEndSymbols] = SymbolicProblem.TransversalityConditionInTheDifferentialForm(terminalCost, bcs, tfSy)

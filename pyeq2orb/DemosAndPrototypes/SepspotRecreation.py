@@ -392,11 +392,11 @@ lon0= float(initialEquiElements.TrueLongitude)
 #t0V = 2444239.0 * 86400
 
 afV = 42000
-hfV = 0
+hfV = 0.0
 kfV = 0.001
 pfV = math.tan((1*math.pi/180.0)/2)
-qfV = 0
-tfV = 0
+qfV = 0.0
+tfV = 0.0
 
 
 
@@ -411,8 +411,8 @@ z0 = SafeSubs(z, {t: problem.TimeInitialSymbol})
 zF = SafeSubs(z, {t: problem.TimeFinalSymbol})
 problem.StateVariables.extend(x)
 problem.StateVariables.extend(lambdas)
-problem.StateVariableDynamic.extend(zDot)
-problem.StateVariableDynamic.extend(lmdDotArray)
+problem.StateVariableDynamics.extend(zDot)
+problem.StateVariableDynamics.extend(lmdDotArray)
 
 problem.BoundaryConditions.append(zF[0]-afV)
 problem.BoundaryConditions.append(zF[1]-hfV)
@@ -423,7 +423,7 @@ problem.BoundaryConditions.append(zF[5]*0)
 for (k,v) in fullSubsDictionary.items():
     problem.SubstitutionDictionary[k] =v
 
-scaleDict = {}
+scaleDict = {} #type: Dict[sy.Symbol, SymbolOrNumber]
 for sv in problem.StateVariables :
     scaleDict[sv] = 1.0
 originalProblem = problem

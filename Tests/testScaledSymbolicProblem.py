@@ -15,9 +15,9 @@ class testScaledSymbolicProblem(unittest.TestCase) :
         scalingDict = {}
         scalingDict[baseProblem.StateVariables[0]]=2
         scalingDict[baseProblem.StateVariables[1]]=3 
-        outerProblem = ScaledSymbolicProblem(baseProblem, newSvs, scalingDict, False)
-        firstEomValue = outerProblem.EquationsOfMotion[outerProblem.StateVariables[0]].subs({outerProblem.StateVariables[0]: 1.5, outerProblem.StateVariables[1]: 0.4})
-        secondEomValue=outerProblem.EquationsOfMotion[outerProblem.StateVariables[1]].subs({outerProblem.ControlVariables[0]: 1.6})
+        outerProblem = baseProblem.ScaleProblem(newSvs, scalingDict)
+        firstEomValue = outerProblem.StateVariableDynamics[0].subs({outerProblem.StateVariables[0]: 1.5, outerProblem.StateVariables[1]: 0.4})
+        secondEomValue=outerProblem.StateVariableDynamics[1].subs({outerProblem.ControlVariables[0]: 1.6})
         self.assertEqual(3.0*0.4/2.0, firstEomValue, msg="first eom evaluated")
         self.assertEqual(1.6/3.0, secondEomValue, msg="second eom evaluated")  
 
@@ -27,7 +27,7 @@ class testScaledSymbolicProblem(unittest.TestCase) :
         t = sy.Symbol('t')
         newSvs = [sy.Function('rs')(t), sy.Function('rs')(t), sy.Function('vs')(t), sy.Function('lons')(t)]
         subs = {orgProblem.StateVariables[0]: 4.0, orgProblem.StateVariables[1]: 3.0, orgProblem.StateVariables[2]: 5.0, orgProblem.StateVariables[3]: 7.0, }
-        problem = ScaledSymbolicProblem(orgProblem, newSvs, subs, False)
+        problem = orgProblem.ScaleProblem(newSvs, subs)
         lambdas = SymbolicProblem.CreateCoVector(problem.StateVariables, 'L', problem.TimeFinalSymbol)
         r = problem.StateVariables[0].subs(problem.TimeSymbol, problem.TimeFinalSymbol)
         l_r = lambdas[0]
@@ -44,7 +44,7 @@ class testScaledSymbolicProblem(unittest.TestCase) :
         t = sy.Symbol('t')
         newSvs = [sy.Function('rs')(t), sy.Function('rs')(t), sy.Function('vs')(t), sy.Function('lons')(t)]
         subs = {orgProblem.StateVariables[0]: 4.0, orgProblem.StateVariables[1]: 3.0, orgProblem.StateVariables[2]: 5.0, orgProblem.StateVariables[3]: 7.0, }
-        problem = ScaledSymbolicProblem(orgProblem, newSvs, subs, False)
+        problem = orgProblem.ScaleProblem(newSvs, subs)
         lambdas = SymbolicProblem.CreateCoVector(problem.StateVariables, 'l', problem.TimeFinalSymbol)
         l_r = lambdas[0]
         l_u = lambdas[1]

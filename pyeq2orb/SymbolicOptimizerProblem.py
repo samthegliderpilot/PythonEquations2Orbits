@@ -8,6 +8,7 @@ from matplotlib.figure import Figure # type: ignore
 from pyeq2orb.Symbolics.SymbolicUtilities import SafeSubs
 import pyeq2orb
 from pyeq2orb.ProblemBase import Problem
+from pyeq2orb.Utilities.Typing import SymbolOrNumber
 from enum import Enum
 
 class TransversalityConditionType(Enum):
@@ -23,6 +24,7 @@ class SymbolicProblem(Problem) :
         """
         super().__init__()
         self._costateSymbols = []
+        self._costateDynamics = []
 
     @staticmethod
     def CreateCoVector(y, name : Optional[str] = None, t : Optional[sy.Symbol]=None) -> Vector:
@@ -59,7 +61,7 @@ class SymbolicProblem(Problem) :
         return coVector
 
     @staticmethod
-    def CreateHamiltonianStatic(stateVariables, t, eomsMatrix, unIntegratedPathCost, lambdas = None) -> sy.Expr:
+    def CreateHamiltonianStatic(stateVariables, t, equationsOfMotionMatrix, unIntegratedPathCost, lambdas = None) -> sy.Expr:
         """Creates an expression for the Hamiltonian.
 
         Args:
@@ -75,7 +77,7 @@ class SymbolicProblem(Problem) :
         if isinstance(lambdas, list) :
             lambdas = Vector.fromArray(lambdas)
 
-        secTerm =  (lambdas.transpose()*eomsMatrix)[0,0]
+        secTerm =  (lambdas.transpose()*equationsOfMotionMatrix)[0,0]
         return secTerm+unIntegratedPathCost    
 
     @staticmethod
@@ -151,7 +153,7 @@ class SymbolicProblem(Problem) :
 
         variationVector = Vector.fromArray(variationVector)    
         lambdasFinalVector = Vector.fromArray(lambdasFinal)
-        overallCond = hamiltonian*dtf - (lambdasFinalVector.transpose()*variationVector)[0,0] + valuesAtEndDiffTerm
+        overallCond = hamiltonian*dtf - (lambdasFinalVector.transpose()[0,0]*variationVector)[0,0] + valuesAtEndDiffTerm
         overallCond = overallCond.expand()
         
         for vv in variationVector :
@@ -254,10 +256,13 @@ class SymbolicProblem(Problem) :
         problemToWorkWith = self
         if self._wrappedProblem != None :
             problemToWorkWith = self._wrappedProblem
-        xvers = SymbolicProblem.TransversalityConditionInTheDifferentialFormStatic(hamiltonian, dtf, problemToWorkWith.ControlVariables, problemToWorkWith.TerminalCost, problemToWorkWith.TimeFinalSymbol, problemToWorkWith.BoundaryConditions, SafeSubs(problemToWorkWith.StateVariables, {problemToWorkWith.TimeSymbol: problemToWorkWith.TimeFinalSymbol}))
+        if lambdasFinal == None:
+            lambdasFinal = SafeSubs(self.CostateSymbols, {self.TimeSymbol: self.TimeFinalSymbol})        
+        lambdasFinal = cast(List[sy.Symbol], lambdasFinal)
+        transversalityConditions = SymbolicProblem.TransversalityConditionInTheDifferentialFormStatic(hamiltonian, dtf, lambdasFinal, problemToWorkWith.TerminalCost, problemToWorkWith.TimeFinalSymbol, problemToWorkWith.BoundaryConditions, SafeSubs(problemToWorkWith.StateVariables, {problemToWorkWith.TimeSymbol: problemToWorkWith.TimeFinalSymbol}))
         if self._wrappedProblem != None :
-            xvers = self.ScaleExpressions(xvers)
-        return xvers
+            transversalityConditions = self.ScaleExpressions(transversalityConditions)
+        return transversalityConditions
 
     def CreateLambdaDotCondition(self, hamiltonian) :
         """For optimal control problems, create the differential equations for the 
@@ -292,7 +297,7 @@ class SymbolicProblem(Problem) :
             List[List[float]]: The values of the Hamiltonian, its first derivative and second derivative for the entered solution.
         """
 
-        stateForEom = [self.TimeSymbol, *self.StateVariables]
+        stateForEom = [self.TimeSymbol, *self.StateVariables, *self.CostateSymbols]
 
         constantsSubsDict = self.SubstitutionDictionary
 
@@ -304,7 +309,8 @@ class SymbolicProblem(Problem) :
         solArray = []
         for sv in self.StateVariables :
             solArray.append(np.array(solution[sv]))
-
+        for sv in self.CostateSymbols :
+            solArray.append(np.array(solution[sv]))
         hamiltonianValues = hamiltonianExpression(tArray, *solArray)
         dhduExp = sy.lambdify(stateForEom, dHdu.subs(controlSolved).subs(moreSubs).trigsimp(deep=True).subs(constantsSubsDict))
         
@@ -314,6 +320,12 @@ class SymbolicProblem(Problem) :
         d2hdu2Exp = sy.lambdify(stateForEom, d2Hdu2.subs(controlSolved).subs(moreSubs).trigsimp(deep=True).subs(constantsSubsDict))
         d2hdu2Values = d2hdu2Exp(tArray, *solArray)
         return [hamiltonianValues, dhduValues, d2hdu2Values]
+
+    def ScaleProblem(self, newStateVariableSymbols : List[sy.Symbol], valuesToDivideStateVariablesWith : Dict[sy.Symbol, SymbolOrNumber], timeScaleFactor : Optional[SymbolOrNumber] = None):
+        newProblem = SymbolicProblem()
+        newProblem.CostateSymbols.extend(self.CostateSymbols)
+        newProblem._scaleProblem(self, newStateVariableSymbols, valuesToDivideStateVariablesWith, timeScaleFactor)
+        return newProblem
 
 #TODO: Refactor the other xversality to have a static version...
     # def TransversalityConditionsByAugmentation(self, nus : List[sy.Symbol], lambdasFinal : Optional[List[sy.Expr]]=None) -> List[sy.Expr]:

@@ -75,9 +75,9 @@ class HowManyImpulses(SymbolicProblem) :
 
         elementsList = elements.ToArray()
         for i in range(0, len(elementsList)) :
-            self.StateVariableDynamic.append(stateDynamics[i])
+            self.StateVariableDynamics.append(stateDynamics[i])
             self.StateVariables.append(elements[i])
-        self.StateVariableDynamic.append(-1*thrust*throttle/(isp*g))
+        self.StateVariableDynamics.append(-1*thrust*throttle/(isp*g))
         self.StateVariables.append(m)
         self.ControlVariables.append(azi)
         self.ControlVariables.append(elv)
@@ -85,7 +85,7 @@ class HowManyImpulses(SymbolicProblem) :
         self._unIntegratedPathCost = throttle* thrust/c
         self._terminalCost = 0
         self.CostateSymbols.extend(SymbolicProblem.CreateCoVector(self.StateVariables, None, t))
-        #self.StateVariableDynamic[self.CostateSymbols[0]] = 
+        #self.StateVariableDynamics[self.CostateSymbols[0]] = 
         #self.Hamiltonian = self.CreateHamiltonian(self.CostateSymbols)
 
         self._gravity = g
@@ -146,8 +146,8 @@ class HowManyImpulses(SymbolicProblem) :
 
     def flattenEquationsOfMotion(self) :
         auxValues = self.modifiedEquinoctialElements.AuxiliarySymbolsDict()
-        for i in range(0, len(self.StateVariableDynamic)) :
-            self.StateVariableDynamic[i] = SafeSubs(self.StateVariableDynamic[i], auxValues)
+        for i in range(0, len(self.StateVariableDynamics)) :
+            self.StateVariableDynamics[i] = SafeSubs(self.StateVariableDynamics[i], auxValues)
 
 HowManyImpulses()
 # Earth to Mars demo
@@ -335,13 +335,13 @@ problemForOneOffPropagation = baseProblem
 
 odeHelper = OdeHelperModule.OdeHelper(problemForOneOffPropagation.TimeSymbol)
 initialStateSymbols = SafeSubs(problemForOneOffPropagation.StateVariables, {problemForOneOffPropagation.TimeSymbol: problemForOneOffPropagation.TimeInitialSymbol})
-odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[0], problemForOneOffPropagation.StateVariableDynamic[0], initialStateSymbols[0])
-odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[1], problemForOneOffPropagation.StateVariableDynamic[1], initialStateSymbols[1])
-odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[2], problemForOneOffPropagation.StateVariableDynamic[2], initialStateSymbols[2])
-odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[3], problemForOneOffPropagation.StateVariableDynamic[3], initialStateSymbols[3])
-odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[4], problemForOneOffPropagation.StateVariableDynamic[4], initialStateSymbols[4])
-odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[5], problemForOneOffPropagation.StateVariableDynamic[5], initialStateSymbols[5])
-odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[6], problemForOneOffPropagation.StateVariableDynamic[6], initialStateSymbols[6])
+odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[0], problemForOneOffPropagation.StateVariableDynamics[0], initialStateSymbols[0])
+odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[1], problemForOneOffPropagation.StateVariableDynamics[1], initialStateSymbols[1])
+odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[2], problemForOneOffPropagation.StateVariableDynamics[2], initialStateSymbols[2])
+odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[3], problemForOneOffPropagation.StateVariableDynamics[3], initialStateSymbols[3])
+odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[4], problemForOneOffPropagation.StateVariableDynamics[4], initialStateSymbols[4])
+odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[5], problemForOneOffPropagation.StateVariableDynamics[5], initialStateSymbols[5])
+odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[6], problemForOneOffPropagation.StateVariableDynamics[6], initialStateSymbols[6])
 odeHelper.lambdifyParameterSymbols.append(baseProblem.Azimuth)
 odeHelper.lambdifyParameterSymbols.append(baseProblem.Elevation)
 odeHelper.lambdifyParameterSymbols.append(baseProblem.Throttle)
@@ -455,7 +455,7 @@ def mapPyomoStateToProblemState(m, t, expression) :
 
 
 
-display(CheckAllParametersArePresent(asNumericalProblem))
+display(asNumericalProblem.CheckAllParametersArePresent())
 display(asNumericalProblem.LambdifyArguments)
 
 listOfEomCallback = asNumericalProblem.CreateListOfStateVariableCallbacksTimeFirst()
@@ -592,3 +592,5 @@ plot2DLines([azimuthPlotData, elevationPlotData], "Thrust angles (deg)")
 throttle = prim.XAndYPlottableLineData(time, dictSolution[stateSymbols[9]], "throttle", '#FF0000', 2)
 plot2DLines([throttle], "Throttle (0 to 1)")
 
+
+# %%

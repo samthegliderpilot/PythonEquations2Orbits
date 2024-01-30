@@ -23,7 +23,7 @@ class ScaledSymbolicProblem(SymbolicProblem) :
             end up being constants in the SubstitutionDictionary
             scaleTime (bool): Should the time be scaled to be between 0 and 1.
         """
-        pass
+        super().__init__()
 
 
     # def DescaleResults(self, resultsDictionary : Dict[sy.Expr, List[float]]) -> Dict[sy.Expr, List[float]] :

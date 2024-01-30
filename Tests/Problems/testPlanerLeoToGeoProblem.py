@@ -43,13 +43,14 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
         baseProblem = ContinuousThrustCircularOrbitTransferProblem()
         initialStateValues = baseProblem.CreateVariablesAtTime0(baseProblem.StateVariables)
         problem = baseProblem #type: SymbolicProblem
-
+        lambdas = ScaledSymbolicProblem.CreateCoVector(problem.StateVariables, r'\lambda', problem.TimeSymbol)
+        baseProblem.CostateSymbols.extend(lambdas)
         if scale :
             newSvs = ScaledSymbolicProblem.CreateBarVariables(problem.StateVariables, problem.TimeSymbol) 
-            problem = ScaledSymbolicProblem(baseProblem, newSvs, {problem.StateVariables[0]: initialStateValues[0], 
+            problem = baseProblem.ScaleProblem(newSvs, {problem.StateVariables[0]: initialStateValues[0], 
                                                                 problem.StateVariables[1]: initialStateValues[2], 
                                                                 problem.StateVariables[2]: initialStateValues[2], 
-                                                                problem.StateVariables[3]: 1.0} , scaleTime)
+                                                                problem.StateVariables[3]: 1.0} , problem.TimeFinalSymbol)
 
         # make the time array
         tArray = np.linspace(0.0, tfOrg, 1200)
@@ -80,37 +81,41 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
             constantsSubsDict.update(zip(initialScaledStateValues, [r0, u0, v0, 1.0])) 
             
         # this next block does most of the problem, pretty standard optimal control actions
-        problem.Lambdas.extend(problem.CreateCoVector(problem.StateVariables, r'\lambda', problem.TimeSymbol))
-        lambdas = problem.Lambdas
-        hamiltonian = problem.CreateHamiltonian(lambdas)
-        lambdaDotExpressions = problem.CreateLambdaDotCondition(hamiltonian)
-        dHdu = problem.CreateHamiltonianControlExpressions(hamiltonian)[0]
+        #problem.Lambdas = 
+        
+        hamiltonian = SymbolicProblem.CreateHamiltonianStatic(problem.StateVariables, problem.TimeSymbol, sy.Matrix([problem.StateVariableDynamics]).transpose(), 0, lambdas)
+        lambdaDotExpressions = SymbolicProblem.CreateLambdaDotConditionStatic(hamiltonian, sy.Matrix([problem.StateVariables]).transpose())
+        dHdu = SymbolicProblem.CreateHamiltonianControlExpressionsStatic(hamiltonian, sy.Matrix([problem.ControlVariables]).transpose())[0]
         controlSolved = sy.solve(dHdu, problem.ControlVariables[0])[0] # something that may be different for other problems is when there are multiple control variables
 
         # you are in control of the order of integration variables and what EOM's get evaluated, start updating the problem
         # this line sets the lambdas in the equations of motion and integration state
-        problem.EquationsOfMotion.update(zip(lambdas, lambdaDotExpressions))
-        SafeSubs(problem.EquationsOfMotion, {problem.ControlVariables[0]: controlSolved})
+        #problem.StateVariableDynamics.update(zip(lambdas, lambdaDotExpressions))
+        for i in range(0, len(lambdas)) :
+            problem.StateVariableDynamics.append(lambdaDotExpressions[i])
+            #problem.CostateSymbols.append(lambdas[i])
+        SafeSubs(problem.StateVariableDynamics, {problem.ControlVariables[0]: controlSolved})
         # the trig simplification needs the deep=True for this problem to make the equations even cleaner
-        for (key, value) in problem.EquationsOfMotion.items() :
-            problem.EquationsOfMotion[key] = value.trigsimp(deep=True).simplify() # some simplification to make numerical code more stable later, and that is why this code forces us to do things somewhat manually.  There are often special things like this that we ought to do that you can't really automate.
+        for i in range(0, len(problem.StateVariableDynamics)) :
+            problem.StateVariableDynamics[i] = problem.StateVariableDynamics[i].trigsimp(deep=True).simplify() # some simplification to make numerical code more stable later, and that is why this code forces us to do things somewhat manually.  There are often special things like this that we ought to do that you can't really automate.
 
         ## Start with the boundary conditions
         if scaleTime : # add BC if we are working with the final time (kind of silly for this example, but we need an equal number of in's and out's for fsolve later)
             problem.BoundaryConditions.append(baseProblem.TimeFinalSymbol-tfOrg)
 
+        tToTfSubsDict = {problem.TimeSymbol: problem.TimeFinalSymbol}
         # make the transversality conditions
         if len(nus) != 0:
             transversalityCondition = problem.TransversalityConditionsByAugmentation(nus)
         else:
-            transversalityCondition = problem.TransversalityConditionInTheDifferentialForm(hamiltonian, sy.Symbol(r'dt_f'))
+            transversalityCondition = SymbolicProblem.TransversalityConditionInTheDifferentialFormStatic(hamiltonian, sy.Symbol(r'dt_f'), SafeSubs(lambdas,tToTfSubsDict), problem.TerminalCost, problem.TimeFinalSymbol, problem.BoundaryConditions, SafeSubs(problem.StateVariables[:4], tToTfSubsDict))
         # and add them to the problem
         problem.BoundaryConditions.extend(transversalityCondition)
 
         initialFSolveStateGuess = ContinuousThrustCircularOrbitTransferProblem.CreateInitialLambdaGuessForLeoToGeo(problem, controlSolved)
 
         # lambda_lon is always 0, so do that cleanup
-        del problem.EquationsOfMotion[lambdas[3]]
+        del problem.StateVariableDynamics[-1]
         problem.BoundaryConditions.remove(transversalityCondition[-1])
         lmdTheta = lambdas.pop()
         constantsSubsDict[lmdTheta]=0
@@ -127,7 +132,7 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
         if len(nus) > 0 :
             otherArgs.extend(nus)
         
-        lambdifyHelper = OdeLambdifyHelperWithBoundaryConditions(problem.TimeSymbol, problem.TimeInitialSymbol, problem.TimeFinalSymbol, problem.EquationsOfMotionAsEquations, problem.BoundaryConditions, otherArgs, problem.SubstitutionDictionary)
+        lambdifyHelper = OdeLambdifyHelperWithBoundaryConditions(problem.TimeSymbol, problem.TimeInitialSymbol, problem.TimeFinalSymbol, problem.StateVariables, problem.StateVariableDynamics, problem.BoundaryConditions, otherArgs, problem.SubstitutionDictionary)
         
         odeIntEomCallback = lambdifyHelper.CreateSimpleCallbackForSolveIvp()
         # run a test solution to get a better guess for the final nu values, this is a good technique, but 
@@ -147,7 +152,7 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
             initialFSolveStateGuess[-2] = finalValues[5]
             initialFSolveStateGuess[-1] = finalValues[6]
 
-        fSolveCallback = ContinuousThrustCircularOrbitTransferProblem.createSolveIvpSingleShootingCallbackForFSolve(problem, problem.IntegrationSymbols, [r0, u0, v0, lon0], tArray, odeIntEomCallback, problem.BoundaryConditions, lambdas, otherArgs)
+        fSolveCallback = ContinuousThrustCircularOrbitTransferProblem.createSolveIvpSingleShootingCallbackForFSolve(problem, problem.StateVariables, [r0, u0, v0, lon0], tArray, odeIntEomCallback, problem.BoundaryConditions, lambdas, otherArgs)
         return (odeIntEomCallback, fSolveCallback, tArray, [r0, u0, v0, lon0], problem)
 
     def testInitialization(self) :
@@ -160,7 +165,7 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
         self.assertEqual("t_f" , problem.TimeFinalSymbol.name, msg="time final symbol")
         self.assertEqual("t_0" , problem.TimeInitialSymbol.name, msg="time initial symbol")
         # thorough testing of EOM's and Boundary Conditions will be covered with solver/regression tests
-        self.assertEqual(4, len(problem.EquationsOfMotion), msg="number of EOM's")
+        self.assertEqual(4, len(problem.StateVariableDynamics), msg="number of EOM's")
         self.assertEqual(2, len(problem.BoundaryConditions), msg="number of BCs")
 
     def testDifferentialTransversalityCondition(self) :

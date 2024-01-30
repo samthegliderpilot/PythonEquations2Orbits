@@ -19,7 +19,7 @@ class OneDWorkSymbolicProblem(SymbolicProblem) :
         self._timeFinalSymbol = sy.Symbol('t_f')
         self._stateVariables = [sy.Function('x')(self._timeSymbol), sy.Function('v')(self._timeSymbol)]
         self._controlVariables = [sy.Function('u')(self._timeSymbol)]
-        self._equationsOfMotion = {self._stateVariables[0]:self._stateVariables[1], self._stateVariables[1] : self._controlVariables[0]}
+        self.StateVariableDynamics.extend([self._stateVariables[1], self._controlVariables[0]])
         self._constantSymbols = []
         self._unIntegratedPathCost = self._controlVariables[0]**2
         self._boundaryConditions = [sy.Function('x')(self._timeFinalSymbol) -1, sy.Function('v')(self._timeFinalSymbol)]
