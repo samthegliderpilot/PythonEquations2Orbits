@@ -2,7 +2,7 @@ from matplotlib.figure import Figure # type: ignore
 import sympy as sy
 from typing import List, Dict, Any
 from pyeq2orb.Numerical import ScipyCallbackCreators
-from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
+from pyeq2orb.ProblemBase import ProblemVariable, Problem
 from pyeq2orb.Numerical.LambdifyHelpers import LambdifyHelper
 import math
 import matplotlib.pyplot as plt # type: ignore
@@ -13,7 +13,7 @@ import numpy.typing as npt
 from pyeq2orb.Symbolics.SymbolicUtilities import SafeSubs
 
 @inherit_docstrings
-class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
+class ContinuousThrustCircularOrbitTransferProblem(Problem) :
     def __init__(self) :
         """Initializes a new instance.  The equations of motion will be set in the order [r, u, v, longitude].
         """
@@ -39,34 +39,38 @@ class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
         self._timeInitialSymbol = sy.Symbol('t_0', real=True)
         self._timeFinalSymbol = sy.Symbol('t_f', real=True, positive=True)
 
-        self._stateVariables.extend([
-            sy.Function('r', real=True, positive=True)(self._timeSymbol),
-            sy.Function('u', real=True, nonnegative=True)(self._timeSymbol),
-            sy.Function('v', real=True, nonnegative=True)(self._timeSymbol),
-            sy.Function('\\theta', real=True, nonnegative=True)(self._timeSymbol)])
-
-        self._controlVariables.extend([sy.Function('\\alpha', real=True)(self._timeSymbol)])
-
-        self._boundaryConditions.extend([
-                self._stateVariables[1].subs(self._timeSymbol, self._timeFinalSymbol),
-                self._stateVariables[2].subs(self._timeSymbol, self._timeFinalSymbol)-sy.sqrt(mu/self._stateVariables[0].subs(self._timeSymbol, self._timeFinalSymbol))
-        ])
-
-        self._terminalCost = self._stateVariables[0].subs(self._timeSymbol, self._timeFinalSymbol) # maximization problem
-
-        rs = self._stateVariables[0]
-        us = self._stateVariables[1]
-        vs = self._stateVariables[2]
-        longS = self._stateVariables[3]
-        control = self._controlVariables[0]
+        rs = sy.Function('r', real=True, positive=True)(self._timeSymbol)
+        us = sy.Function('u', real=True, nonnegative=True)(self._timeSymbol)
+        vs = sy.Function('v', real=True, nonnegative=True)(self._timeSymbol)
+        longS = sy.Function('\\theta', real=True, nonnegative=True)(self._timeSymbol)
+        control = sy.Function('\\alpha', real=True)(self._timeSymbol)
 
         self.MassFlowRate = -1*thrust/(isp*g)
         self.MassEquation = m0+self._timeSymbol*self.MassFlowRate
 
-        self.StateVariableDynamics.append(us)
-        self.StateVariableDynamics.append(vs*vs/rs - mu/(rs*rs) + thrust*sy.sin(control)/self.MassEquation)
-        self.StateVariableDynamics.append(-vs*us/rs + thrust*sy.cos(control)/self.MassEquation)
-        self.StateVariableDynamics.append(vs/rs)
+        stateVariableDynamics = []
+        stateVariableDynamics.append(us)
+        stateVariableDynamics.append(vs*vs/rs - mu/(rs*rs) + thrust*sy.sin(control)/self.MassEquation)
+        stateVariableDynamics.append(-vs*us/rs + thrust*sy.cos(control)/self.MassEquation)
+        stateVariableDynamics.append(vs/rs)
+
+        self._stateVariables.extend([
+            ProblemVariable(rs, stateVariableDynamics[0]),
+            ProblemVariable(us, stateVariableDynamics[1]),
+            ProblemVariable(vs, stateVariableDynamics[2]),
+            ProblemVariable(longS, stateVariableDynamics[3])])
+
+        self._controlVariables.extend([control])
+
+        self._boundaryConditions.extend([
+                self._stateVariables[1].Element.subs(self._timeSymbol, self._timeFinalSymbol),
+                self._stateVariables[2].Element.subs(self._timeSymbol, self._timeFinalSymbol)-sy.sqrt(mu/self._stateVariables[0].Element.subs(self._timeSymbol, self._timeFinalSymbol))
+        ])
+
+        self._terminalCost = self._stateVariables[0].Element.subs(self._timeSymbol, self._timeFinalSymbol) # maximization problem
+
+
+
 
         
    
@@ -89,7 +93,7 @@ class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
         existingDict[self.Isp] = ispVal
 
     @staticmethod
-    def createSolveIvpSingleShootingCallbackForFSolve(problem : SymbolicProblem, integrationStateVariableArray, nonLambdaEomStateInitialValues, timeArray, solveIvpCallback, boundaryConditionExpressions, fSolveParametersToAppendToEom, fSolveOnlyParameters) :
+    def createSolveIvpSingleShootingCallbackForFSolve(problem : Problem, integrationStateVariableArray, nonLambdaEomStateInitialValues, timeArray, solveIvpCallback, boundaryConditionExpressions, fSolveParametersToAppendToEom, fSolveOnlyParameters) :
         """A function showing a potential way to solve the boundary conditions for this problem in a shooting method with fsolve.  
 
         Args:
@@ -188,7 +192,7 @@ class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
         plt.show()
 
     @staticmethod
-    def CreateInitialLambdaGuessForLeoToGeo(problem : SymbolicProblem, controlSolved : sy.Expr, lambdas : List[sy.Symbol]) :
+    def CreateInitialLambdaGuessForLeoToGeo(problem : Problem, controlSolved : sy.Expr, lambdas : List[sy.Symbol]) :
         # creating the initial values is unique to each problem, it is luck that 
         # my intuition pays off and we find a solution later
         # We want initial alpha to be 0 (or really close to it) per intuition
@@ -210,7 +214,7 @@ class ContinuousThrustCircularOrbitTransferProblem(SymbolicProblem) :
         constantsForLmdGuesses[lambdasAtT0[1]] = float(ansForLambdaU)
 
         # if we assume that we always want to keep alpha small (0), we can solve dlmd_u/dt=0 for lmdr_0
-        lmdUDotAtT0 = problem.CreateVariablesAtTime0(problem.StateVariableDynamics[5])
+        lmdUDotAtT0 = problem.CreateVariablesAtTime0(problem._costateElements[1].FirstOrderDynamics)
         lmdUDotAtT0 = lmdUDotAtT0.subs(constantsForLmdGuesses)
         inter=sy.solve(sy.Eq(lmdUDotAtT0, 0), lambdasAtT0[0].subs(constantsForLmdGuesses))
         lambdaR0Value = float(inter[0].subs(constantsForLmdGuesses)) # we know there is just 1

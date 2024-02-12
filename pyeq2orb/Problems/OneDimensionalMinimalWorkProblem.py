@@ -5,11 +5,11 @@ from matplotlib.figure import Figure # type: ignore
 import numpy as np
 from collections import OrderedDict
 from pyeq2orb.NumericalOptimizerProblem import NumericalOptimizerProblemBase
-from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
+from pyeq2orb.ProblemBase import ProblemVariable, Problem
 from pyeq2orb.Utilities.inherit import inherit_docstrings
 
 @inherit_docstrings
-class OneDWorkSymbolicProblem(SymbolicProblem) :
+class OneDWorkSymbolicProblem(Problem) :
     def __init__(self) :
         """Initializes a new instance.
         """
@@ -17,9 +17,11 @@ class OneDWorkSymbolicProblem(SymbolicProblem) :
         self._timeSymbol = sy.Symbol('t')
         self._timeInitialSymbol = sy.Symbol('t_0')
         self._timeFinalSymbol = sy.Symbol('t_f')
-        self._stateVariables = [sy.Function('x')(self._timeSymbol), sy.Function('v')(self._timeSymbol)]
-        self._controlVariables = [sy.Function('u')(self._timeSymbol)]
-        self.StateVariableDynamics.extend([self._stateVariables[1], self._controlVariables[0]])
+        x = sy.Function('x')(self._timeSymbol)
+        v = sy.Function('v')(self._timeSymbol)
+        u = sy.Function('u')(self._timeSymbol)
+        self._stateVariables.extend([ProblemVariable(x,v), ProblemVariable(v, u)])
+        self._controlVariables = [u]
         self._constantSymbols = []
         self._unIntegratedPathCost = self._controlVariables[0]**2
         self._boundaryConditions = [sy.Function('x')(self._timeFinalSymbol) -1, sy.Function('v')(self._timeFinalSymbol)]

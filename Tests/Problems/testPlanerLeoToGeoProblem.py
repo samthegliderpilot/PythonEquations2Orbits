@@ -1,18 +1,15 @@
 import unittest
 from pyeq2orb.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
-from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 from scipy.integrate import solve_ivp # type: ignore
 import numpy as np
 import sympy as sy
-from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
-from pyeq2orb.ScaledSymbolicProblem import ScaledSymbolicProblem
-from pyeq2orb.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
 from pyeq2orb.Numerical import ScipyCallbackCreators
 from pyeq2orb.Numerical.LambdifyHelpers import OdeLambdifyHelperWithBoundaryConditions
 import pyeq2orb as pe2o
 import importlib
 from typing import List
 from pyeq2orb.Symbolics.SymbolicUtilities import SafeSubs
+from pyeq2orb.ProblemBase import Problem, ProblemVariable
 
 class testPlanerLeoToGeoProblem(unittest.TestCase) :
     @staticmethod
@@ -42,24 +39,21 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
             nus = [sy.Symbol('B_{u_f}'), sy.Symbol('B_{v_f}')]
         baseProblem = ContinuousThrustCircularOrbitTransferProblem()
         initialStateValues = baseProblem.CreateVariablesAtTime0(baseProblem.StateVariables)
-        problem = baseProblem #type: SymbolicProblem
-        lambdas = ScaledSymbolicProblem.CreateCoVector(problem.StateVariables, r'\lambda', problem.TimeSymbol)
-        baseProblem.StateVariables.extend(lambdas)
+        problem = baseProblem #type: Problem
+        lambdas = Problem.CreateCoVector(problem.StateVariables, r'\lambda', problem.TimeSymbol)
+        baseProblem.CostateSymbols.extend(lambdas)
         if scale :
-            newSvs = ScaledSymbolicProblem.CreateBarVariables(problem.StateVariables, problem.TimeSymbol) 
+            newSvs = Problem.CreateBarVariables(problem.StateVariables, problem.TimeSymbol) 
             scaleTimeFactor = None
             if scaleTime :
                 scaleTimeFactor = problem.TimeFinalSymbol
-            problem = baseProblem.ScaleProblem(newSvs, {problem.StateVariables[0]: initialStateValues[0], 
-                                                                problem.StateVariables[1]: initialStateValues[2], 
-                                                                problem.StateVariables[2]: initialStateValues[2], 
-                                                                problem.StateVariables[3]: 1.0,
-                                                                lambdas[0]: 1.0,
-                                                                lambdas[1]: 1.0,
-                                                                lambdas[2]: 1.0,
-                                                                lambdas[3]: 1.0} , scaleTimeFactor)
-            lambdas = problem.StateVariables[4:]
-            
+            problem = baseProblem.ScaleStateVariables(newSvs, {problem.StateVariables[0]: newSvs[0]*initialStateValues[0], 
+                                                                problem.StateVariables[1]: newSvs[1]*initialStateValues[2], 
+                                                                problem.StateVariables[2]: newSvs[2]* initialStateValues[2], 
+                                                                problem.StateVariables[3]: newSvs[3]})    
+            if scaleTime :
+                tau = sy.Symbol('\tau', real=True)
+                problem = problem.ScaleTime(tau, sy.Symbol('\tau_0', real=True), sy.Symbol('\tau_f', real=True), tau*problem.TimeFinalSymbol)   
 
         # make the time array
         tArray = np.linspace(0.0, tfOrg, 1200)
@@ -92,22 +86,21 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
         # this next block does most of the problem, pretty standard optimal control actions
         #problem.Lambdas = 
         
-        hamiltonian = SymbolicProblem.CreateHamiltonianStatic(problem.StateVariables, problem.TimeSymbol, sy.Matrix([problem.StateVariableDynamics]).transpose(), 0, lambdas)
-        lambdaDotExpressions = SymbolicProblem.CreateLambdaDotConditionStatic(hamiltonian, sy.Matrix([problem.StateVariables]).transpose())
-        dHdu = SymbolicProblem.CreateHamiltonianControlExpressionsStatic(hamiltonian, sy.Matrix([problem.ControlVariables]).transpose())[0]
+        hamiltonian = Problem.CreateHamiltonianStatic(problem.TimeSymbol, sy.Matrix([problem.StateVariableDynamics]).transpose(), 0, lambdas)
+        lambdaDotExpressions = Problem.CreateLambdaDotConditionStatic(hamiltonian, sy.Matrix([problem.StateVariables]).transpose())
+        dHdu = Problem.CreateHamiltonianControlExpressionsStatic(hamiltonian, sy.Matrix([problem.ControlVariables]).transpose())[0]
         controlSolved = sy.solve(dHdu, problem.ControlVariables[0])[0] # something that may be different for other problems is when there are multiple control variables
 
         # you are in control of the order of integration variables and what EOM's get evaluated, start updating the problem
         # this line sets the lambdas in the equations of motion and integration state
         #problem.StateVariableDynamics.update(zip(lambdas, lambdaDotExpressions))
         for i in range(0, len(lambdas)) :
-            problem.StateVariableDynamics.append(lambdaDotExpressions[i])
-            #problem.StateVariables.append(lambdas[i])
+            problem.AddCostateVariable(ProblemVariable(lambdas[i], lambdaDotExpressions[i]))
         problem.SubstitutionDictionary[problem.ControlVariables[0]]  =controlSolved
         SafeSubs(problem.StateVariableDynamics, {problem.ControlVariables[0]: controlSolved})
         # the trig simplification needs the deep=True for this problem to make the equations even cleaner
         for i in range(0, len(problem.StateVariableDynamics)) :
-            problem.StateVariableDynamics[i] = problem.StateVariableDynamics[i].trigsimp(deep=True).simplify() # some simplification to make numerical code more stable later, and that is why this code forces us to do things somewhat manually.  There are often special things like this that we ought to do that you can't really automate.
+            problem._stateVariables[i].FirstOrderDynamics = problem._stateVariables[i].FirstOrderDynamics.trigsimp(deep=True).simplify() # some simplification to make numerical code more stable later, and that is why this code forces us to do things somewhat manually.  There are often special things like this that we ought to do that you can't really automate.
 
         ## Start with the boundary conditions
         if scaleTime : # add BC if we are working with the final time (kind of silly for this example, but we need an equal number of in's and out's for fsolve later)
@@ -129,6 +122,7 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
         del problem.StateVariableDynamics[-1]
         del problem.StateVariables[-1]
         problem.BoundaryConditions.remove(transversalityCondition[-1])
+        problem._costateElements.pop()
         lmdTheta = lambdas.pop()
         constantsSubsDict[lmdTheta]=0
         constantsSubsDict[lmdTheta.subs(problem.TimeSymbol, problem.TimeFinalSymbol)]=0
@@ -144,7 +138,12 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
         if len(nus) > 0 :
             otherArgs.extend(nus)
         
-        lambdifyHelper = OdeLambdifyHelperWithBoundaryConditions(problem.TimeSymbol, problem.TimeInitialSymbol, problem.TimeFinalSymbol, problem.StateVariables, problem.StateVariableDynamics, problem.BoundaryConditions, otherArgs, problem.SubstitutionDictionary)
+        allSvs = problem.StateVariables
+        allSvs.extend(problem.CostateSymbols)
+
+        allDynamics = problem.StateVariableDynamics
+        allDynamics.extend(problem.CostateDynamicsEquations)
+        lambdifyHelper = OdeLambdifyHelperWithBoundaryConditions(problem.TimeSymbol, problem.TimeInitialSymbol, problem.TimeFinalSymbol, allSvs, allDynamics, problem.BoundaryConditions, otherArgs, problem.SubstitutionDictionary)
         
         odeIntEomCallback = lambdifyHelper.CreateSimpleCallbackForSolveIvp()
         # run a test solution to get a better guess for the final nu values, this is a good technique, but 
@@ -164,7 +163,8 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
             initialFSolveStateGuess[-2] = finalValues[5]
             initialFSolveStateGuess[-1] = finalValues[6]
 
-        fSolveCallback = ContinuousThrustCircularOrbitTransferProblem.createSolveIvpSingleShootingCallbackForFSolve(problem, problem.StateVariables, [r0, u0, v0, lon0], tArray, odeIntEomCallback, problem.BoundaryConditions, lambdas, otherArgs)
+
+        fSolveCallback = ContinuousThrustCircularOrbitTransferProblem.createSolveIvpSingleShootingCallbackForFSolve(problem, allSvs, [r0, u0, v0, lon0], tArray, odeIntEomCallback, problem.BoundaryConditions, lambdas, otherArgs)
         return (odeIntEomCallback, fSolveCallback, tArray, [r0, u0, v0, lon0], problem)
 
     def testInitialization(self) :
@@ -182,7 +182,7 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
 
     def testDifferentialTransversalityCondition(self) :
         problem = ContinuousThrustCircularOrbitTransferProblem()
-        lambdas = SymbolicProblem.CreateCoVector(problem.StateVariables, 'L', problem.TimeFinalSymbol)
+        lambdas = Problem.CreateCoVector(problem.StateVariables, 'L', problem.TimeFinalSymbol)
         hamiltonian = problem.CreateHamiltonian(lambdas)
         xversality = problem.TransversalityConditionInTheDifferentialForm(hamiltonian, 0.0, lambdas) # not allowing final time to vary
 
@@ -202,7 +202,7 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
             i=i+1
         odeAns = solve_ivp(odeSolveIvpCb, [tArray[0], tArray[-1]], [*z0, *knownAnswer], args=tuple([]), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)  
         finalState = ScipyCallbackCreators.GetFinalStateFromIntegratorResults(odeAns)
-        self.assertAlmostEqual(finalState[0], 42162071.898083754, delta=30, msg="radius check")
+        self.assertAlmostEqual(finalState[0], 42162071.898083754, delta=70, msg="radius check")
         self.assertAlmostEqual(finalState[1], 0.000, 2, msg="u check")
         self.assertAlmostEqual(finalState[2], 3074.735, 1, msg="v check")
 

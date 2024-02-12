@@ -1,6 +1,7 @@
+from __future__ import annotations
 import sympy as sy
 import numpy as np
-from typing import List, Dict, cast, Optional
+from typing import List, Dict, cast, Optional, Collection
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
 from abc import ABC
 from collections import OrderedDict
@@ -12,25 +13,55 @@ class IntegrationDirection(Enum) :
     Forward = 1
     Backward = -1
 
+class ProblemVariable():
+    def __init__(self, element : sy.Symbol, firstOrderDynamics : sy.Expr):
+        self._element = element
+        self._firstOrderDynamics = firstOrderDynamics
+
+    @property
+    def Element(self) -> sy.Symbol:
+        return self._element
+    
+    @property
+    def FirstOrderDynamics(self) ->sy.Expr:
+        return self._firstOrderDynamics
+
+    @FirstOrderDynamics.setter
+    def FirstOrderDynamics(self, value:sy.Expr) :
+        self._firstOrderDynamics = value
+
+    # def subs(self, subsDict : Dict[sy.Expr, SymbolOrNumber]):
+    #     return ProblemVariable(self.Element, SafeSubs(self.FirstOrderDynamics, subsDict))
+
+
 class Problem(ABC) :
     def __init__(self) :
         """Initialize a new instance. 
         """
-        self._stateVariables = []
-        self._controlVariables = []
+        self._stateVariables = [] 
+        self._costateElements = [] 
+        self._controlVariables = [] 
+
         self._terminalCost = 0
-        self._unIntegratedPathCost = 0
-        self._stateVariableDynamics = []
+        self._unIntegratedPathCost = 0        
         self._boundaryConditions = []
         self._timeSymbol = None
         self._timeInitialSymbol = None
         self._timeFinalSymbol= None
+
         self._integrationDirection = IntegrationDirection.Forward
-        self._substitutionDictionary = OrderedDict()
+
+        self._unscaledTimeSymbol = None
+        self._unscaledTimeInitialSymbol = None
+        self._unscaledTimeFinalSymbol = None
         self._timeScaleFactor = None
         self._scalingDict = {}
+        self._descaleDict = {}
 
-        self._wrappedProblem = None #TODO: I want to get rid of this...
+        self._timeValueToSolveFor = None
+
+        self._substitutionDictionary = OrderedDict()
+
 
     @staticmethod
     def CreateBarVariables(orgVariables : List[sy.Symbol], timeSymbol :sy.Symbol) ->List[sy.Symbol] :
@@ -68,7 +99,7 @@ class Problem(ABC) :
         Returns:
             List[sy.Expr]: The list of symbols in terms of TimeSymbol
         """
-        return self._stateVariables
+        return [x.Element for x in self._stateVariables]
     
     @property
     def ControlVariables(self) -> List[sy.Symbol]:
@@ -135,7 +166,7 @@ class Problem(ABC) :
         Returns:
             List[sy.Expr]: The first order dynamics of the state variables in the same order of the state variables
         """
-        return self._stateVariableDynamics
+        return [x.FirstOrderDynamics for x in self._stateVariables]
     
     @property
     def BoundaryConditions(self) ->List[sy.Expr] :
@@ -220,9 +251,19 @@ class Problem(ABC) :
     def Direction(self, value : IntegrationDirection) :
         self._integrationDirection = value
 
-    def AddStateVariable(self, stateVariable, stateVariableDynamics):
-        self.StateVariables.append(stateVariable)
-        self.StateVariableDynamics.append(stateVariableDynamics)
+    def AddStateVariable(self, stateVariable: ProblemVariable):
+        self._stateVariables.append(stateVariable)
+
+    def AddCostateVariable(self, costateVariable : ProblemVariable):
+        self._costateElements.append(costateVariable)
+
+    @property
+    def CostateSymbols(self) ->List[sy.Symbol]:
+        return [x.Element for x in self._costateElements]
+
+    @property 
+    def CostateDynamicsEquations(self) ->List[sy.Expr]:
+        return [x.FirstOrderDynamics for x in self._costateElements]
 
     @property
     def EquationsOfMotionAsEquations(self) -> List[sy.Eq] :
@@ -338,7 +379,7 @@ class Problem(ABC) :
 
 
     @property
-    def ScaleTime(self) -> bool:
+    def ScaleTimeFactor(self) -> bool:
         return self._timeScaleFactor != None
 
     @property
@@ -349,140 +390,149 @@ class Problem(ABC) :
     def TimeScaleFactor(self, value : SymbolOrNumber) :
         self._timeScaleFactor = value
 
+    def ScaleStateVariables(self, newSvs : List[sy.Symbol], dictOfOriginalSvsToNewSvs : Dict[sy.Symbol, SymbolOrNumber]) ->Problem:
+        # newSvs = [rBar, uBar, ...]
+        # dictOfOriginalSvs = {r:rBar*r0, u:uBar*v0, ...}
+        
+        dNewSvWrtOldSv = []
+        bcSubsDict = {}
+        descalingDict = {}
+        simpleNewSvReplacement = {}
+        if len(newSvs) != len(self.StateVariables):
+            raise Exception("When scaling state variables, all state variables must be present (even if the scaling is just 1)")
 
-    def ScaleProblem(self, newStateVariableSymbols : List[sy.Symbol], valuesToDivideStateVariablesWith : Dict[sy.Symbol, SymbolOrNumber], timeScaleFactor : Optional[SymbolOrNumber] = None):
-        newProblem = Problem()
-        newProblem._scaleProblem(self, newStateVariableSymbols, valuesToDivideStateVariablesWith, timeScaleFactor)
+        # the expression for scaling expressions is (scaling x to x1):
+        # dx/dt = dx1/dx*dx/dt
+        # So for the dynamics, substitute {x:x1} and then multiple by dx1/dt
+        for i in range(0, len(newSvs)):            
+            newSv = newSvs[i]
+            oldSv = self.StateVariables[i]
+            scaleExpEq = sy.Eq(oldSv, dictOfOriginalSvsToNewSvs[oldSv])
+            newSvInTermsOfOld = sy.solve(scaleExpEq, newSv)[0].diff(oldSv) # this generally should be a simple expression and not too complicated #TODO: Do I need to specify both?
+            descalingDict[newSv] = newSvInTermsOfOld
+            dNewSvWrtOldSv.append(newSvInTermsOfOld)
+            #bcSubsDict[oldSv.subs(self.TimeSymbol, self.TimeFinalSymbol)] = newSv.subs(self.TimeSymbol, self.TimeFinalSymbol)
+            bcSubsDict[oldSv.subs(self.TimeSymbol, self.TimeFinalSymbol)] = SafeSubs(dictOfOriginalSvsToNewSvs[oldSv], {self.TimeSymbol: self.TimeFinalSymbol})
+            simpleNewSvReplacement[oldSv] = newSv
+
+        # fill in the new problem (non destructive modification)
+        newProblem = Problem() #TODO: Clone/copy abstract method
+        newProblem._timeSymbol = self._timeSymbol
+        newProblem._timeInitialSymbol = self._timeInitialSymbol
+        newProblem._timeFinalSymbol= self._timeFinalSymbol
+        newProblem._substitutionDictionary = {}
+        for (k,v) in self._substitutionDictionary.items() :
+            newProblem._substitutionDictionary[k.subs(dictOfOriginalSvsToNewSvs)] = SafeSubs(v, dictOfOriginalSvsToNewSvs)
+        newProblem._controlVariables = self.ControlVariables
+        newProblem._scalingDict = dict(dictOfOriginalSvsToNewSvs) #make a copy since this problem is not the owner of the original
+        newProblem._descaleDict = descalingDict
+        for (k,v) in self._scalingDict:
+            newProblem._scalingDict[k]=v
+
+        # sv's and dynamics
+        for i in range(0, len(self.StateVariables)):
+            oldSv = self.StateVariables[i]
+            newSv = newSvs[i]
+            newProblem.AddStateVariable(ProblemVariable(newSv, SafeSubs(self.StateVariableDynamics[i], dictOfOriginalSvsToNewSvs)*dNewSvWrtOldSv[i]))
+
+        # do the BC's (including transversality condition if already added)
+        for bc in self.BoundaryConditions :
+            newProblem._boundaryConditions.append(SafeSubs(bc,bcSubsDict))
+
+        # do the costs
+        newProblem._unIntegratedPathCost = SafeSubs(self.UnIntegratedPathCost, dictOfOriginalSvsToNewSvs)
+        finalTimeSubsDict = {}
+        timeToFinalTimeSubsDict = {newProblem.TimeSymbol: newProblem.TimeFinalSymbol}
+        for k in range(0, len(self.StateVariables)):
+            sv = self.StateVariables[k]
+            #finalTimeSubsDict[sv.subs(timeToFinalTimeSubsDict)] = SafeSubs(dictOfOriginalSvsToNewSvs[sv], timeToFinalTimeSubsDict)
+            finalTimeSubsDict[sv.subs(timeToFinalTimeSubsDict)] = SafeSubs(simpleNewSvReplacement[sv], timeToFinalTimeSubsDict)
+        newProblem._terminalCost = SafeSubs(self.TerminalCost, finalTimeSubsDict)
+
+        # if there are costate variables, copy them (not sure if this is a good idea)
+        #TODO: See if this is valid
+
+        for j in range(0, len(self.CostateSymbols)):
+            newProblem.AddCostateVariable(ProblemVariable(self.CostateSymbols[i],SafeSubs(self.CostateDynamicsEquations[i], dictOfOriginalSvsToNewSvs)*dNewSvWrtOldSv[j]))
+
+
+
         return newProblem
 
-    def _scaleProblem(self, originalProblem, newStateVariableSymbols : List[sy.Symbol], valuesToDivideStateVariablesWith : Dict[sy.Symbol, SymbolOrNumber], timeScaleFactor : Optional[SymbolOrNumber] = None):
-        wrappedProblem = originalProblem
-        newProblem = self
-        newProblem._wrappedProblem = wrappedProblem #TODO: Want to get rid of this...
-        newProblem._timeFinalSymbol = wrappedProblem.TimeFinalSymbol
-        newProblem._timeInitialSymbol = wrappedProblem.TimeInitialSymbol
-        newProblem._timeSymbol = wrappedProblem.TimeSymbol
-        
-        newProblem._timeScaleFactor = timeScaleFactor 
-        newProblem._substitutionDictionary = wrappedProblem._substitutionDictionary        
-        newProblem._stateVariables = newStateVariableSymbols
-        
-        newProblem._scalingDict = valuesToDivideStateVariablesWith
+    def ScaleTime(self, newTimeSymbol, newInitialTimeSymbol, newFinalTimeSymbol, expressionForNewTime) ->Problem:        
+        # for dx/dt = dx/dTau * dTau/dt
+        # so evaluate dTau/dt, substitute t for expression with Tau and for dynamics multiply by dTau/dt
+        dtDTau = 1/sy.solve(sy.Eq(self.TimeSymbol, expressionForNewTime), newTimeSymbol)[0].diff(self.TimeSymbol)
+        dictOfOriginalSvsToNewSvs = {self.TimeSymbol: expressionForNewTime } #TODO: Need to subs time initial and time final?
 
-        #newProblem._stateVariables.extend(newStateVariableSymbols)
+        symbolSubs = {self.TimeSymbol: newTimeSymbol} #Dict[sy.Symbol, sy.Expr]
 
-        svAtTf=SafeSubs(wrappedProblem.StateVariables, {wrappedProblem.TimeSymbol: wrappedProblem.TimeFinalSymbol})
-        newSvAtTf=SafeSubs(newStateVariableSymbols, {wrappedProblem.TimeSymbol: wrappedProblem.TimeFinalSymbol})
-        svAtTfSubsDict = dict(zip(svAtTf, newSvAtTf))
-        newSvsInTermsOfOldSvs = []
-        counter=0
-        for sv in wrappedProblem.StateVariables :
-            newSvsInTermsOfOldSvs.append(sv/valuesToDivideStateVariablesWith[sv])
-            counter=counter+1
+        # fill in the new problem (non destructive modification)
+        newProblem = Problem() #TODO: Clone/copy abstract method
+        newProblem._timeSymbol = newTimeSymbol
+        newProblem._timeInitialSymbol = newInitialTimeSymbol
+        newProblem._timeFinalSymbol= newFinalTimeSymbol
+        newProblem._timeScaleFactor = expressionForNewTime
+        newProblem._substitutionDictionary = {}
+        for (k,v) in self._substitutionDictionary.items() :
+            newProblem._substitutionDictionary[k.subs(symbolSubs)] = SafeSubs(v, symbolSubs)
+        newProblem._descaleDict = {newTimeSymbol: self.TimeSymbol, newInitialTimeSymbol: self.TimeInitialSymbol, newFinalTimeSymbol: self.TimeFinalSymbol}    
+        #newProblem._controlVariables = self.ControlVariables # need to do control variables separately below
+        newProblem._scalingDict = dict(dictOfOriginalSvsToNewSvs) #make a copy since this problem is not the owner of the original
+        for (k,v) in self._scalingDict.items():
+            newProblem._scalingDict[k]=v
 
-        fullSubsDict = {} # don't add in sv(t_0), that will confuse common scaling paradigms
-        counter = 0
-        for sv in wrappedProblem.StateVariables :
-            fullSubsDict[sv] = newStateVariableSymbols[counter]*valuesToDivideStateVariablesWith[sv]            
-            fullSubsDict[sv.subs(wrappedProblem.TimeSymbol, wrappedProblem.TimeFinalSymbol)] = newStateVariableSymbols[counter].subs(wrappedProblem.TimeSymbol, wrappedProblem.TimeFinalSymbol)*valuesToDivideStateVariablesWith[sv]            
-            counter = counter+1
-
-
-        newProblem._controlVariables = wrappedProblem.ControlVariables
-        scaledEquationsOfMotion = []
-        for i in range(0, len(wrappedProblem.StateVariableDynamics)) :
-            sv = wrappedProblem.StateVariables[i]
-            newLhs = wrappedProblem.StateVariableDynamics[i].subs(valuesToDivideStateVariablesWith)
-            if hasattr(wrappedProblem.StateVariableDynamics[i], "subs") :
-                scaledEquation = wrappedProblem.StateVariableDynamics[i].subs(fullSubsDict)*newSvsInTermsOfOldSvs[i].diff(sv)
-            else :
-                scaledEquation = wrappedProblem.StateVariableDynamics[i]*newSvsInTermsOfOldSvs[i].diff(sv)
-            scaledEquationsOfMotion.append(scaledEquation)
-        newProblem._stateVariableDynamics = scaledEquationsOfMotion
-        
-        counter = 0
         bcSubsDict = {}
-        for sv in wrappedProblem.StateVariables :
-            newSvAtTf = newStateVariableSymbols[counter].subs(wrappedProblem.TimeSymbol, wrappedProblem.TimeFinalSymbol)
-            bcSubsDict[svAtTf[counter]] = newSvAtTf*valuesToDivideStateVariablesWith[sv]
-            counter = counter+1
-        bcs = []
-        
-        for bc in wrappedProblem.BoundaryConditions :
-            bcs.append(bc.subs(bcSubsDict))
-        newProblem._boundaryConditions = bcs
-        
-        updatedSubsDict = {}
+        # sv's and dynamics
+        newSvs = []
+        for sv in self.StateVariables:
+            newSv = SafeSubs(sv, symbolSubs)
+            newSvs.append(newSv)
+            dictOfOriginalSvsToNewSvs[sv] = newSv
+            bcSubsDict[sv.subs(self.TimeSymbol, self.TimeFinalSymbol)] = newSv.subs(newTimeSymbol, newFinalTimeSymbol)
 
-        # should the path cost get scaled?  I think so, but if you know better, or if it doesn't work...
-        newProblem._unIntegratedPathCost = SafeSubs(wrappedProblem.UnIntegratedPathCost, fullSubsDict)
-        #TODO: Scale the costs!  the way we are doing the transversality conditions are fine with them scaled here (I think)
-        newProblem._terminalCost = SafeSubs(wrappedProblem.TerminalCost, svAtTfSubsDict)
-        if newProblem.ScaleTime :
-            timeScaleFactor = cast(SymbolOrNumber, timeScaleFactor)
-            tf = wrappedProblem.TimeFinalSymbol
-            tau = sy.Symbol(r'\tau')
-            tauF = sy.Symbol(r'\tau_f')
-            tau0 = sy.Symbol(r'\tau_0')
-            timeSubs = {wrappedProblem.TimeInitialSymbol: tau0, wrappedProblem.TimeSymbol: tau, wrappedProblem.TimeFinalSymbol:tauF}
-            newProblem._controlVariables = SafeSubs(newProblem._controlVariables, timeSubs)
-            orgSv = newProblem._stateVariables
-            newProblem._stateVariables = SafeSubs(newProblem._stateVariables, timeSubs)
-            newProblem._unIntegratedPathCost = SafeSubs(newProblem._unIntegratedPathCost, timeSubs)
-            newProblem._terminalCost = SafeSubs(newProblem._terminalCost, timeSubs)
-            newProblem._boundaryConditions = SafeSubs(newProblem._boundaryConditions, timeSubs)
+        # control exp
+        badControlExpFix = {}
+        for cv in self.ControlVariables:
+            goodCv = SafeSubs(cv, symbolSubs)
+            newProblem.ControlVariables.append(goodCv)
+            badControlExpFix[SafeSubs(cv, dictOfOriginalSvsToNewSvs)] = goodCv
 
-            # the correct thing to do is to make your state and control variables functions of time in Sympy
-            # myCv = sy.Function('Control')(t)
-            # BUT, we need to substitute t with tau*tf
-            # BUT, we don't want myCv to be a function of tau*tf, just of tau
-            # I don't know how to make the sympy subs function not go deep like that, so, we substitute these back...
-            toSimple = {}
-            fromSimple = {}
-            for sv in newProblem._stateVariables :
-                adjustedSv = sv.subs(tau, wrappedProblem.TimeSymbol)
-                if not hasattr(sv, "name") :
-                    raise Exception('State variable ' + str(sv) + " needs to have a name attribute")
-                toSimple[adjustedSv] = sy.Symbol(sv.name) #type: ignore
-                fromSimple[toSimple[adjustedSv]] = sv
-                
-            for cv in newProblem._controlVariables :
-                adjustedCv = cv.subs(tau, wrappedProblem.TimeSymbol)
-                toSimple[adjustedCv] = sy.Symbol(cv.name)
-                fromSimple[toSimple[adjustedCv]] = cv
-                
-            realEom = []
-            #timeSubs = { wrappedProblem.TimeSymbol: tau*timeScaleFactor}
-            for i in range(0, len(newProblem.StateVariableDynamics)) :
-                # substitute in the dummy symbols in terms of something other than time or tau
-                thisUpdatedEom = SafeSubs(newProblem.StateVariableDynamics[i], toSimple)
-                # substitute in the scaled values
-                thisUpdatedEom = SafeSubs(thisUpdatedEom, timeSubs)*timeScaleFactor
-                # substitute back in the state variables in terms of time
-                thisUpdatedEom = SafeSubs(thisUpdatedEom, fromSimple)
-                realEom.append(thisUpdatedEom)
-                
-            newProblem._stateVariableDynamics = realEom
-            
-            newProblem._timeSymbol = tau 
-            newProblem._timeInitialSymbol = tau0
-            newProblem._timeFinalSymbol = tauF       
-            #newProblem.ControlVariables.append(cast(sy.Symbol, timeScaleFactor))
-        
-            #updatedSubsDict[tauF] = 1
-            #updatedSubsDict[tau0] = 0
-            for (k,v) in newProblem.SubstitutionDictionary.items():
-                newK = SafeSubs(k,timeSubs)
-                newV = SafeSubs(v, timeSubs)
-                updatedSubsDict[newK] = newV
-                #newProblem.SubstitutionDictionary[newK] = newV
-        for (k,v) in updatedSubsDict.items() :
-            newProblem.SubstitutionDictionary[k]=v
+        for i in range(0, len(self.StateVariables)):
+            oldSv = self.StateVariables[i]
+            dynamics = SafeSubs(self.StateVariableDynamics[i], dictOfOriginalSvsToNewSvs)*dtDTau
+            fixedDynamics = SafeSubs(dynamics, badControlExpFix)
+            newProblem.AddStateVariable(ProblemVariable(newSvs[i], fixedDynamics))
 
-        #return newProblem
+        # do the BC's (including transversality condition if already added)
+        for bc in self.BoundaryConditions :
+            newProblem._boundaryConditions.append(SafeSubs(bc,bcSubsDict))
+
+        # do the costs
+        newProblem._unIntegratedPathCost = SafeSubs(self.UnIntegratedPathCost, dictOfOriginalSvsToNewSvs)
+        dictOfFinalSymbols = {}
+        simpleNewTimeFinalSubsDict = {self.TimeSymbol: newFinalTimeSymbol}
+        oldTimeToTimeFinalSubsDict = {self.TimeSymbol: self.TimeFinalSymbol}
+        for sv in self.StateVariables:
+            dictOfFinalSymbols[sv.subs(oldTimeToTimeFinalSubsDict)] = sv.subs(simpleNewTimeFinalSubsDict)
+
+        #newProblem._terminalCost = SafeSubs(self.TerminalCost, dictOfOriginalSvsToNewSvs)
+        #newProblem._terminalCost = SafeSubs(newProblem._terminalCost, dictOfFinalSymbols)
+
+        newProblem._terminalCost = SafeSubs(self.TerminalCost, dictOfFinalSymbols)
+        # if there are costate variables, copy them (not sure if this is a good idea)
+        #TODO: See if this is valid
+
+        for j in range(0, len(self.CostateSymbols)):
+            newProblem.AddCostateVariable(ProblemVariable(SafeSubs(self.CostateSymbols[i], symbolSubs), SafeSubs(self.CostateDynamicsEquations[i], dictOfOriginalSvsToNewSvs)*dtDTau))
+
+        newProblem._timeScaleFactor =self.TimeFinalSymbol #TODO: User needs to set this to some degree
+        return newProblem        
+
 
     def ScaleExpressions(self, expressions : List[sy.Expr]) -> List[sy.Expr]:
-        """For some expression (or list of expressions), 
+        """For some expression (or list of expressions), scale them by the scaling factors set up in this problem.
+        If the problem is not scaled, the original expressions will be returned.
 
         Args:
             expressions (List[sy.Expr]): The expressions to scale.
@@ -490,16 +540,16 @@ class Problem(ABC) :
         Returns:
             List[sy.Expr]: The scaled expressions
         """
-        simpleSubsDict={} # for terminal cost
-        counter=0
-        for sv in self._wrappedProblem.StateVariables :
-            oldSv = sv
-            sv = self.StateVariables[counter]
-            simpleSubsDict[oldSv] = sv*self._scalingDict[oldSv]
-            simpleSubsDict[oldSv.subs(self._wrappedProblem.TimeSymbol, self._wrappedProblem.TimeFinalSymbol)] = sv.subs(self.TimeSymbol, self.TimeFinalSymbol)*self._scalingDict[oldSv]
-            counter=counter+1
+        # simpleSubsDict={} # for terminal cost
+        # counter=0
+        # for sv in self._unscaledStateVariables :
+        #     oldSv = sv
+        #     sv = self.StateVariables[counter]
+        #     simpleSubsDict[oldSv] = sv*self._scalingDict[oldSv]
+        #     simpleSubsDict[oldSv.subs(self._unscaledTimeSymbol, self._unscaledTimeFinalSymbol)] = sv.subs(self.TimeSymbol, self.TimeFinalSymbol)*self._scalingDict[oldSv]
+        #     counter=counter+1
 
-        return SafeSubs(expressions, simpleSubsDict)        
+        return SafeSubs(expressions, self._scalingDict)        
 
     def DescaleResults(self, resultsDictionary : Dict[sy.Symbol, List[float]]) -> Dict[sy.Symbol, List[float]] :
         """After evaluating the problem numerically, descale the results to be back in terms of the original units.
@@ -511,7 +561,7 @@ class Problem(ABC) :
             Dict[sy.Symbol, List[float]]: A new dictionary where the values are descaled AND the keys are the wrappedProblems's 
             state variables.
         """
-        if not hasattr(self, '_wrappedProblem '):
+        if self._descaleDict == None or len(self._descaleDict) == 0:
             return resultsDictionary
         returnDict = {} #type: Dict[sy.Symbol, List[float]]
         counter = 0
@@ -519,9 +569,330 @@ class Problem(ABC) :
             sv = key
             if sv in self.StateVariables and counter < len(self.StateVariables):
                 originalSv = self.StateVariables[self.StateVariables.index(sv)]
-                convertedArray = np.array(value, copy=True)* SafeSubs(self._scalingDict[originalSv], self.SubstitutionDictionary)
+                convertedArray = np.array(value, copy=True)* SafeSubs(self._descaleDict[originalSv], self.SubstitutionDictionary) #TODO: This is probably a problem
                 returnDict[originalSv] = convertedArray
                 counter = counter+1
             else :
                 returnDict[key]=value
+
         return returnDict
+
+    @staticmethod
+    def CreateCoVector(y, name : Optional[str] = None, t : Optional[sy.Symbol]=None) -> Vector:
+        """Creates a co-vector for the entered y.
+
+        Args:
+            y: A sympy Symbol, Function, Matrix, ImmutableDenseMatrix.  Can also be a list of Symbols or Functions.
+            name (str): The name to use for the co-vector variables.  The names of the original symbols will be appended as a subscript.
+            t (sy.Symbol, optional): If y ought to be a sy.Function instead of a constant Symbol, this is the independent variable for that Function. Defaults to None.
+
+        Returns:
+            same type as y if supported: the costate value for the entered y
+        """
+
+        # this function is less ugly...
+        if name == None :
+            name = r'\lambda'
+        name = cast(str, name) #TODO: shouldn't be necessary...
+        if((y is sy.Symbol or y is sy.Function or (hasattr(y, "is_Function") and y.is_Symbol) or (hasattr(y, "is_Symbol") and y.is_Function)) and (not isinstance(y, sy.Matrix) and not isinstance(y, sy.ImmutableDenseMatrix))):
+            if(t is None) :
+                return sy.Symbol(name + '_{'+y.name+'}', real=True)
+            else :
+                return (sy.Function(name + '_{'+y.name+'}', real=True)(t))
+
+        if(isinstance(y, list) ) :
+            coVector = []
+            for i in range(0, len(y)):
+                coVector.append(Problem.CreateCoVector(y[i], name, t))
+            return coVector
+
+        coVector = Vector.zeros(y.shape[0])
+        for i in range(0, y.shape[0]):
+            coVector[i] = Problem.CreateCoVector(y[i], name, t)
+        return coVector
+
+    @staticmethod
+    def CreateHamiltonianStatic(t, equationsOfMotionMatrix, unIntegratedPathCost, lambdas) -> sy.Expr:
+        """Creates an expression for the Hamiltonian.
+
+        Args:
+            lambdas: The costate variables. Defaults to None in which case 
+            they will be created.
+
+        Returns:
+            sy.Expr: The Hamiltonian.
+        """
+        if isinstance(lambdas, list) :
+            lambdas = Vector.fromArray(lambdas)
+
+        secTerm =  (lambdas.transpose()*equationsOfMotionMatrix)[0,0]
+        return secTerm+unIntegratedPathCost    
+
+    @staticmethod
+    def CreateHamiltonianControlExpressionsStatic( hamiltonian : sy.Expr, controlVariables) -> sy.Matrix:
+        return sy.Derivative(hamiltonian, controlVariables).doit()  
+
+    @staticmethod
+    def CreateControlExpressionsFromHamiltonian(hamiltonian : sy.Expr, controlVariables: List[sy.Symbol]) -> Dict[sy.Symbol, sy.Expr] :
+        ans = {}
+        for control in controlVariables:
+            controlExpression = Problem.CreateHamiltonianControlExpressionsStatic(hamiltonian, control)
+            thisAns = sy.solve(sy.Eq(0, controlExpression), control)
+            ans[control] = thisAns[0]
+        return ans
+
+    @staticmethod
+    def CreateLambdaDotConditionStatic(hamiltonian, stateVariables) :
+        return -1*sy.Derivative(hamiltonian, stateVariables).doit()
+
+    @staticmethod
+    def TransversalityConditionInTheDifferentialFormStatic(hamiltonian : sy.Expr, dtf, lambdasFinal : List[sy.Symbol], terminalCost : sy.Expr, tf : sy.Symbol, boundaryConditions : List[sy.Expr], finalStateVariables : List[sy.Symbol]) ->List[sy.Expr]:
+        """Creates the transversality conditions by with the differential form of the transversality conditions. 
+
+        Args:
+            hamiltonian (sy.Expr): The hamiltonian in terms of the costate values (as opposed to the control variable)
+            dtf (_type_): Either 0 if the final time is fixed, or a symbol indicating that the final time is not fixed.
+            lambdasFinal (List[sy.Symbol]): The costate symbols at the final time.  If None it will use the problems
+            CostateSymbols at the final time, and if those are not set, then an exception will be raised.
+
+        Returns:
+            List[sy.Expr]: The list of transversality conditions, that ought to be treated like normal boundary conditions.
+        """
+       
+        variationVector = []
+        valuesAtEndSymbols = []
+        if isinstance(terminalCost, float) :
+            valuesAtEndDiffTerm = 0
+        else :
+            valuesAtEndDiffTerm = sy.diff(terminalCost, tf).expand().simplify()
+
+        # work on the dPsi term
+        for bc in boundaryConditions:
+            expr = sy.diff(bc, tf).doit().powsimp().simplify()
+            if(expr != None and expr != 0) :
+                valuesAtEndSymbols.append(expr)
+
+        # create the variation vector
+        # If BC's are such that the final optimal value of the sv at tf is fixed (its value is a float and derivative is 0)
+        # then the variation vector must be 0 for that final value.
+        # If however, BC's are such that the final value of the state variable can be different along 
+        # the optimal trajectory, then the variation vector for it is the symbol d_stateValue/d_tf, which 
+        # for a well posed problem will give us several equations we can use as additional BC's when 
+        # we build the entire transversality condition equation and solve for coefficients to be 0
+        finalSvs = finalStateVariables
+        for sv in finalSvs :     
+            if sv in lambdasFinal :
+                continue  
+            dxfdtf = sy.diff(sv, tf).doit() 
+            notFixed = True # by default we should assume that state variables are not fixed
+            for bc in boundaryConditions :
+                derVal = bc.diff(tf)/dxfdtf   
+                # if it does not have is_float, then it is some other sympy expression which means the SV is variable at tf
+                # and if it does have is_float AND is_float, well then it truly is fixed and its variation is 0
+                notFixed = not(hasattr(derVal, "is_Number") and derVal.is_Number)
+                if not notFixed:
+                    break 
+                # we know that this sv can vary WRT the final time, so stop looking through the BC's and add
+                # dxfdtf to the variation vector
+                
+            if not notFixed : # so it is fixed...
+                dxfdtf = 0.0 # still need to apply the 0 case
+            variationVector.append(dxfdtf)
+
+        variationVector = Vector.fromArray(variationVector)    
+        lambdasFinalVector = Vector.fromArray(lambdasFinal)
+        overallCond = hamiltonian*dtf - (lambdasFinalVector.transpose()*variationVector)[0,0] + valuesAtEndDiffTerm
+        overallCond = overallCond.expand()
+        
+        for vv in variationVector :
+            found = False
+            for dPsiTerm in valuesAtEndSymbols:        
+                simpleSolve = sy.solve(dPsiTerm, vv)
+                if(len(simpleSolve) > 0) :
+                    overallCond = overallCond.subs(vv, simpleSolve[0])
+                    found = True
+            if found :
+                continue
+
+        transversalityConditions = []
+        for dx in variationVector :
+            coef = overallCond.coeff(dx)
+            if(coef != 0.0) :
+                transversalityConditions.append(coef)    
+
+        return transversalityConditions  
+
+    @staticmethod
+    def CreateLambdaDotEquationsStatic(hamiltonian : sy.Expr, t : sy.Symbol, stateVariables, lambdaSymbols) :
+        rightHandSides = -1*sy.Derivative(hamiltonian, stateVariables).doit()
+        eqs = []
+        for i in range(0, len(lambdaSymbols)) :
+            eqs.append(sy.Eq(lambdaSymbols[i].diff(t), rightHandSides[i]))
+        return eqs
+
+    @staticmethod
+    def TransversalityConditionsByAugmentationStatic(xf, terminalCost, boundaryConditions, nus : List[sy.Symbol], lambdasFinal : List[sy.Expr]) -> List[sy.Expr]:
+        termFunc = terminalCost + (Vector.fromArray(nus).transpose()*Vector.fromArray(boundaryConditions))[0,0]
+        transversalityConditions = []
+        i=0
+        for lmd in lambdasFinal :
+            cond = termFunc.diff(xf[i])
+            transversalityConditions.append(lmd-cond)
+            i=i+1
+
+        return transversalityConditions
+    
+    def CreateHamiltonian(self, lambdas = None) -> sy.Expr:
+        """Creates an expression for the Hamiltonian.
+
+        Args:
+            lambdas (optional): The costate variables. Defaults to None in which case 
+            they will be created.
+
+        Returns:
+            sy.Expr: The Hamiltonian.
+        """
+        return Problem.CreateHamiltonianStatic(self.TimeSymbol, self.EquationsOfMotionInMatrixForm(), self.UnIntegratedPathCost, lambdas)
+
+    def CreateHamiltonianControlExpressions(self, hamiltonian : sy.Expr) -> sy.Matrix:
+        """Creates the an expression that can be used to solve for values of the control scalars 
+        in terms of the co-state equations. Note that this is difficult to generalize symbolically 
+        as often there is some novel or unique operations that can be performed to simplify this 
+        expression more than what simply solving for the variables would yield.
+
+        Args:
+            hamiltonian (sy.Expr): The Hamiltonian.
+
+        Returns:
+            sy.Expr: An expression that can be used to solve for the control variables.
+        """
+        u = self.ControlVariablesInMatrixForm()
+        return Problem.CreateHamiltonianControlExpressionsStatic(hamiltonian, u)
+
+    def TransversalityConditionsByAugmentation(self, nus : List[sy.Symbol], lambdasFinal : List[sy.Expr]) -> List[sy.Expr]:
+        """Creates the transversality conditions by augmenting the terminal constraints to the terminal cost.
+
+        Args:
+            nus (List[sy.Symbol]): The constant parameters to augment the constraints to the terminal cost with.
+            lambdasFinal (List[sy.Symbol]): The costate symbols at the final time.  If None it will use the problems
+            CostateSymbols at the final time, and if those are not set, then an exception will be raised.
+
+        Returns:
+            List[sy.Expr]: The list of transversality conditions, that ought to be treated like normal boundary conditions. It is assumed that these 
+            expressions should be solved such that they equal 0
+        """
+        lambdasFinal = cast(List[sy.Expr], lambdasFinal)
+        termFunc = self.TerminalCost.subs(self.TimeSymbol, self.TimeFinalSymbol) + (Vector.fromArray(nus).transpose()*Vector.fromArray(self.BoundaryConditions))[0,0]
+        finalConditions = []
+        i=0
+        for x in self.StateVariables :
+            if i >= len(lambdasFinal) :
+                break
+            xf = x.subs(self.TimeSymbol, self.TimeFinalSymbol)
+            cond = termFunc.diff(xf)
+            finalConditions.append(lambdasFinal[i]-cond)
+            i=i+1
+
+        return finalConditions
+
+    def TransversalityConditionInTheDifferentialForm(self, hamiltonian : sy.Expr, dtf, lambdasFinal : List[sy.Symbol]) ->List[sy.Expr]:
+        problemToWorkWith = self
+        # if self._wrappedProblem != None :
+        #     problemToWorkWith = self._wrappedProblem                
+        finalSvs = SafeSubs(problemToWorkWith.StateVariables, {problemToWorkWith.TimeSymbol: problemToWorkWith.TimeFinalSymbol})
+        for lmd in lambdasFinal :
+            if lmd in finalSvs :
+                finalSvs.remove(lmd)
+        bcsToUse = problemToWorkWith.BoundaryConditions
+        if problemToWorkWith.TimeScaleFactor != None:
+            bcsToUse = bcsToUse[:-1]
+        transversalityConditions = Problem.TransversalityConditionInTheDifferentialFormStatic(hamiltonian, dtf, lambdasFinal, problemToWorkWith.TerminalCost, problemToWorkWith.TimeFinalSymbol, bcsToUse, finalSvs)
+        return transversalityConditions
+
+    def CreateLambdaDotCondition(self, hamiltonian) :
+        """For optimal control problems, create the differential equations for the 
+        costate scalars.
+
+        Args:
+            hamiltonian (_type_): The Hamiltonian equation of the system.
+
+        Returns:
+            _type_: The derivatives of the costate values in the same order as the state 
+            variables.
+        """
+        x = self.StateVariablesInMatrixForm()
+        return Problem.CreateLambdaDotConditionStatic(hamiltonian, x)
+
+    # @property
+    # def CostateSymbols(self) :
+    #     return self._costateSymbols
+
+    def EvaluateHamiltonianAndItsFirstTwoDerivatives(self, solution : Dict[sy.Expr, List[float]], tArray: Collection[float], hamiltonian : sy.Expr, controlSolved :Dict[sy.Expr, sy.Expr], moreSubs :Dict[sy.Symbol, float]) ->List[List[float]]:
+        """Evaluates the Hamiltonian and its first 2 derivatives.  This is useful to 
+        see if the related conditions are truly satisfied.
+
+        Args:
+            solution (Dict[sy.Expr, List[float]]): The solution of the optimal control problem.
+            tArray (List[float]): The time corresponding to the solution.
+            hamiltonian (sy.Expr): The Hamiltonian expression.
+            controlSolved ([sy.Expr, sy.Expr]): The Hamiltonian is likely in terms of the original control variable instead of the costate values.  If that is the case, this should be the expression of the control variables in terms of the costate variables.
+            moreSubs (Dict[sy.Expr, float]): Any additional values to substitute into the expressions (if the final time was solved for, or if there were other parameters not included in the problems SubstitutionDictionary).
+
+        Returns:
+            List[List[float]]: The values of the Hamiltonian, its first derivative and second derivative for the entered solution.
+        """
+
+        stateForEom = [self.TimeSymbol, *self.StateVariables, *self.CostateSymbols]
+
+        constantsSubsDict = self.SubstitutionDictionary
+
+        dHdu = self.CreateHamiltonianControlExpressions(hamiltonian).doit()[0]
+        d2Hdu2 = sy.diff(hamiltonian, self.ControlVariables[0], 2)
+        #d2Hdu2 =  self.CreateHamiltonianControlExpressions(dHdu).doit()[0] # another way to calculate it, but doesn't seem to be as good
+        toEval = hamiltonian.subs(controlSolved).subs(moreSubs).trigsimp(deep=True).subs(constantsSubsDict)
+        hamiltonianExpression = sy.lambdify(stateForEom, toEval)
+        solArray = []
+        for sv in self.StateVariables :
+            solArray.append(np.array(solution[sv]))
+        for sv in self.CostateSymbols :
+            solArray.append(np.array(solution[sv]))            
+        # for sv in self.CostateSymbols :
+        #     solArray.append(np.array(solution[sv]))
+        hamiltonianValues = hamiltonianExpression(tArray, *solArray)
+        dhduExp = sy.lambdify(stateForEom, dHdu.subs(controlSolved).subs(moreSubs).trigsimp(deep=True).subs(constantsSubsDict))
+        
+        dhduValues = dhduExp(tArray, *solArray)       
+        if not hasattr(dhduValues, "__len__") or len(dhduValues) != len(hamiltonianValues) :
+            dhduValues = [dhduValues] * len(hamiltonianValues)
+        d2hdu2Exp = sy.lambdify(stateForEom, d2Hdu2.subs(controlSolved).subs(moreSubs).trigsimp(deep=True).subs(constantsSubsDict))
+        d2hdu2Values = d2hdu2Exp(tArray, *solArray)
+        return [hamiltonianValues, dhduValues, d2hdu2Values]
+
+    #def ScaleProblem(self, newStateVariableSymbols : List[sy.Symbol], valuesToDivideStateVariablesWith : Dict[sy.Symbol, SymbolOrNumber], timeScaleFactor : Optional[SymbolOrNumber] = None):
+    #    newProblem = ProblemBase()
+    #    #newProblem.CostateSymbols.extend(self.CostateSymbols)
+    #    newProblem._scaleProblem(self, newStateVariableSymbols, valuesToDivideStateVariablesWith, timeScaleFactor)
+    #    return newProblem
+
+#TODO: Refactor the other xversality to have a static version...
+    # def TransversalityConditionsByAugmentation(self, nus : List[sy.Symbol], lambdasFinal : Optional[List[sy.Expr]]=None) -> List[sy.Expr]:
+    #     """Creates the transversality conditions by augmenting the terminal constraints to the terminal cost. Note that 
+    #     this calls the wrapped problems TransversalityConditionsByAugmentation and then scales that expression.
+
+    #     Args:
+    #         nus (List[sy.Symbol]): The constant parameters to augment the constraints to the terminal cost with.
+    #         lambdasFinal (List[sy.Symbol]): The costate symbols at the final time.  If None it will use the problems
+    #         CostateSymbols at the final time, and if those are not set, then an exception will be raised.
+
+    #     Returns:
+    #         List[sy.Expr]: The list of transversality conditions, that ought to be treated like normal boundary conditions.
+    #     """
+    #     if lambdasFinal == None :
+    #         if self.CostateSymbols != None and len(self.CostateSymbols) > 0:
+    #             lambdasFinal = SafeSubs(self.CostateSymbols, {self.TimeSymbol: self.TimeFinalSymbol})
+    #         else :
+    #             raise Exception("No source of costate symbols.") 
+
+    #     finalConditions = self._wrappedProblem.TransversalityConditionsByAugmentation(nus, lambdasFinal)
+    #     return self.ScaleExpressions(finalConditions)
+    

@@ -192,6 +192,7 @@ class OdeLambdifyHelper(LambdifyHelper):
             # eom's could be constant equations.  Check, add if it doesn't have subs
             if(hasattr(thisEom, "subs")) :
                 thisEom = SafeSubs(thisEom, self.SubstitutionDictionary).doit(deep=True)  
+                thisEom = SafeSubs(thisEom, self.SubstitutionDictionary).doit(deep=True)  
             eomList.append(thisEom)   
         # for thisEom in equationsOfMotion :
         #     # eom's could be constant equations.  Check, add if it doesn't have subs
@@ -314,10 +315,16 @@ class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
 
     @staticmethod
     def CreateFromProblem(problem : Problem) :
-        stateAndControl = [*problem.StateVariables, *problem.ControlVariables]
-        helper = OdeLambdifyHelperWithBoundaryConditions(problem.TimeSymbol, problem.TimeInitialSymbol, problem.TimeFinalSymbol, stateAndControl, problem.StateVariableDynamics, problem.BoundaryConditions, [], problem.SubstitutionDictionary)
-        if problem.ScaleTime and isinstance(problem.TimeScaleFactor, sy.Symbol):
-            helper.OtherArguments.append(problem.TimeScaleFactor)
+        stateAndControl = [*problem.StateVariables, *problem.CostateSymbols]
+        otherArgs = []
+        if(problem.TimeScaleFactor != None) :
+            otherArgs = [problem.TimeScaleFactor]
+        dynamics = []
+        dynamics.extend(problem.StateVariableDynamics)
+        dynamics.extend(problem.CostateDynamicsEquations)
+        helper = OdeLambdifyHelperWithBoundaryConditions(problem.TimeSymbol, problem.TimeInitialSymbol, problem.TimeFinalSymbol, stateAndControl, dynamics, problem.BoundaryConditions, otherArgs, problem.SubstitutionDictionary)
+        #if problem.TimeScaleFactor != None and isinstance(problem.TimeScaleFactor, sy.Symbol):
+        #    helper.OtherArguments.append(problem.TimeScaleFactor)
 
         return helper
     @property
@@ -350,7 +357,7 @@ class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
         stateForBoundaryConditions.extend(SafeSubs(self.NonTimeLambdifyArguments, {self.Time: self.t0}))
         stateForBoundaryConditions.append(self.tf)
         stateForBoundaryConditions.extend(SafeSubs(self.NonTimeLambdifyArguments, {self.Time: self.tf}))
-        stateForBoundaryConditions.extend(self.OtherArguments) #even if things are repeated, that is ok
+        #stateForBoundaryConditions.extend(self.OtherArguments) #even if things are repeated, that is ok
         #if not self.tf in stateForBoundaryConditions:
         #    stateForBoundaryConditions.append(self.tf)# This maybe shouldn't be needed, poorly formed problem if this happens
         #stateForBoundaryConditions.extend(fSolveOnlyParameters)

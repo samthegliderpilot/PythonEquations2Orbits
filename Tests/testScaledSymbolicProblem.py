@@ -1,35 +1,24 @@
 import unittest
 import sympy as sy
-from pyeq2orb.ScaledSymbolicProblem import ScaledSymbolicProblem
-from pyeq2orb.ScaledSymbolicProblem import SymbolicProblem
+from collections import OrderedDict
 from pyeq2orb.Problems.OneDimensionalMinimalWorkProblem import OneDWorkSymbolicProblem
 from pyeq2orb.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
 from scipy.integrate import solve_ivp # type: ignore
 from pyeq2orb.Numerical import ScipyCallbackCreators
 from pyeq2orb import SafeSubs
+from pyeq2orb.ProblemBase import Problem, ProblemVariable
+
 
 class testScaledSymbolicProblem(unittest.TestCase) :
-
-    def testVariableScaling(self) :
-        baseProblem = OneDWorkSymbolicProblem()
-        newSvs = ScaledSymbolicProblem.CreateBarVariables(baseProblem.StateVariables, baseProblem.TimeSymbol)
-        scalingDict = {}
-        scalingDict[baseProblem.StateVariables[0]]=2
-        scalingDict[baseProblem.StateVariables[1]]=3 
-        outerProblem = baseProblem.ScaleProblem(newSvs, scalingDict)
-        firstEomValue = outerProblem.StateVariableDynamics[0].subs({outerProblem.StateVariables[0]: 1.5, outerProblem.StateVariables[1]: 0.4})
-        secondEomValue=outerProblem.StateVariableDynamics[1].subs({outerProblem.ControlVariables[0]: 1.6})
-        self.assertEqual(3.0*0.4/2.0, firstEomValue, msg="first eom evaluated")
-        self.assertEqual(1.6/3.0, secondEomValue, msg="second eom evaluated")  
 
     def testCreatingDifferentialTransversalityCondition(self) :
         orgProblem = ContinuousThrustCircularOrbitTransferProblem()
         mu = orgProblem.Mu
         t = orgProblem.TimeSymbol
         newSvs = [sy.Function('rs')(t), sy.Function('rs')(t), sy.Function('vs')(t), sy.Function('lons')(t)]
-        subs = {orgProblem.StateVariables[0]: 4.0, orgProblem.StateVariables[1]: 3.0, orgProblem.StateVariables[2]: 5.0, orgProblem.StateVariables[3]: 7.0, }
-        problem = orgProblem.ScaleProblem(newSvs, subs)
-        lambdas = SymbolicProblem.CreateCoVector(problem.StateVariables, 'L', problem.TimeFinalSymbol)
+        subs = {orgProblem.StateVariables[0]: 4.0*newSvs[0], orgProblem.StateVariables[1]: 3.0*newSvs[1], orgProblem.StateVariables[2]: 5.0*newSvs[2], orgProblem.StateVariables[3]: 7.0*newSvs[3] }
+        problem = orgProblem.ScaleStateVariables(newSvs, subs)
+        lambdas = Problem.CreateCoVector(problem.StateVariables, 'L', problem.TimeFinalSymbol)
         r = problem.StateVariables[0].subs(problem.TimeSymbol, problem.TimeFinalSymbol)
         l_r = lambdas[0]
         l_v = lambdas[2]
@@ -44,9 +33,9 @@ class testScaledSymbolicProblem(unittest.TestCase) :
         orgProblem = ContinuousThrustCircularOrbitTransferProblem()
         t = sy.Symbol('t')
         newSvs = [sy.Function('rs')(t), sy.Function('rs')(t), sy.Function('vs')(t), sy.Function('lons')(t)]
-        subs = {orgProblem.StateVariables[0]: 4.0, orgProblem.StateVariables[1]: 3.0, orgProblem.StateVariables[2]: 5.0, orgProblem.StateVariables[3]: 7.0, }
-        problem = orgProblem.ScaleProblem(newSvs, subs)
-        lambdas = SymbolicProblem.CreateCoVector(problem.StateVariables, 'l', problem.TimeFinalSymbol)
+        subs = {orgProblem.StateVariables[0]: 4.0*newSvs[0], orgProblem.StateVariables[1]: 3.0*newSvs[1], orgProblem.StateVariables[2]: 5.0*newSvs[2], orgProblem.StateVariables[3]: 7.0*newSvs[3] }
+        problem = orgProblem.ScaleStateVariables(newSvs, subs)
+        lambdas = Problem.CreateCoVector(problem.StateVariables, 'l', problem.TimeFinalSymbol)
         l_r = lambdas[0]
         l_u = lambdas[1]
         l_v = lambdas[2]
@@ -142,3 +131,252 @@ class testScaledSymbolicProblem(unittest.TestCase) :
         self.assertAlmostEqual(descaled[problem.WrappedProblem.StateVariables[0]][-1], 42162080.85814935, delta=50, msg="radius check descaled")
         self.assertAlmostEqual(descaled[problem.WrappedProblem.StateVariables[1]][-1], 0.000, 2, msg="u check descaled")
         self.assertAlmostEqual(descaled[problem.WrappedProblem.StateVariables[2]][-1], 3074.735, 1, msg="v check descaled")    
+
+
+    def testScalingStateVariables(self):
+        t = sy.Symbol('t', real=True)
+        r = sy.Function('r')(t)
+        u = sy.Function('u')(t)
+        v = sy.Function('v')(t)
+        l = sy.Function('l')(t)
+        m = sy.Function('m')(t)
+        
+        r0 = sy.Symbol('r_0')
+        u0 = sy.Symbol('u_0')
+        v0 = sy.Symbol('v_0')
+        l0 = sy.Symbol('l_0')
+
+        m0 = sy.Symbol('m_0', real=True, positive=True)
+        mDot =sy.Symbol('\dot{m}', real=True, negative=True)
+        mu = sy.Symbol(r'\mu', real=True)
+        thrust =sy.Symbol('T', real=True, positive=True)
+        angle = sy.Function(r'\alpha')(t)
+
+        rDot = u
+        uDot = v*v/r - mu/(r*r) + thrust*sy.sin(angle)/(m0-mDot*t)
+        vDot = -u*v/r + (thrust*sy.cos(angle))/(m0-mDot*t)
+        lDot = v/r
+
+        prob = Problem()
+        prob.TimeSymbol =t 
+        prob.Time0Symbol = sy.Symbol('t_0')
+        prob.TimeFinalSymbol = sy.Symbol('t_f')
+        prob.AddStateVariable(ProblemVariable(r, rDot))
+        prob.AddStateVariable(ProblemVariable(u, uDot))
+        prob.AddStateVariable(ProblemVariable(v, vDot))
+        prob.AddStateVariable(ProblemVariable(l, lDot))
+
+        prob.ControlVariables.append(angle)
+
+        prob.TerminalCost = r.subs(t, prob.TimeFinalSymbol)
+
+        tf = prob.TimeFinalSymbol
+
+        bc1 = u.subs(t, tf)
+        bc2 = v.subs(t, tf) - 3000
+        prob.BoundaryConditions.append(bc1)
+        prob.BoundaryConditions.append(bc2)
+
+        # start scaling it
+        rb = sy.Function(r'\bar{r}')(t)
+        ub = sy.Function(r'\bar{u}')(t)
+        vb = sy.Function(r'\bar{v}')(t)
+        lb = sy.Function(r'\bar{l}')(t)
+        newVariables = [rb, ub, vb, lb]
+        scalingDict = {r:r0*rb, u:v0*ub, v:v0*vb, l:lb}
+
+        #DO IT
+        scaledProblem = prob.ScaleStateVariables(newVariables, scalingDict)
+
+        # from the book (not scaling by time, so tf is 1 and t instead of \tau)
+        eta = v0/r0
+        simpleSubsDict = {r:rb*r0, u:ub*v0, v:vb*v0, l:lb*1}
+        expectedRDot = SafeSubs(rDot/r0, simpleSubsDict)
+        expectedUDot = SafeSubs(uDot/v0, simpleSubsDict)
+        expectedVDot = SafeSubs(vDot/v0, simpleSubsDict)
+        expectedLDot = SafeSubs(lDot/1, simpleSubsDict)
+
+        self.assertTrue((expectedRDot - scaledProblem.StateVariableDynamics[0]).is_zero, msg="rDot")
+        self.assertTrue((expectedUDot - scaledProblem.StateVariableDynamics[1]).is_zero, msg="uDot")
+        self.assertTrue((expectedVDot - scaledProblem.StateVariableDynamics[2]).is_zero, msg="vDot")        
+        self.assertTrue((expectedLDot - scaledProblem.StateVariableDynamics[3]).is_zero, msg="lDot")
+
+        bc1Expected = ub.subs(t, tf)*v0
+        bc2Expected = vb.subs(t, tf)*v0-3000
+        self.assertTrue((bc1Expected - scaledProblem.BoundaryConditions[0]).is_zero, msg="u_f bc")
+        self.assertTrue((bc2Expected - scaledProblem.BoundaryConditions[1]).is_zero, msg="v_f bc")
+
+        self.assertTrue((rb.subs(t, tf)-scaledProblem.TerminalCost).is_zero, msg="cost")        
+
+    def testScalingTime(self):
+        t = sy.Symbol('t', real=True)
+        r = sy.Function('r')(t)
+        u = sy.Function('u')(t)
+        v = sy.Function('v')(t)
+        l = sy.Function('l')(t)
+        m = sy.Function('m')(t)
+        
+        r0 = sy.Symbol('r_0')
+        u0 = sy.Symbol('u_0')
+        v0 = sy.Symbol('v_0')
+        l0 = sy.Symbol('l_0')
+
+        m0 = sy.Symbol('m_0', real=True, positive=True)
+        mDot =sy.Symbol('\dot{m}', real=True, negative=True)
+        mu = sy.Symbol(r'\mu', real=True)
+        thrust =sy.Symbol('T', real=True, positive=True)
+        angle = sy.Function(r'\alpha')(t)
+
+        rDot = u
+        uDot = v*v/r - mu/(r*r) + thrust*sy.sin(angle)/(m0-mDot*t)
+        vDot = -u*v/r + (thrust*sy.cos(angle))/(m0-mDot*t)
+        lDot = v/r
+
+        prob = Problem()
+        prob.TimeSymbol =t 
+        prob.TimeInitialSymbol = sy.Symbol('t_0', real=True)
+        prob.TimeFinalSymbol = sy.Symbol('t_f', real=True)
+        prob.AddStateVariable(ProblemVariable(r, rDot))
+        prob.AddStateVariable(ProblemVariable(u, uDot))
+        prob.AddStateVariable(ProblemVariable(v, vDot))
+        prob.AddStateVariable(ProblemVariable(l, lDot))
+
+        prob.ControlVariables.append(angle)
+
+        prob.TerminalCost = r.subs(t, prob.TimeFinalSymbol)
+
+        tf = prob.TimeFinalSymbol
+
+        bc1 = u.subs(t, tf)
+        bc2 = v.subs(t, tf) - 3000
+        prob.BoundaryConditions.append(bc1)
+        prob.BoundaryConditions.append(bc2)
+
+        tau = sy.Symbol('TT', real=True)
+        tau0 = sy.Symbol('TT_0', real=True)
+        tauF = sy.Symbol('TT_f', real=True)
+        tauInTermsOfT = tau * tf
+
+        rb = sy.Function(r'r')(tau)
+        ub = sy.Function(r'u')(tau)
+        vb = sy.Function(r'v')(tau)
+        lb = sy.Function(r'l')(tau)
+        newVariables = [rb, ub, vb, lb]
+        scalingDict = {}
+
+        #DO IT
+        scaledProblem = prob.ScaleTime(tau, tau0, tauF, tauInTermsOfT)
+
+        # from the book (not scaling by time)
+        eta = v0/r0
+        
+        simpleSubsDict =OrderedDict()
+        simpleSubsDict[r] = rb
+        simpleSubsDict[u] = ub
+        simpleSubsDict[v] = vb
+        simpleSubsDict[l] = lb
+        simpleSubsDict[t] = tau*tf
+        #simpleSubsDict[angle.subs(t, tau*tf)] = angle.subs(t, tau)
+        expectedRDot = SafeSubs(rDot*tf, simpleSubsDict)
+        expectedUDot = SafeSubs(uDot*tf, simpleSubsDict).subs(angle.subs(t, tau*tf), angle.subs(t, tau))
+        expectedVDot = SafeSubs(vDot*tf, simpleSubsDict).subs(angle.subs(t, tau*tf), angle.subs(t, tau))
+        expectedLDot = SafeSubs(lDot*tf, simpleSubsDict)
+
+        self.assertTrue((expectedRDot - scaledProblem.StateVariableDynamics[0]).is_zero, msg="rDot")
+        self.assertTrue((expectedUDot - scaledProblem.StateVariableDynamics[1]).is_zero, msg="uDot")
+        self.assertTrue((expectedVDot - scaledProblem.StateVariableDynamics[2]).is_zero, msg="vDot")        
+        self.assertTrue((expectedLDot - scaledProblem.StateVariableDynamics[3]).is_zero, msg="lDot")
+
+        bc1Expected = ub.subs(tau, tauF)
+        bc2Expected = vb.subs(tau, tauF)-3000
+        self.assertTrue((bc1Expected - scaledProblem.BoundaryConditions[0]).is_zero, msg="u_f bc")
+        self.assertTrue((bc2Expected - scaledProblem.BoundaryConditions[1]).is_zero, msg="v_f bc")
+
+        self.assertTrue((rb.subs(tau, tauF)-scaledProblem.TerminalCost).is_zero, msg="cost")           
+
+    def testScalingStateAndTime(self):
+        t = sy.Symbol('t', real=True)
+        r = sy.Function('r')(t)
+        u = sy.Function('u')(t)
+        v = sy.Function('v')(t)
+        l = sy.Function('l')(t)
+        m = sy.Function('m')(t)
+        
+        r0 = sy.Symbol('r_0')
+        u0 = sy.Symbol('u_0')
+        v0 = sy.Symbol('v_0')
+        l0 = sy.Symbol('l_0')
+
+        m0 = sy.Symbol('m_0', real=True, positive=True)
+        mDot =sy.Symbol('\dot{m}', real=True, negative=True)
+        mu = sy.Symbol(r'\mu', real=True)
+        thrust =sy.Symbol('T', real=True, positive=True)
+        angle = sy.Function(r'\alpha')(t)
+
+        rDot = u
+        uDot = v*v/r - mu/(r*r) + thrust*sy.sin(angle)/(m0-mDot*t)
+        vDot = -u*v/r + (thrust*sy.cos(angle))/(m0-mDot*t)
+        lDot = v/r
+
+        prob = Problem()
+        prob.TimeSymbol =t 
+        prob.TimeInitialSymbol = sy.Symbol('t_0', real=True)
+        prob.TimeFinalSymbol = sy.Symbol('t_f', real=True)
+        prob.AddStateVariable(ProblemVariable(r, rDot))
+        prob.AddStateVariable(ProblemVariable(u, uDot))
+        prob.AddStateVariable(ProblemVariable(v, vDot))
+        prob.AddStateVariable(ProblemVariable(l, lDot))
+
+        prob.ControlVariables.append(angle)
+        
+        tf = prob.TimeFinalSymbol
+
+        prob.TerminalCost = r.subs(t, prob.TimeFinalSymbol)
+
+        bc1 = u.subs(t, tf)
+        bc2 = v.subs(t, tf) - 3000
+        prob.BoundaryConditions.append(bc1)
+        prob.BoundaryConditions.append(bc2)
+
+        tau = sy.Symbol('TT', real=True)
+        tau0 = sy.Symbol('TT_0', real=True)
+        tauF = sy.Symbol('TT_f', real=True)
+        tauInTermsOfT = tau * tf
+
+        rb = sy.Function(r'\bar{r}')(tau)
+        ub = sy.Function(r'\bar{u}')(tau)
+        vb = sy.Function(r'\bar{v}')(tau)
+        lb = sy.Function(r'\bar{l}')(tau)
+        newVariables = [rb, ub, vb, lb]
+        scalingDict = {r:r0*rb, u:v0*ub, v:v0*vb, l:lb}
+
+        #DO IT
+        scaledStateProblem = prob.ScaleStateVariables(newVariables, scalingDict)
+        scaledProblem = scaledStateProblem.ScaleTime(tau, tau0, tauF, tauInTermsOfT)
+
+        # from the book (not scaling by time)
+        eta = v0/r0
+        
+        simpleSubsDict =OrderedDict()
+        simpleSubsDict[r] = rb*r0
+        simpleSubsDict[u] = ub*v0
+        simpleSubsDict[v] = vb*v0
+        simpleSubsDict[l] = lb*1
+        simpleSubsDict[t] = tau*tf
+        #simpleSubsDict[angle.subs(t, tau*tf)] = angle.subs(t, tau)
+        expectedRDot = SafeSubs(rDot*tf/r0, simpleSubsDict)
+        expectedUDot = SafeSubs(uDot*tf/v0, simpleSubsDict).subs(angle.subs(t, tau*tf), angle.subs(t, tau))
+        expectedVDot = SafeSubs(vDot*tf/v0, simpleSubsDict).subs(angle.subs(t, tau*tf), angle.subs(t, tau))
+        expectedLDot = SafeSubs(lDot*tf/1, simpleSubsDict)
+
+        self.assertTrue((expectedRDot - scaledProblem.StateVariableDynamics[0]).is_zero, msg="rDot")
+        self.assertTrue((expectedUDot - scaledProblem.StateVariableDynamics[1]).is_zero, msg="uDot")
+        self.assertTrue((expectedVDot - scaledProblem.StateVariableDynamics[2]).is_zero, msg="vDot")        
+        self.assertTrue((expectedLDot - scaledProblem.StateVariableDynamics[3]).is_zero, msg="lDot")
+
+        bc1Expected = ub.subs(tau, tauF)*v0
+        bc2Expected = vb.subs(tau, tauF)*v0-3000
+        self.assertTrue((bc1Expected - scaledProblem.BoundaryConditions[0]).is_zero, msg="u_f bc")
+        self.assertTrue((bc2Expected - scaledProblem.BoundaryConditions[1]).is_zero, msg="v_f bc")      
+
+        self.assertTrue((rb.subs(t, tf)-scaledProblem.TerminalCost).is_zero, msg="cost")             

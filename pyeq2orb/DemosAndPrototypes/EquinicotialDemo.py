@@ -10,6 +10,7 @@ from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
 from pyeq2orb.Coordinates.KeplerianModule import KeplerianElements
 from pyeq2orb.Coordinates.ModifiedEquinoctialElementsModule import ModifiedEquinoctialElements, CreateSymbolicElements
 from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
+from pyeq2orb.ProblemBase import ProblemVariable
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
 from pyeq2orb.Numerical.LambdifyHelpers import LambdifyHelper, OdeLambdifyHelper, OdeLambdifyHelperWithBoundaryConditions
 from typing import List, Dict, cast, Any
@@ -76,10 +77,9 @@ class HowManyImpulses(SymbolicProblem) :
 
         elementsList = elements.ToArray()
         for i in range(0, len(elementsList)) :
-            self.StateVariableDynamics.append(stateDynamics[i])
-            self.StateVariables.append(elements[i])
-        self.StateVariableDynamics.append(-1*thrust*throttle/(isp*g))
-        self.StateVariables.append(m)
+            self.AddStateVariable(ProblemVariable(elements[i], stateDynamics[i]))
+        self.AddStateVariable(ProblemVariable(m,-1*thrust*throttle/(isp*g)))
+        
         self.ControlVariables.append(azi)
         self.ControlVariables.append(elv)
         self.ControlVariables.append(throttle)

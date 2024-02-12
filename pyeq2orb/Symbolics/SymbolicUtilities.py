@@ -1,5 +1,5 @@
 import sympy as sy
-from typing import Optional, List, cast, Dict
+from typing import Optional, List, cast, Dict, Hashable
 
 def MakeMatrixOfSymbols(baseString : str, rows: int, cols : int,funcArgs : Optional[List[sy.Expr]]= None) :
     endString = ''
@@ -34,13 +34,13 @@ def SafeSubs(thingWithSymbols, substitutionDictionary : Dict) :
     if isinstance(thingWithSymbols, Dict) :
         for (k,v) in thingWithSymbols.items() :
             thingWithSymbols[k] = SafeSubs(v, substitutionDictionary)
-        return
+        return thingWithSymbols
 
     if isinstance(thingWithSymbols, float) or isinstance(thingWithSymbols, int) or ((hasattr(thingWithSymbols, "is_Float") and thingWithSymbols.is_Float)):
         return thingWithSymbols # it's float, send it back
 
     if hasattr(thingWithSymbols, "subs") :
-        if thingWithSymbols in substitutionDictionary :
+        if isinstance(thingWithSymbols, Hashable) and thingWithSymbols in substitutionDictionary :
             return substitutionDictionary[thingWithSymbols]
         finalExp = thingWithSymbols
         finalExp = finalExp.subs(substitutionDictionary).doit(deep=True)

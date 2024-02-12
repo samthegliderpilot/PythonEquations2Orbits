@@ -13,9 +13,9 @@ from pyeq2orb.ForceModels.TwoBodyForce import CreateTwoBodyMotionMatrix, CreateT
 from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
 from pyeq2orb.Coordinates.KeplerianModule import KeplerianElements
 import pyeq2orb.Coordinates.KeplerianModule as KepModule
+from pyeq2orb.ProblemBase import Problem, ProblemVariable
 import pyeq2orb.Coordinates.ModifiedEquinoctialElementsModule as mee
 from IPython.display import display
-from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 from pyeq2orb.Numerical.LambdifyHelpers import OdeLambdifyHelperWithBoundaryConditions
 import scipyPaperPrinter as jh #type: ignore
 from scipy.integrate import solve_ivp #type: ignore
@@ -60,29 +60,47 @@ for i in range(0, 3):
     fullSubsDictionary[fHatSy[i]] = rotMatrix.col(0)[i]
     fullSubsDictionary[gHatSy[i]] = rotMatrix.col(1)[i]
     fullSubsDictionary[wHatSy[i]] = rotMatrix.col(2)[i]
+
+initialKepElements = KeplerianElements(7000, 0.0, 28.5*math.pi/180.0, 0, 0, -2.274742851, muVal)
+initialModifiedEquiElements = mee.ConvertKeplerianToEquinoctial(initialKepElements)
+initialEquiElements = mee.EquinoctialElementsHalfITrueLongitude.FromModifiedEquinoctialElements(initialModifiedEquiElements)
+a0V = float(initialEquiElements.SemiMajorAxis)
+h0V = float(initialEquiElements.EccentricitySinTermH)
+k0V = float(initialEquiElements.EccentricityCosTermK)
+p0V = float(initialEquiElements.InclinationSinTermP)
+q0V = float(initialEquiElements.InclinationCosTermQ)
+lon0= float(initialEquiElements.TrueLongitude)
+#t0V = 2444239.0 * 86400
+
+afV = 42000
+hfV = 0.0
+kfV = 0.001
+pfV = math.tan((1*math.pi/180.0)/2)
+qfV = 0.0
+tfV = 0.0    
 #%%
-F = sy.Symbol('F', real=True)
-G = sy.Symbol('G')
+#F = sy.Symbol('F', real=True)
+#G = sy.Symbol('G')
 L = simpleBoringEquiElements.TrueLongitude
-r = a*G**2/(1+h*sy.sin(L)+k*sy.cos(L))
+# r = a*G**2/(1+h*sy.sin(L)+k*sy.cos(L))
 
-B = 1/(1+G)
+# B = 1/(1+G)
 
-cosL = (a/r)*((1-B*h**2)*sy.cos(F)+h*k*B*sy.sin(F)-k)
-sinL = (a/r)*(h*k*B*sy.cos(F)+(1-B*k**2)*sy.sin(F)-h)
-sf = h+(r/a)*((1-B*h**2)*sy.sin(L)-h*k*B*sy.cos(L))/(G)
-cf = k+(r/a)*((1-B*k**2)*sy.cos(L)-h*k*B*sy.sin(L))/(G)
-drdk_F = -a*cf
-drdk_L = -r*(2*a*k+r*sy.cos(L))/(a*G**2)
+# cosL = (a/r)*((1-B*h**2)*sy.cos(F)+h*k*B*sy.sin(F)-k)
+# sinL = (a/r)*(h*k*B*sy.cos(F)+(1-B*k**2)*sy.sin(F)-h)
+# sf = h+(r/a)*((1-B*h**2)*sy.sin(L)-h*k*B*sy.cos(L))/(G)
+# cf = k+(r/a)*((1-B*k**2)*sy.cos(L)-h*k*B*sy.sin(L))/(G)
+# drdk_F = -a*cf
+# drdk_L = -r*(2*a*k+r*sy.cos(L))/(a*G**2)
 
 
 
-jh.showEquation(r'\frac{dr}{dk}_F', (drdk_F/k).simplify())
-jh.showEquation(r'\frac{dr}{dk}_L', (drdk_L/k).simplify())
-jh.showEquation("s", (drdk_F - drdk_L).simplify().trigsimp(deep=True))
+# jh.showEquation(r'\frac{dr}{dk}_F', (drdk_F/k).simplify())
+# jh.showEquation(r'\frac{dr}{dk}_L', (drdk_L/k).simplify())
+# jh.showEquation("s", (drdk_F - drdk_L).simplify().trigsimp(deep=True))
 
-r_f = a*(1-k*cf-h*sf)
-jh.showEquation("s",(r-r_f).simplify())
+# r_f = a*(1-k*cf-h*sf)
+# jh.showEquation("s",(r-r_f).simplify())
 
 #%%
 
@@ -114,7 +132,7 @@ def CreatePerturbationMatrixWithTrueLongitude(eelm, subsDict : Dict[sy.Expr, Sym
     K = (1+p**2+q**2)
     n = eelm.NSy
     subsDict[n] = eelm.N
-    GExp = G
+    GExp = sy.sqrt(1-h*h-k*k)
     G = sy.Function("G")(h, k)
     subsDict[G] = GExp
 
@@ -269,16 +287,42 @@ lonDot = sy.Matrix([[0],[0],[0],[0],[0],[1]])*UnperturbedTrueLongitudeTimeDeriva
 
 r = simpleBoringEquiElements.ROverA * simpleBoringEquiElements.SemiMajorAxis
 jh.showEquation("r", r)
+problem = Problem()
+for (k,v) in fullSubsDictionary.items():
+    problem.SubstitutionDictionary[k] = v
+problem.TimeSymbol = t
+problem.TimeInitialSymbol = sy.Symbol('t_0', real=True)
+problem.TimeFinalSymbol = sy.Symbol('t_f', real=True)
+z0 = SafeSubs(z, {t: problem.TimeInitialSymbol})
+zF = SafeSubs(z, {t: problem.TimeFinalSymbol})
+
+problem.BoundaryConditions.append(zF[0]-afV)
+problem.BoundaryConditions.append(zF[1]-hfV)
+problem.BoundaryConditions.append(zF[2]-kfV)
+problem.BoundaryConditions.append(zF[3]-pfV)
+problem.BoundaryConditions.append(zF[4]-qfV)
+problem.BoundaryConditions.append(zF[5]*0)
 
 #%%
 zDot = B*uSy*accelSy + lonDot
-
 for i in range(0, 6):
     for j in range(0, 3):
         jh.showEquation("B_{" + str(i+1) +"," +str(j+1) + "}", B[i,j])
 # zDot = M*uSy*accelSy + sy.Matrix([[0,0,0,0,0,taDifeq]]).transpose()
 #%%
 
+
+
+for i in range(0, len(x)):
+    problem.AddStateVariable(ProblemVariable(x[i], zDot[i]))
+
+tau = sy.Symbol('tt')
+originalProblem = problem
+problem = problem.ScaleTime(tau, sy.Symbol('tt_0'), sy.Symbol('tt_f'), tau*problem.TimeFinalSymbol)
+
+zDot = problem.EquationsOfMotionInMatrixForm()
+x = sy.Matrix(problem.StateVariables)
+B = SafeSubs(B, {t: tau})
 def recurseArgs(someFunction, argsICareAbout, existingArgs) : 
     recursed = False
     if someFunction in argsICareAbout and not someFunction in existingArgs:
@@ -317,7 +361,7 @@ display(mFullSymbol)
 #xDot = g1Sy+ aSy*mFullSymbol*uSy
 #jh.printMarkdown("Filling in our Hamiltonian, we get the following expression for our optimal thrust direction:")
 #lambdas = sy.Matrix([[r'\lambda_{1}',r'\lambda_{2}',r'\lambda_{3}',r'\lambda_{4}',r'\lambda_{5}']]).transpose()
-lambdas = SymbolicProblem.CreateCoVector(x, r'\lambda', t)
+lambdas = Problem.CreateCoVector(x, r'\lambda', problem.TimeSymbol)
 #lambdasSymbol = sy.Symbol(r'\lambda^T', commutative=False)
 hamiltonian = lambdas.transpose()*zDot
 # print(hamiltonian)
@@ -355,7 +399,7 @@ for expr in lmdDotArray:
     break
 
 # now we try to integrate
-#%%
+
 accelVal = 9.8e-5
 fullSubsDictionary[accelSy] = accelVal
 fullSubsDictionary[mu]=muVal
@@ -378,56 +422,26 @@ for k,v in fullSubsDictionary.items() :
 fullSubsDictionary = actualSubsDic
 
 
-
-
-initialKepElements = KeplerianElements(7000, 0.0, 28.5*math.pi/180.0, 0, 0, -2.274742851, muVal)
-initialModifiedEquiElements = mee.ConvertKeplerianToEquinoctial(initialKepElements)
-initialEquiElements = mee.EquinoctialElementsHalfITrueLongitude.FromModifiedEquinoctialElements(initialModifiedEquiElements)
-a0V = float(initialEquiElements.SemiMajorAxis)
-h0V = float(initialEquiElements.EccentricitySinTermH)
-k0V = float(initialEquiElements.EccentricityCosTermK)
-p0V = float(initialEquiElements.InclinationSinTermP)
-q0V = float(initialEquiElements.InclinationCosTermQ)
-lon0= float(initialEquiElements.TrueLongitude)
-#t0V = 2444239.0 * 86400
-
-afV = 42000
-hfV = 0.0
-kfV = 0.001
-pfV = math.tan((1*math.pi/180.0)/2)
-qfV = 0.0
-tfV = 0.0
-
-
-
 #%%
 
 
-problem = SymbolicProblem()
-problem.TimeSymbol = t
-problem.TimeInitialSymbol = sy.Symbol('t_0', real=True)
-problem.TimeFinalSymbol = sy.Symbol('t_f', real=True)
-z0 = SafeSubs(z, {t: problem.TimeInitialSymbol})
-zF = SafeSubs(z, {t: problem.TimeFinalSymbol})
-problem.StateVariables.extend(x)
-problem.StateVariables.extend(lambdas)
-problem.StateVariableDynamics.extend(zDot)
-problem.StateVariableDynamics.extend(lmdDotArray)
 
-problem.BoundaryConditions.append(zF[0]-afV)
-problem.BoundaryConditions.append(zF[1]-hfV)
-problem.BoundaryConditions.append(zF[2]-kfV)
-problem.BoundaryConditions.append(zF[3]-pfV)
-problem.BoundaryConditions.append(zF[4]-qfV)
-problem.BoundaryConditions.append(zF[5]*0)
+
+for i in range(0, len(lambdas)):
+    problem.AddCostateVariable(ProblemVariable(lambdas[i], lmdDotArray[i]))
+# problem.StateVariables.extend(x)
+# problem.StateVariables.extend(lambdas)
+# problem.StateVariableDynamics.extend(zDot)
+# problem.StateVariableDynamics.extend(lmdDotArray)
+
+
 for (k,v) in fullSubsDictionary.items():
     problem.SubstitutionDictionary[k] =v
 
 scaleDict = {} #type: Dict[sy.Symbol, SymbolOrNumber]
 for sv in problem.StateVariables :
     scaleDict[sv] = 1.0
-originalProblem = problem
-problem = problem.ScaleProblem(problem.StateVariables, scaleDict, problem.TimeFinalSymbol)
+
 
 lmdHelper = OdeLambdifyHelperWithBoundaryConditions.CreateFromProblem(problem)
 
@@ -444,11 +458,11 @@ lmdHelper.SubstitutionDictionary[originalProblem.TimeFinalSymbol] = originalProb
 # lmdHelper.BoundaryConditionExpressions.append(zF[4]-qfV)
 # lmdHelper.BoundaryConditionExpressions.append(zF[5]*0)
 lmdHelper.SymbolsToSolveForWithBoundaryConditions.append(z0[5].subs(originalProblem.TimeInitialSymbol, lmdHelper.t0))
-lmdHelper.SymbolsToSolveForWithBoundaryConditions.append(lambdas[0].subs(t, lmdHelper.t0))
-lmdHelper.SymbolsToSolveForWithBoundaryConditions.append(lambdas[1].subs(t, lmdHelper.t0))
-lmdHelper.SymbolsToSolveForWithBoundaryConditions.append(lambdas[2].subs(t, lmdHelper.t0))
-lmdHelper.SymbolsToSolveForWithBoundaryConditions.append(lambdas[3].subs(t, lmdHelper.t0))
-lmdHelper.SymbolsToSolveForWithBoundaryConditions.append(lambdas[4].subs(t, lmdHelper.t0))
+lmdHelper.SymbolsToSolveForWithBoundaryConditions.append(lambdas[0].subs(tau, lmdHelper.t0))
+lmdHelper.SymbolsToSolveForWithBoundaryConditions.append(lambdas[1].subs(tau, lmdHelper.t0))
+lmdHelper.SymbolsToSolveForWithBoundaryConditions.append(lambdas[2].subs(tau, lmdHelper.t0))
+lmdHelper.SymbolsToSolveForWithBoundaryConditions.append(lambdas[3].subs(tau, lmdHelper.t0))
+lmdHelper.SymbolsToSolveForWithBoundaryConditions.append(lambdas[4].subs(tau, lmdHelper.t0))
 #lmdHelper.SymbolsToSolveForWithBoundaryConditions.append(lambdas[5].subs(t, lmdHelper.t0))
 #lmdHelper.OtherArguments.append(lambdas[5].subs(t, lmdHelper.t0))
 # #%%
@@ -462,9 +476,10 @@ lmdHelper.SymbolsToSolveForWithBoundaryConditions.append(lambdas[4].subs(t, lmdH
 
 lmdGuess = [4.675229762, 5.413413947e2, -9.202702084e3, 1.778011878e1, -2.268455855e4, -2.274742851]#-2.2747428]
 #lmdGuess = [4.675229762, 8.413413947e2, -9.202702084e3, 1.778011878e1, -2.260455855e4, -2.2747428]
-fullInitialState = [a0V, h0V, k0V, p0V, q0V]
+fullInitialState = [a0V, h0V, k0V, p0V, q0V, lon0]
 fullInitialState.extend(lmdGuess)
 print("read to lambdify")
+
 #%%
 tArray = np.linspace(0.0, 1.0, 800)
 initialState = [a0V, h0V,k0V, p0V, q0V, lon0 ]
@@ -476,7 +491,7 @@ from pyeq2orb.Numerical import ScipyCallbackCreators #type: ignore
 ipvCallback = lmdHelper.CreateSimpleCallbackForSolveIvp()
 def realIpvCallback(initialStateInCb) :
     #print(initialStateInCb)
-    solution = solve_ivp(ipvCallback, [tArray[0], tArray[-1]], initialStateInCb, t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
+    solution = solve_ivp(ipvCallback, [tArray[0], tArray[-1]], initialStateInCb[0:-1], args=(initialStateInCb[-1],), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
     solutionDictionary = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(lmdHelper.NonTimeLambdifyArguments, solution)
     return solution
 
@@ -487,7 +502,7 @@ solverCb = lmdHelper.createCallbackToSolveForBoundaryConditions(realIpvCallback,
 #print(ipvCallback(0, [r0, u0, v0, lon0, 1.0, 0.001, 0.001, 0.0]))
 #solution = solve_ivp(ipvCallback, [tArray[0], tArray[-1]], initialState, t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
 
-fSolveSol = fsolve(solverCb, initialState[5:12], epsfcn=0.0001, full_output=True, factor=0.01)
+fSolveSol = fsolve(solverCb, initialState[5:11], epsfcn=0.0001, full_output=True, factor=0.01)
 
 print(fSolveSol)
 
@@ -563,7 +578,6 @@ for i in range(0, 6):
         jh.showEquation(z[i], (solution.y[i][-1]*180/math.pi)%360)
     else:
         jh.showEquation(z[i], solution.y[i][-1])
-#%%
 
 
 import plotly.graph_objects as go #type: ignore
@@ -585,3 +599,5 @@ fig.update_layout(margin=dict(l=0, r=0, b=0, t=30))
 fig['layout']['sliders'][0]['pad']=dict(r= 0, t= 0, b=0, l=0)
 fig['layout']['updatemenus'][0]['pad']=dict(r= 0, t= 0, b=0, l=0)
 fig.show()  
+
+
