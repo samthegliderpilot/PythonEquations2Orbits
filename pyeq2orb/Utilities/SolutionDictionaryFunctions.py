@@ -1,7 +1,7 @@
 from typing import Dict, List, OrderedDict
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
 import sympy as sy
-def GetValueFromStateDictionaryAtIndex(fullSolutionDictionary : Dict[sy.Expr, List[float]], index : int) ->Dict[sy.Expr, float] :
+def GetValueFromStateDictionaryAtIndex(fullSolutionDictionary : Dict[sy.Symbol, List[float]], index : int) ->Dict[sy.Symbol, float] :
     """From a dictionary containing lists of something (often the evaluated floats), get a 
     similar dictionary that is just the final values.
 
@@ -16,7 +16,7 @@ def GetValueFromStateDictionaryAtIndex(fullSolutionDictionary : Dict[sy.Expr, Li
         finalValues[key] = value[index]
     return finalValues 
 
-def GetInitialStateDictionary(fullSolutionDictionary : Dict[sy.Expr, List[float]]) ->Dict[sy.Expr, float] :
+def GetInitialStateDictionary(fullSolutionDictionary : Dict[sy.Symbol, List[float]]) ->Dict[sy.Symbol, float] :
     """From a dictionary containing lists of something (often the evaluated floats), get a 
     similar dictionary that is the initial values.
 
@@ -28,7 +28,7 @@ def GetInitialStateDictionary(fullSolutionDictionary : Dict[sy.Expr, List[float]
     """
     return GetValueFromStateDictionaryAtIndex(fullSolutionDictionary, 0)
 
-def GetFinalStateDictionary(fullSolutionDictionary : Dict[sy.Expr, List[float]]) ->Dict[sy.Expr, float] :
+def GetFinalStateDictionary(fullSolutionDictionary : Dict[sy.Symbol, List[float]]) ->Dict[sy.Symbol, float] :
     """From a dictionary containing lists of something (often the evaluated floats), get a 
     similar dictionary that is the final values.
 

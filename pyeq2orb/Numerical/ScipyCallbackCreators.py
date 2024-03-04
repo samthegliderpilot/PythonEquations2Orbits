@@ -3,7 +3,7 @@ from typing import List, Dict,Any
 import sympy as sy
 #from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 
-def ConvertOdeIntResultsToDictionary(odeintSymbolicState : List[sy.Expr], odeintResults : List[Any]) ->Dict[sy.Expr, List[float]]:
+def ConvertOdeIntResultsToDictionary(odeintSymbolicState : List[sy.Symbol], odeintResults : List[Any]) ->Dict[sy.Symbol, List[float]]:
     """Converts the results from an odeint call into a dictionary mapping the symbolic expressions to lists of floats.
 
     Args:
@@ -13,7 +13,7 @@ def ConvertOdeIntResultsToDictionary(odeintSymbolicState : List[sy.Expr], odeint
     Returns:
         Dict[sy.Expr, List[float]]: The mapping of the symbolic state variables to the list of the results for that variable.
     """
-    asDict = OrderedDict() #type: Dict[sy.Expr, List[float]]
+    asDict = OrderedDict() #type: Dict[sy.Symbol, List[float]]
     i = 0
     if len(odeintResults[0]) != len(odeintResults[1])  : # this is not a good check for if full_output was true or not, but it is good enough in most cases
         odeintResults = odeintResults[0]
@@ -22,7 +22,7 @@ def ConvertOdeIntResultsToDictionary(odeintSymbolicState : List[sy.Expr], odeint
         i=i+1
     return asDict
 
-def ConvertSolveIvpResultsToDictionary(integrationState : List[sy.Expr], solveIvpResults) ->Dict[sy.Expr, List[float]]:
+def ConvertSolveIvpResultsToDictionary(integrationState : List[sy.Symbol], solveIvpResults) ->Dict[sy.Symbol, List[float]]:
     """Converts the results from an odeint call into a dictionary mapping the symbolic expressions to lists of floats.
 
     Args:
@@ -39,7 +39,7 @@ def ConvertSolveIvpResultsToDictionary(integrationState : List[sy.Expr], solveIv
         i=i+1
     return asDict
 
-def ConvertEitherIntegratorResultsToDictionary(integrationState : List[sy.Expr], integratorResults) ->Dict[sy.Symbol, List[float]]:
+def ConvertEitherIntegratorResultsToDictionary(integrationState : List[sy.Symbol], integratorResults) ->Dict[sy.Symbol, List[float]]:
     """Converts either an odeint results or a solve_ivp results to a dictionary of history of values keyed off of the 
     passed in integration values.
 

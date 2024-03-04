@@ -827,7 +827,7 @@ class Problem(ABC) :
     # def CostateSymbols(self) :
     #     return self._costateSymbols
 
-    def EvaluateHamiltonianAndItsFirstTwoDerivatives(self, solution : Dict[sy.Expr, List[float]], tArray: Collection[float], hamiltonian : sy.Expr, controlSolved :Dict[sy.Expr, sy.Expr], moreSubs :Dict[sy.Symbol, float]) ->List[List[float]]:
+    def EvaluateHamiltonianAndItsFirstTwoDerivatives(self, solution : Dict[sy.Symbol, List[float]], tArray: Collection[float], hamiltonian : sy.Expr, controlSolved :Dict[sy.Expr, sy.Expr], moreSubs :Dict[sy.Symbol, float]) ->List[List[float]]:
         """Evaluates the Hamiltonian and its first 2 derivatives.  This is useful to 
         see if the related conditions are truly satisfied.
 

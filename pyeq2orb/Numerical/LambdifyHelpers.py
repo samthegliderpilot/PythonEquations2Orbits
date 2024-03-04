@@ -306,23 +306,24 @@ class OdeLambdifyHelper(LambdifyHelper):
 # make the content of a Problem, and lambdifying it
 class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
     
-    def __init__(self, time : sy.Symbol, t0: sy.Symbol, tf: sy.Symbol, stateVariables : List[sy.Symbol], dynamicExpressions : List[sy.Expr], boundaryConditionEquations : List[sy.Expr], otherArgsList : List[sy.Symbol], substitutionDictionary : Dict) :
+    def __init__(self, time : sy.Symbol, t0: sy.Symbol, tf: sy.Symbol, stateVariables : List[sy.Symbol], dynamicExpressions : List[sy.Expr], symbolsToSolveForWithBcs : List[sy.Symbol], boundaryConditionEquations : List[sy.Expr], otherArgsList : List[sy.Expr], substitutionDictionary : Dict) :
         OdeLambdifyHelper.__init__(self, time, stateVariables, dynamicExpressions, otherArgsList, substitutionDictionary)
         self._t0 = t0 #type: sy.Symbol
         self._tf = tf #type: sy.Symbol
         self._boundaryConditions = boundaryConditionEquations
-        self._symbolsToSolveForWithBcs = [] #type: List[sy.Symbol]
+        self._symbolsToSolveForWithBcs = symbolsToSolveForWithBcs #type: List[sy.Symbol]
 
     @staticmethod
     def CreateFromProblem(problem : Problem) :
         stateAndControl = [*problem.StateVariables, *problem.CostateSymbols]
-        otherArgs = []
+        otherArgs = [] #type: ignore
         if(problem.TimeScaleFactor != None) :
             otherArgs = [problem.TimeScaleFactor]
         dynamics = []
         dynamics.extend(problem.StateVariableDynamics)
         dynamics.extend(problem.CostateDynamicsEquations)
-        helper = OdeLambdifyHelperWithBoundaryConditions(problem.TimeSymbol, problem.TimeInitialSymbol, problem.TimeFinalSymbol, stateAndControl, dynamics, problem.BoundaryConditions, otherArgs, problem.SubstitutionDictionary)
+        initialCostateVariables = SafeSubs(problem.CostateSymbols, {problem.TimeSymbol: problem.TimeInitialSymbol})
+        helper = OdeLambdifyHelperWithBoundaryConditions(problem.TimeSymbol, problem.TimeInitialSymbol, problem.TimeFinalSymbol, stateAndControl, dynamics, initialCostateVariables, problem.BoundaryConditions, otherArgs, problem.SubstitutionDictionary)
         #if problem.TimeScaleFactor != None and isinstance(problem.TimeScaleFactor, sy.Symbol):
         #    helper.OtherArguments.append(problem.TimeScaleFactor)
 
@@ -385,7 +386,7 @@ class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
             for j in range(0, len(mapForIntegrator)) :
                 preSolveInitialGuessForIntegrator[mapForIntegrator[j]] = bcSolverState[j]
             
-            ans = solveIvpCallback(preSolveInitialGuessForIntegrator)
+            ans = solveIvpCallback(tArray, preSolveInitialGuessForIntegrator)
             finalState = []
             finalState.append(tArray[0])
             finalState.extend(ScipyCallbackCreators.GetInitialStateFromIntegratorResults(ans))

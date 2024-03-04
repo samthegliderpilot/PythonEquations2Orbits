@@ -136,7 +136,7 @@ class ContinuousThrustCircularOrbitTransferProblem(Problem) :
             return finalAnswers    
         return callbackForFsolve
 
-    def PlotSolution(self, tUnscaled : npt.NDArray, orderedDictOfUnScaledValues : Dict[sy.Expr, List[float]], label : str) :        
+    def PlotSolution(self, tUnscaled : npt.NDArray, orderedDictOfUnScaledValues : Dict[sy.Symbol, List[float]], label : str) :        
         solsLists = [] #type: List[List[float]]
         for key, val in orderedDictOfUnScaledValues.items() :
             solsLists.append(val)
