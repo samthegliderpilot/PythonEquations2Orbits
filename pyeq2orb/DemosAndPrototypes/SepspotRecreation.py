@@ -72,7 +72,7 @@ q0V = float(initialEquiElements.InclinationCosTermQ)
 lon0= float(initialEquiElements.TrueLongitude)
 #t0V = 2444239.0 * 86400
 
-finalKepElements = KeplerianElements(42000, 10**(-3), 1.0, 0.0, 0.0, 0.0, muVal)
+finalKepElements = KeplerianElements(42000, 10**(-3), 1.0*math.pi/180.0, 0.0, 0.0, 0.0, muVal)
 finalModifiedEquiElements = mee.ConvertKeplerianToEquinoctial(finalKepElements)
 finalEquiElements = mee.EquinoctialElementsHalfITrueLongitude.FromModifiedEquinoctialElements(finalModifiedEquiElements)
 aFV = float(finalEquiElements.SemiMajorAxis)
@@ -82,28 +82,7 @@ pFV = float(finalEquiElements.InclinationSinTermP)
 qFV = float(finalEquiElements.InclinationCosTermQ)
 lonF= float(finalEquiElements.TrueLongitude) 
 #%%
-#F = sy.Symbol('F', real=True)
-#G = sy.Symbol('G')
 L = simpleBoringEquiElements.TrueLongitude
-# r = a*G**2/(1+h*sy.sin(L)+k*sy.cos(L))
-
-# B = 1/(1+G)
-
-# cosL = (a/r)*((1-B*h**2)*sy.cos(F)+h*k*B*sy.sin(F)-k)
-# sinL = (a/r)*(h*k*B*sy.cos(F)+(1-B*k**2)*sy.sin(F)-h)
-# sf = h+(r/a)*((1-B*h**2)*sy.sin(L)-h*k*B*sy.cos(L))/(G)
-# cf = k+(r/a)*((1-B*k**2)*sy.cos(L)-h*k*B*sy.sin(L))/(G)
-# drdk_F = -a*cf
-# drdk_L = -r*(2*a*k+r*sy.cos(L))/(a*G**2)
-
-
-
-# jh.showEquation(r'\frac{dr}{dk}_F', (drdk_F/k).simplify())
-# jh.showEquation(r'\frac{dr}{dk}_L', (drdk_L/k).simplify())
-# jh.showEquation("s", (drdk_F - drdk_L).simplify().trigsimp(deep=True))
-
-# r_f = a*(1-k*cf-h*sf)
-# jh.showEquation("s",(r-r_f).simplify())
 
 #%%
 
@@ -427,16 +406,8 @@ fullSubsDictionary = actualSubsDic
 
 #%%
 
-
-
-
 for i in range(0, len(lambdas)):
     problem.AddCostateVariable(ProblemVariable(lambdas[i], lmdDotArray[i]))
-# problem.StateVariables.extend(x)
-# problem.StateVariables.extend(lambdas)
-# problem.StateVariableDynamics.extend(zDot)
-# problem.StateVariableDynamics.extend(lmdDotArray)
-
 
 for (k,v) in fullSubsDictionary.items():
     problem.SubstitutionDictionary[k] =v
@@ -448,7 +419,6 @@ for sv in problem.StateVariables :
 #%%
 lmdHelper = OdeLambdifyHelperWithBoundaryConditions.CreateFromProblem(problem)
 
-#lmdHelper.OtherArguments.append(originalProblem.TimeFinalSymbol)
 lmdHelper.SubstitutionDictionary[originalProblem.TimeFinalSymbol] = originalProblem.TimeFinalSymbol
 #lmdHelper = OdeLambdifyHelperWithBoundaryConditions(t, sy.Symbol('t_0', real=True), sy.Symbol('t_f', real=True), list(x), list(zDot), [], [], fullSubsDictionary)
 
@@ -456,32 +426,6 @@ lmdHelper.SubstitutionDictionary[originalProblem.TimeFinalSymbol] = originalProb
 print(problem.BoundaryConditions)
 
 
-
-    
-
-
-# lmdHelper.BoundaryConditionExpressions.append(zF[0]-afV)
-# lmdHelper.BoundaryConditionExpressions.append(zF[1]-hfV)
-# lmdHelper.BoundaryConditionExpressions.append(zF[2]-kfV)
-# lmdHelper.BoundaryConditionExpressions.append(zF[3]-pfV)
-# lmdHelper.BoundaryConditionExpressions.append(zF[4]-qfV)
-# lmdHelper.BoundaryConditionExpressions.append(zF[5]*0)
-#lmdHelper.SymbolsToSolveForWithBoundaryConditions.append(z0[5].subs(originalProblem.TimeInitialSymbol, lmdHelper.t0))
-# lmdHelper.SymbolsToSolveForWithBoundaryConditions.append(lambdas[0].subs(tau, lmdHelper.t0))
-# lmdHelper.SymbolsToSolveForWithBoundaryConditions.append(lambdas[1].subs(tau, lmdHelper.t0))
-# lmdHelper.SymbolsToSolveForWithBoundaryConditions.append(lambdas[2].subs(tau, lmdHelper.t0))
-# lmdHelper.SymbolsToSolveForWithBoundaryConditions.append(lambdas[3].subs(tau, lmdHelper.t0))
-# lmdHelper.SymbolsToSolveForWithBoundaryConditions.append(lambdas[4].subs(tau, lmdHelper.t0))
-#lmdHelper.SymbolsToSolveForWithBoundaryConditions.append(lambdas[5].subs(t, lmdHelper.t0))
-#lmdHelper.OtherArguments.append(lambdas[5].subs(t, lmdHelper.t0))
-# #%%
-# zDotFinal =zDot[0]
-# for k,v in fullSubsDictionary.items():
-#     display(k)
-#     zDotFinal = zDotFinal.subs(k, fullSubsDictionary[k])    
-# jh.showEquation("z", zDotFinal)
-# for i in range(0, len(lambdas)):
-#     lmdHelper.AddStateVariable(lambdas[i], lmdDotArray[i])
 
 lmdGuess = [4.675229762, 5.413413947e2, -9.202702084e3, 1.778011878e1, -2.268455855e4, -2.274742851]#-2.2747428]
 #lmdGuess = [4.675229762, 8.413413947e2, -9.202702084e3, 1.778011878e1, -2.260455855e4, -2.2747428]
@@ -532,29 +476,32 @@ fullBoundaryConditionState.append(problem.TimeFinalSymbol)
 
 boundaryConditionsLambdified = sy.lambdify(fullBoundaryConditionState, bcCallbacks)
 #%%
-def realIpvCallback(tArray, ivpInitialState, tf) :
+def realIpvCallback(tArray, ivpInitialState, ipvCallbackInner, tf = None) :
     #print(initialStateInCb)
-    solution = solve_ivp(ipvCallback, [tArray[0], tArray[-1]], ivpInitialState, args=(tf,), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
+    odeArgs = ()
+    if tf != None :
+        odeArgs = (tf,)
+    solution = solve_ivp(ipvCallbackInner, [tArray[0], tArray[-1]], ivpInitialState, args=odeArgs, t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
     #solutionDictionary = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(lmdHelper.NonTimeLambdifyArguments, solution)
     return solution
 
 
-def boundaryConditionEvaluationCallback(bcInitialState, bcFinalState, bcTimeValue):
+def boundaryConditionEvaluationCallback(bcInitialState, bcFinalState, bcTimeValue, boundaryConditionCallback):
     stateNow = []
     stateNow.extend(bcInitialState)
     stateNow.extend(bcFinalState)
     stateNow.append(bcTimeValue)
 
-    return boundaryConditionsLambdified(*stateNow)
+    return boundaryConditionCallback(*stateNow)
 
 def fSolveCallback(justFSolveState):
     localIvpState = []
     localIvpState.extend(initialStateValues[0:5])
     localIvpState.extend(justFSolveState[0:-1])
     
-    ivpSol = realIpvCallback(tArray, localIvpState, justFSolveState[-1])
+    ivpSol = realIpvCallback(tArray, localIvpState, ipvCallback, justFSolveState[-1])
     bcFinalState = ScipyCallbackCreators.GetFinalStateFromIntegratorResults(ivpSol)
-    boundaryConditionSolution = boundaryConditionEvaluationCallback(localIvpState, bcFinalState, justFSolveState[-1])[0:-1]
+    boundaryConditionSolution = boundaryConditionEvaluationCallback(localIvpState, bcFinalState, justFSolveState[-1], boundaryConditionsLambdified)[0:-1]
     print(boundaryConditionSolution)
     finalLongitude = bcFinalState[5]
     boundaryConditionSolution[-1] = math.sin(finalLongitude)
@@ -563,51 +510,23 @@ def fSolveCallback(justFSolveState):
     boundaryConditionSolution.append(0)
     return boundaryConditionSolution
 
-
-
-#solverCb = lmdHelper.createCallbackToSolveForBoundaryConditions(realIpvCallback, tArray, initialState)
-
-#display(solverCb([1.0, 0.001, 0.001, 0.0]))
-#display(lmdHelper.GetExpressionToLambdifyInMatrixForm())
-#print(ipvCallback(0, [r0, u0, v0, lon0, 1.0, 0.001, 0.001, 0.0]))
-#solution = solve_ivp(ipvCallback, [tArray[0], tArray[-1]], initialState, t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
-
+#%%
 fSolveGuess = []
 fSolveGuess.append(lon0)
 fSolveGuess.extend(lmdGuess)
 fSolveGuess.append(tfV)
-from scipy.optimize import newton_krylov, anderson
+from scipy.optimize import newton_krylov, anderson, root
 fSolveSol = fsolve(fSolveCallback, fSolveGuess, full_output=True, factor=0.01)#, epsfcn=0.0001)
-
+#fSolveSol = root(fSolveCallback, fSolveGuess, method='lm')
 print(fSolveSol)
 
-
-
-
-
-
-
-
-
-#print(fSolveSol)
-#integratorCallback = lmdHelper.CreateSimpleCallbackForSolveIvp()
-#fsolveCallback = lmdHelper.createCallbackToSolveForBoundaryConditions(integratorCallback, tArray, initialState)
-#dxAtStart = integratorCallback(0, initialState)
-#display(dxAtStart)
-
-#def overallSolveIvpCallback(initialStateArray):
-#    return solve_ivp(integratorCallback, [tArray[0], tArray[-1]], initialState, t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
-
-#fSolveInitialState = [58089.9005]
-#fSolveInitialState.extend(initialState)
-#fSolveSol = fsolve(fsolveCallback, fSolveInitialState, epsfcn=0.00001, full_output=True) # just to speed things up and see how the initial one works
-#print(fSolveSol)
-
+#%%
 finalInitialState = [a0V, h0V,k0V, p0V, q0V]#, lon0 ]
 finalInitialState.extend(fSolveSol[0][0:-1])
 #finalInitialState.append(lmdGuess[5])
 actualTfSec = fSolveSol[0][-1]
-solution =realIpvCallback(tArray, finalInitialState, actualTfSec) #solve_ivp(ipvCallback, [tArray[0], tArray[-1]], finalInitialState, args=(fSolveSol[-1]), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
+
+solution =realIpvCallback(tArray, finalInitialState, ipvCallback, actualTfSec) #solve_ivp(ipvCallback, [tArray[0], tArray[-1]], finalInitialState, args=(fSolveSol[-1]), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
 print(solution)
 
 
@@ -637,6 +556,7 @@ for i in range(0, len(tArray)):
     #realEqui = scaleEquinoctialElements(temp, 1.0, 1.0)
     equiElements.append(temp)
 finalKepElements = equiElements[-1].ConvertToModifiedEquinoctial().ToKeplerian()
+initialKepElements = equiElements[0].ConvertToModifiedEquinoctial().ToKeplerian()
 motions = mee.EquinoctialElementsHalfITrueLongitude.CreateEphemeris(equiElements)
 satEphemeris = prim.EphemerisArrays()
 satEphemeris.InitFromMotions(tArray, motions)
@@ -648,7 +568,6 @@ jh.showEquation("i", float(finalKepElements.Inclination*180/math.pi))
 jh.showEquation(r'\Omega', float(finalKepElements.RightAscensionOfAscendingNode*180/math.pi))
 jh.showEquation(r'\omega', float(finalKepElements.ArgumentOfPeriapsis*180/math.pi))
 jh.showEquation(r'M', float(finalKepElements.TrueAnomaly*180/math.pi))
-#%%
 
 for i in range(0, 12):
     if i == 6:
@@ -682,3 +601,17 @@ fig.update_layout(margin=dict(l=0, r=0, b=0, t=30))
 fig['layout']['sliders'][0]['pad']=dict(r= 0, t= 0, b=0, l=0)
 fig['layout']['updatemenus'][0]['pad']=dict(r= 0, t= 0, b=0, l=0)
 fig.show()  
+
+
+import pandas as pd
+import numpy as np
+#"Initial Values": ["SMA (km)", "Ecc", "Inc (deg)", "RAAN (deg)", "AoP (deg)", "TA (deg)"],
+df = pd.DataFrame({
+    "Elements" : initialKepElements.NamesToArray,
+    "Initial Elements" : initialKepElements.ToArray(True),    
+    "Final Elements" : finalKepElements.ToArray(True)
+})
+df.style \
+  .format(precision=3, thousands=".", decimal=",") \
+  .format_index(str.upper, axis=1) \
+  .relabel_index(initialKepElements.NamesToArray(), axis=0)

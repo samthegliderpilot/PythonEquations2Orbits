@@ -201,6 +201,13 @@ class KeplerianElements() :
         rotMatrix = self.PerifocalToInertialRotationMatrix()
         return MotionCartesian(rotMatrix*motion.Position, rotMatrix*motion.Velocity)
 
+    def ToArray(self, deg : Optional[bool] = False) -> List[SymbolOrNumber] :
+        radToDeg = 180.0/math.pi
+        return [self.SemiMajorAxis, self.Eccentricity, self.Inclination*radToDeg, self.ArgumentOfPeriapsis*radToDeg, self.RightAscensionOfAscendingNode*radToDeg, self.TrueAnomaly*radToDeg]
+
+    def NamesToArray(self) -> List[str]:
+        return ["SemiMajorAxis", "Eccentricity", "Inclination", "Argument Of Periapsis", "Right Ascension Of Ascending Node", "TrueAnomaly"]
+        
 class GaussianEquationsOfMotionVallado :
     def __init__(self, elements : KeplerianElements, accelerationVector : Cartesian) :
         self.Elements = elements
