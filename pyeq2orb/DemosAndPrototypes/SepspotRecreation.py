@@ -61,7 +61,7 @@ for i in range(0, 3):
     fullSubsDictionary[gHatSy[i]] = rotMatrix.col(1)[i]
     fullSubsDictionary[wHatSy[i]] = rotMatrix.col(2)[i]
 
-initialKepElements = KeplerianElements(7000, 0.0, 28.5*math.pi/180.0, 0, 0, -2.274742851, muVal)
+initialKepElements = KeplerianElements(7000, 0.000, 28.5*math.pi/180.0, 0, 0, -2.274742851, muVal)
 initialModifiedEquiElements = mee.ConvertKeplerianToEquinoctial(initialKepElements)
 initialEquiElements = mee.EquinoctialElementsHalfITrueLongitude.FromModifiedEquinoctialElements(initialModifiedEquiElements)
 a0V = float(initialEquiElements.SemiMajorAxis)
@@ -424,11 +424,8 @@ lmdHelper.SubstitutionDictionary[originalProblem.TimeFinalSymbol] = originalProb
 
 #%%
 print(problem.BoundaryConditions)
-
-
-
 lmdGuess = [4.675229762, 5.413413947e2, -9.202702084e3, 1.778011878e1, -2.268455855e4, -2.274742851]#-2.2747428]
-#lmdGuess = [4.675229762, 8.413413947e2, -9.202702084e3, 1.778011878e1, -2.260455855e4, -2.2747428]
+#lmdGuess = [4.475229762, 5.913413947e2, -9.702702084e3, 1.278011878e1, -2.968455855e4, -2.974742851]#-2.2747428] # bad values
 fullInitialState = [a0V, h0V, k0V, p0V, q0V, lon0]
 fullInitialState.extend(lmdGuess)
 print("read to lambdify")
@@ -438,6 +435,7 @@ tArray = np.linspace(0.0, 1.0, 400)
 initialStateValues = [a0V, h0V,k0V, p0V, q0V, lon0 ]
 initialStateValues.extend(lmdGuess)
 tfV = 58089.9005
+#tfV = 60000.0
 initialStateValues.append(tfV)
 fSolveInitialState = [*lmdGuess[0:5]]
 fSolveInitialState.append(tfV)
@@ -504,8 +502,8 @@ def fSolveCallback(justFSolveState):
     boundaryConditionSolution = boundaryConditionEvaluationCallback(localIvpState, bcFinalState, justFSolveState[-1], boundaryConditionsLambdified)[0:-1]
     print(boundaryConditionSolution)
     finalLongitude = bcFinalState[5]
-    boundaryConditionSolution[-1] = math.sin(finalLongitude)
-    boundaryConditionSolution.append(math.cos(finalLongitude)-1)
+    boundaryConditionSolution[-1] = 0#math.sin(finalLongitude)
+    boundaryConditionSolution.append(0)#math.cos(finalLongitude)-1)
     boundaryConditionSolution.append(0)
     boundaryConditionSolution.append(0)
     return boundaryConditionSolution
@@ -516,7 +514,7 @@ fSolveGuess.append(lon0)
 fSolveGuess.extend(lmdGuess)
 fSolveGuess.append(tfV)
 from scipy.optimize import newton_krylov, anderson, root
-fSolveSol = fsolve(fSolveCallback, fSolveGuess, full_output=True, factor=0.01)#, epsfcn=0.0001)
+fSolveSol = fsolve(fSolveCallback, fSolveGuess, full_output=True, factor=0.1)#, epsfcn=0.0001)
 #fSolveSol = root(fSolveCallback, fSolveGuess, method='lm')
 print(fSolveSol)
 
@@ -602,16 +600,17 @@ fig['layout']['sliders'][0]['pad']=dict(r= 0, t= 0, b=0, l=0)
 fig['layout']['updatemenus'][0]['pad']=dict(r= 0, t= 0, b=0, l=0)
 fig.show()  
 
-
+#%%
 import pandas as pd
 import numpy as np
 #"Initial Values": ["SMA (km)", "Ecc", "Inc (deg)", "RAAN (deg)", "AoP (deg)", "TA (deg)"],
 df = pd.DataFrame({
     "Elements" : initialKepElements.NamesToArray,
     "Initial Elements" : initialKepElements.ToArray(True),    
-    "Final Elements" : finalKepElements.ToArray(True)
+    "Final Elements" : [float(x) for x in finalKepElements.ToArray(True)]
 })
 df.style \
-  .format(precision=3, thousands=".", decimal=",") \
+  .format(precision=3, thousands=",", decimal=".") \
   .format_index(str.upper, axis=1) \
   .relabel_index(initialKepElements.NamesToArray(), axis=0)
+# %%
