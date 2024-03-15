@@ -205,7 +205,7 @@ class OdeLambdifyHelper(LambdifyHelper):
         if self.OtherArguments != None and len(self.OtherArguments) >0 :
             odeArgs.append(self.OtherArguments)
         
-        eomCallback = sy.lambdify(odeArgs, eomList, modules=['scipy'], cse=False)
+        eomCallback = sy.lambdify(odeArgs, eomList, modules=['numpy'], cse=True)
         #TODO: This cant call lambdify directly, it must call base class
 
         # don't need the next wrapper if there are no other args
@@ -306,7 +306,7 @@ class OdeLambdifyHelper(LambdifyHelper):
 # make the content of a Problem, and lambdifying it
 class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
     
-    def __init__(self, time : sy.Symbol, t0: sy.Symbol, tf: sy.Symbol, stateVariables : List[sy.Symbol], dynamicExpressions : List[sy.Expr], symbolsToSolveForWithBcs : List[sy.Symbol], boundaryConditionEquations : List[sy.Expr], otherArgsList : List[sy.Expr], substitutionDictionary : Dict) :
+    def __init__(self, time : sy.Symbol, t0: sy.Symbol, tf: sy.Symbol, stateVariables : List[sy.Symbol], dynamicExpressions : List[sy.Expr], symbolsToSolveForWithBcs : List[sy.Symbol], boundaryConditionEquations : List[sy.Expr], otherArgsList : List[sy.Symbol], substitutionDictionary : Dict) :
         OdeLambdifyHelper.__init__(self, time, stateVariables, dynamicExpressions, otherArgsList, substitutionDictionary)
         self._t0 = t0 #type: sy.Symbol
         self._tf = tf #type: sy.Symbol
@@ -316,9 +316,9 @@ class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
     @staticmethod
     def CreateFromProblem(problem : Problem) :
         stateAndControl = [*problem.StateVariables, *problem.CostateSymbols]
-        otherArgs = [] #type: ignore
-        if(problem.TimeScaleFactor != None) :
-            otherArgs = [problem.TimeScaleFactor]
+        otherArgs = [] #type: List[sy.Symbol]
+        if(problem.TimeScaleFactor != None and isinstance(problem.TimeScaleFactor, sy.Symbol)) :
+            otherArgs = [cast(sy.Symbol, problem.TimeScaleFactor)]
         dynamics = []
         dynamics.extend(problem.StateVariableDynamics)
         dynamics.extend(problem.CostateDynamicsEquations)

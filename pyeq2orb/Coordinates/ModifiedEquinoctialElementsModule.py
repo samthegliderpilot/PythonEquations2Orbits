@@ -77,6 +77,8 @@ class ModifiedEquinoctialElements:
         # it is not clear to me if the atan2 in the MME PDF passes in x,y or y,x (y,x is right for sy)
         i = sy.atan2(2*sy.sqrt(h*h+k*k), 1-h*h-k*k)
         w = sy.atan2(g*h-f*k, f*h+g*k)
+        if math.isnan(w):
+            w=0.0
         raan = sy.atan2(k, h)
         ta = l-raan+w
         return KeplerianElements(a, e, i, w, raan, ta, self.GravitationalParameter)
