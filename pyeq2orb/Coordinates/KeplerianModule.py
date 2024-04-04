@@ -6,6 +6,79 @@ from .RotationMatrix import RotAboutXValladoConvention, RotAboutY, RotAboutX, Ro
 from typing import Optional, List, Union
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
 
+def MeanAnomalyFromEccentricAnomaly(eccentricAnomaly: SymbolOrNumber, eccentricity : SymbolOrNumber) ->SymbolOrNumber:
+    if eccentricAnomaly % math.pi == 0:
+        return eccentricAnomaly
+    ma = eccentricAnomaly - eccentricity*sy.sin(eccentricAnomaly)
+    ma = ma.evalf()
+    if ma.is_Float:
+        ma = float(ma)%(2*math.pi)
+    return ma
+
+def EccentricAnomalyFromMeanAnomaly(meanAnomaly : float, eccentricity : float, tolerance : float = 0.000000001) : #TODO: Parabolic and hyperbolic
+    if meanAnomaly % math.pi == 0:
+        return meanAnomaly
+    ma = meanAnomaly % (2*math.pi)
+    if ma > math.pi:
+        eccAnom = ma - eccentricity
+    else :
+        eccAnom = ma + eccentricity
+    
+    lastGuess = ma*2 # just something large enough to not trigger on the first iteration
+    while abs(lastGuess - eccAnom) > tolerance:
+        lastGuess = eccAnom
+        eccAnom = lastGuess + (ma-lastGuess+eccentricity*math.sin(lastGuess))/(1-eccentricity*math.cos(lastGuess))
+    return eccAnom
+
+def TrueAnomalyFromEccentricAnomaly(eccentricAnomaly: SymbolOrNumber, eccentricity: SymbolOrNumber) ->SymbolOrNumber:
+    if eccentricAnomaly % math.pi == 0:
+        return eccentricAnomaly
+
+    if eccentricity < 1.0 :
+        sinEa = sy.sin(eccentricAnomaly) * sy.sqrt(1-eccentricity**2)/(1-eccentricity*sy.cos(eccentricAnomaly))
+        cosEa = (sy.cos(eccentricAnomaly) - eccentricity)/(1-eccentricity*sy.cos(eccentricAnomaly))
+        ta = sy.atan2(sinEa, cosEa)
+    elif eccentricity == 1.0 :
+        raise NotImplementedError()
+    elif eccentricity > 0:
+        sinTa = -1*sy.sinh(eccentricAnomaly) * sy.sqrt((eccentricity**2)-1)/(1-eccentricity*sy.cosh(eccentricAnomaly))
+        cosTa = (sy.cosh(eccentricAnomaly) - eccentricity)/(1-eccentricity*sy.cosh(eccentricAnomaly))
+        ta = sy.atanh(cosTa/sinTa)        
+
+    ta = ta.evalf()
+    if ta.is_Float:
+        ta = float(ta)%(2*math.pi)
+    return ta
+
+def EccentricAnomalyFromTrueAnomaly(trueAnomaly: SymbolOrNumber, eccentricity : SymbolOrNumber) ->SymbolOrNumber:
+    if trueAnomaly % math.pi == 0:
+        return trueAnomaly
+
+    if eccentricity < 1.0 :
+        sinEa = sy.sin(trueAnomaly)*sy.sqrt(1-eccentricity**2)/(1+eccentricity*sy.cos(trueAnomaly))
+        cosEa = (eccentricity+sy.cos(trueAnomaly))/(1+eccentricity*sy.cos(trueAnomaly))
+        ea = sy.atan2(sinEa, cosEa)
+    elif eccentricity == 1.0:
+        ea = sy.atan(trueAnomaly/2.0)
+    elif eccentricity > 1.0 :
+        sinHa = sy.sin(trueAnomaly)*sy.sqrt((eccentricity**2) - 1)/(1+eccentricity*sy.cos(trueAnomaly))
+        cosHa = (eccentricity+sy.cos(trueAnomaly))/(1+eccentricity*sy.cos(trueAnomaly))
+        ea = sy.atan2(sinHa, cosHa)
+    ea = ea.evalf()
+    if ea.is_Float:
+        ea = float(ea)%(2*math.pi)
+    return ea
+
+def MeanAnomalyFromTrueAnomaly(trueAnomaly, eccentricity):
+    ea = EccentricAnomalyFromTrueAnomaly(trueAnomaly, eccentricity)
+    ma = MeanAnomalyFromEccentricAnomaly(ea, eccentricity)
+    return ma
+
+def TrueAnomalyFromMeanAnomaly(meanAnomaly, eccentricity) :
+    ea = EccentricAnomalyFromMeanAnomaly(meanAnomaly, eccentricity)
+    ta = TrueAnomalyFromEccentricAnomaly(ea, eccentricity)
+    return ta
+
 class KeplerianElements() :
     """Represents a set of Keplerian Elements with true anomaly as the fast variable. Note that 
     Keplerian Elements do not represent parabolic or circular orbits well.

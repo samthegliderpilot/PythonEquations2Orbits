@@ -143,7 +143,7 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
 
         allDynamics = problem.StateVariableDynamics
         allDynamics.extend(problem.CostateDynamicsEquations)
-        lambdifyHelper = OdeLambdifyHelperWithBoundaryConditions(problem.TimeSymbol, problem.TimeInitialSymbol, problem.TimeFinalSymbol, allSvs, allDynamics, problem.BoundaryConditions, otherArgs, problem.SubstitutionDictionary)
+        lambdifyHelper = OdeLambdifyHelperWithBoundaryConditions.CreateFromProblem(problem) #.TimeSymbol, problem.TimeInitialSymbol, problem.TimeFinalSymbol, allSvs, allDynamics, problem.BoundaryConditions, otherArgs, problem.SubstitutionDictionary)
         
         odeIntEomCallback = lambdifyHelper.CreateSimpleCallbackForSolveIvp()
         # run a test solution to get a better guess for the final nu values, this is a good technique, but 

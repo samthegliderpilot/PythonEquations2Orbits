@@ -183,9 +183,10 @@ class testSymbolicOptimizerProblem(unittest.TestCase) :
 
     def testDefaultDescaleResults(self) :
         originalProblem = ContinuousThrustCircularOrbitTransferProblem()        
-        someDict = {originalProblem.StateVariables[0]: 1.0,originalProblem.StateVariables[1]: 1.0,originalProblem.StateVariables[2]: 1.0,originalProblem.StateVariables[3]: 1.0}
-        problem = originalProblem.ScaleStateVariables(originalProblem.StateVariables, someDict)
-        self.assertEqual(someDict, problem.DescaleResults(someDict))
+        barVars =  Problem.CreateBarVariables(originalProblem.StateVariables, originalProblem.TimeSymbol)
+        scalingExpressions = {originalProblem.StateVariables[0]: barVars[0],originalProblem.StateVariables[1]: barVars[1],originalProblem.StateVariables[2]: barVars[2],originalProblem.StateVariables[3]: barVars[3]}
+        problem = originalProblem.ScaleStateVariables(barVars, scalingExpressions)
+        self.assertEqual(scalingExpressions, problem.DescaleResults(scalingExpressions))
 
 
 

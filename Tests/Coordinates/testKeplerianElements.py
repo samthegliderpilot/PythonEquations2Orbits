@@ -60,4 +60,16 @@ class testKeplerianElements(unittest.TestCase) :
         theElements = Keplerian.CreateSymbolicElements()
         convertedMotion = theElements.ToInertialMotionCartesian()
 
+    def testAnomalyCalculations(self) :
+        ma = 235.4*math.pi/180.0
+        ecc = 0.4
+        ea = 220.512074767522*math.pi/180.0
+        ta = (360 - 152.836008230786)*math.pi/180.0
+        self.assertAlmostEqual(ea, Keplerian.EccentricAnomalyFromMeanAnomaly(ma, ecc), 9)
+        self.assertAlmostEqual(ma, Keplerian.MeanAnomalyFromEccentricAnomaly(ea, ecc), 9)
+        self.assertAlmostEqual(ta, Keplerian.TrueAnomalyFromEccentricAnomaly(ea, ecc), 9)
+        self.assertAlmostEqual(ea, Keplerian.EccentricAnomalyFromTrueAnomaly(ta, ecc), 9)
+        self.assertAlmostEqual(ta, Keplerian.TrueAnomalyFromMeanAnomaly(ma, ecc), 9)
+        self.assertAlmostEqual(ma, Keplerian.MeanAnomalyFromTrueAnomaly(ta, ecc), 9)        
+
     

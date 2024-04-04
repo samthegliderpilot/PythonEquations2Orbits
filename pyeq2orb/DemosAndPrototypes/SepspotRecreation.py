@@ -26,6 +26,8 @@ from pyeq2orb.Utilities.Typing import SymbolOrNumber
 from pyeq2orb.Graphics.PlotlyUtilities import PlotAndAnimatePlanetsWithPlotly
 from pyeq2orb import SafeSubs, MakeMatrixOfSymbols
 from scipy.optimize import fsolve  #type: ignore
+from pyeq2orb.Numerical import ScipyCallbackCreators #type: ignore
+
 jh.printMarkdown("# SEPSPOT Recreation")
 #jh.printMarkdown("In working my way up through low-thrust modeling for satellite maneuvers, it is inevitable to run into Dr. Edelbaum's work.  Newer work such as Jean Albert Kechichian's practically requires understanding SEPSPOT as a prerequesit.  This writeup will go through the basics of SEPSPOT's algorithsm as described in the references below.")
 muVal = 3.986004418e5  
@@ -35,13 +37,18 @@ def doItAll(tArray, includeJ2):
     J2 = sy.Symbol('J_2', real=True)
     rEarth = sy.Symbol('R', real=True, positive=True)
     mu = sy.Symbol(r'\mu', real=True, positive=True)
+    accelSy = sy.Symbol('a', real=True, positive=True)
     muVal = 3.986004418e5  
     J2Val = 1.08263e-3 
     rEarthVal = 6378.137
-    #kepElements = KepModule.CreateSymbolicElements(t, mu)
+    accelVal = 9.8e-5
+
     fullSubsDictionary = OrderedDict() #type: dict[sy.Expr, SymbolOrNumber]
     fullSubsDictionary[J2]=J2Val
     fullSubsDictionary[rEarth] = rEarthVal
+    fullSubsDictionary[accelSy] = accelVal
+    fullSubsDictionary[mu]=muVal
+
     initialKepElements = KeplerianElements(7000, 0.000, 28.5*math.pi/180.0, 0.0, 0.0, -2.299, muVal)
     finalKepElements = KeplerianElements(42000, 10**(-3), 1.0*math.pi/180.0, 0.0, 0.0, 0.0, muVal)
 
@@ -51,23 +58,8 @@ def doItAll(tArray, includeJ2):
     k = cast(sy.Expr, simpleBoringEquiElements.EccentricityCosTermK)
     p = cast(sy.Expr, simpleBoringEquiElements.InclinationSinTermP)
     q = cast(sy.Expr, simpleBoringEquiElements.InclinationCosTermQ)
-    F = cast(sy.Expr, simpleBoringEquiElements.TrueLongitude)
-    n = sy.sqrt(mu/(a**3))
-    x = sy.Matrix([[simpleBoringEquiElements.SemiMajorAxis, simpleBoringEquiElements.EccentricitySinTermH, simpleBoringEquiElements.EccentricityCosTermK, simpleBoringEquiElements.InclinationSinTermP, simpleBoringEquiElements.InclinationCosTermQ, simpleBoringEquiElements.TrueLongitude]]).transpose()
-    z = [simpleBoringEquiElements.SemiMajorAxis, simpleBoringEquiElements.EccentricitySinTermH, simpleBoringEquiElements.EccentricityCosTermK, simpleBoringEquiElements.InclinationSinTermP, simpleBoringEquiElements.InclinationCosTermQ, simpleBoringEquiElements.TrueLongitude]
-    beta = simpleBoringEquiElements.BetaSy
-    betaExp = simpleBoringEquiElements.Beta
-
-    rotMatrix = mee.EquinoctialElementsHalfITrueLongitude.CreateFgwToInertialAxesStatic(p, q)
-    fHatSy = MakeMatrixOfSymbols(r'\hat{f}', 3, 1, [p, q])
-    gHatSy = MakeMatrixOfSymbols(r'\hat{g}', 3, 1, [p, q])
-    wHatSy = MakeMatrixOfSymbols(r'\hat{w}', 3, 1, [p, q])
-    display(fHatSy)
-    for i in range(0, 3):
-        fullSubsDictionary[fHatSy[i]] = rotMatrix.col(0)[i]
-        fullSubsDictionary[gHatSy[i]] = rotMatrix.col(1)[i]
-        fullSubsDictionary[wHatSy[i]] = rotMatrix.col(2)[i]
-
+    L = cast(sy.Expr, simpleBoringEquiElements.TrueLongitude)
+    #n = sy.sqrt(mu/(a**3))
 
     initialModifiedEquiElements = mee.ConvertKeplerianToEquinoctial(initialKepElements)
     initialEquiElements = mee.EquinoctialElementsHalfITrueLongitude.FromModifiedEquinoctialElements(initialModifiedEquiElements)
@@ -87,185 +79,16 @@ def doItAll(tArray, includeJ2):
     qFV = float(finalEquiElements.InclinationCosTermQ)
     lonF= float(finalEquiElements.TrueLongitude) 
 
-    L = simpleBoringEquiElements.TrueLongitude
-
-
-    jh.showEquation(fHatSy, rotMatrix.col(0))
-    jh.showEquation(gHatSy, rotMatrix.col(1))
-    jh.showEquation(wHatSy, rotMatrix.col(2))
-    #M = simpleBoringEquiElements.CreatePerturbationMatrixWithMeanLongitude(f, fullSubsDictionary)
-    rOverA = simpleBoringEquiElements.ROverA
-    #taDifeq = n*sy.sqrt(1-h**2-k**2)/(rOverA**2)
+    x = sy.Matrix([[simpleBoringEquiElements.SemiMajorAxis, simpleBoringEquiElements.EccentricitySinTermH, simpleBoringEquiElements.EccentricityCosTermK, simpleBoringEquiElements.InclinationSinTermP, simpleBoringEquiElements.InclinationCosTermQ, simpleBoringEquiElements.TrueLongitude]]).transpose()
+    z = [simpleBoringEquiElements.SemiMajorAxis, simpleBoringEquiElements.EccentricitySinTermH, simpleBoringEquiElements.EccentricityCosTermK, simpleBoringEquiElements.InclinationSinTermP, simpleBoringEquiElements.InclinationCosTermQ, simpleBoringEquiElements.TrueLongitude]
     aSy = sy.Function('A', commutative=True)(x, t)
     u1 = sy.Symbol("u_1", real=True)
     u2 = sy.Symbol("u_2", real=True)
     u3 = sy.Symbol("u_3", real=True)
     uSy = sy.Matrix([[u1, u2, u3]]).transpose()
-    accelSy = sy.Symbol('a', real=True, positive=True)
-
-
-
-    def CreatePerturbationMatrixWithTrueLongitude(eelm, subsDict : Dict[sy.Expr, SymbolOrNumber]) ->sy.Matrix:
-        p = eelm.InclinationSinTermP
-        q = eelm.InclinationCosTermQ
-        h = eelm.EccentricitySinTermH
-        k = eelm.EccentricityCosTermK
-        mu = eelm.GravitationalParameter
-        a = eelm.SemiMajorAxis
-        l = eelm.TrueLongitude
-
-        G = sy.sqrt(1-h**2-k**2)
-        K = (1+p**2+q**2)
-        n = eelm.NSy
-        subsDict[n] = eelm.N
-        GExp = sy.sqrt(1-h*h-k*k)
-        G = sy.Function("G")(h, k)
-        subsDict[G] = GExp
-
-        KExp = K
-        K = sy.Function("K")(p, q)
-        subsDict[K] = KExp
-
-        r = sy.Function('r')(a)
-        subsDict[r] = eelm.ROverA*a
-
-        sl = sy.sin(eelm.TrueLongitude)
-        cl = sy.cos(eelm.TrueLongitude)
-        #u is radial, intrack, out of plane, AKA r, theta, h
-
-        onephspkc = 1+h*sl+k*cl
-        aDotMult = (2/(n*G))
-        b11 = aDotMult*(k*sl-h*cl) #aDot in r direction
-        b12 = aDotMult*(onephspkc) #aDot in theta direction
-        b13 = 0  # a dot in h direction, you get the pattern...
-
-        hDotMult = G/(n*a*onephspkc)
-        b21 = hDotMult*(-(onephspkc)*cl)
-        b22 = hDotMult*((h+(2+h*sl+k*cl)*sl))
-        b23 = -hDotMult*(k*(p*cl-q*sl))
-
-        kDotMult = G/(n*a*onephspkc)
-        b31 = kDotMult*((onephspkc)*sl)
-        b32 = kDotMult*((k+(2+h*sl+k*cl)*cl))
-        b33 = kDotMult*(h*(p*cl-q*sl)) 
-
-        pDotMult = G/(2*n*a*onephspkc)
-        b41 = 0
-        b42 = 0
-        b43 = pDotMult*K*sl
-        
-        qDotMult = G/(2*n*a*onephspkc)
-        b51 = 0
-        b52 = 0
-        b53 = qDotMult*K*cl
-        
-        b61 = 0
-        b62 = 0
-        b63 = (G*(q*sl-p*cl))/(n*a*onephspkc)
-        #b63 = r*(q*sl-p*cl)/(n*G*a**2)
-
-        #M = sy.Matrix([[m11, m12, m13], [m21, m22, m23],[m31, m32, m33],[m41, m42, m43],[m51, m52, m53]])
-        B = sy.Matrix([[b11, b12, b13], [b21, b22, b23],[b31, b32, b33],[b41, b42, b43],[b51, b52, b53],[b61, b62, b63]])   
-        return B     
-
-    def CreatePerturbationMatrixWithTrueLongitudeDirectlyFromBook(eelm, subsDict : Dict[sy.Expr, SymbolOrNumber]) ->sy.Matrix:
-        p = eelm.InclinationSinTermP
-        q = eelm.InclinationCosTermQ
-        h = eelm.EccentricitySinTermH
-        k = eelm.EccentricityCosTermK
-        mu = eelm.GravitationalParameter
-        a = eelm.SemiMajorAxis
-        l = eelm.TrueLongitude
-
-        G = sy.sqrt(1-h**2-k**2)
-        K = (1+p**2+q**2)
-        n = eelm.NSy
-        subsDict[n] = eelm.N
-        GExp = G
-        G = sy.Function("G")(h, k)
-        subsDict[G] = GExp
-
-        KExp = K
-        K = sy.Function("K")(p, q)
-        subsDict[K] = KExp
-
-        r = sy.Function('r')(a)
-        subsDict[r] = eelm.ROverA*a
-
-        sl = sy.sin(eelm.TrueLongitude)
-        cl = sy.cos(eelm.TrueLongitude)
-        #u is radial, intrack, out of plane, AKA r, theta, h
-
-        onephspkc = 1+h*sl+k*cl
-        aDotMult = (2/(n*G))
-        b11 = aDotMult*(k*sl-h*cl) #aDot in r direction
-        b12 = 2*a*G/(n*r) #aDot in theta direction
-        b13 = 0  # a dot in h direction, you get the pattern...
-
-        hDotMult = G/(n*a*onephspkc)
-        b21 = hDotMult*(-(1+onephspkc)*cl)
-        b22 = r*(h+sl)/(n*G*a**2)+G*sl/(n*a)
-        b23 = r*k*(p*cl-q*sl)/(n*G*a**2)
-
-        kDotMult = G/(n*a*onephspkc)
-        b31 = G*sl/(n*a)
-        b32 = r*(k+cl)/(n*G*a**2)+G*cl/(n*a)
-        b33 = r*h*(p*cl-q*sl/(n*G*a**2))
-
-        pDotMult = G/(2*n*a*onephspkc)
-        b41 = 0
-        b42 = 0
-        b43 = r*K*sl/(2*n*G*a**2)
-        
-        qDotMult = G/(2*n*a*onephspkc)
-        b51 = 0
-        b52 = 0
-        b53 = r*K*cl/(2*n*G*a**2)
-        
-        b61 = 0
-        b62 = 0
-        b63 = r*(q*sl-p*cl)/(n*G*a**2)
-
-        #M = sy.Matrix([[m11, m12, m13], [m21, m22, m23],[m31, m32, m33],[m41, m42, m43],[m51, m52, m53]])
-        B = sy.Matrix([[b11, b12, b13], [b21, b22, b23],[b31, b32, b33],[b41, b42, b43],[b51, b52, b53],[b61, b62, b63]])   
-        return B     
-
-    def UnperturbedTrueLongitudeTimeDerivative(eelm, subsDict : Optional[Dict[sy.Expr, SymbolOrNumber]]=None) ->sy.Expr :
-        p = eelm.InclinationSinTermP
-        q = eelm.InclinationCosTermQ
-        h = eelm.EccentricitySinTermH
-        k = eelm.EccentricityCosTermK
-        mu = eelm.GravitationalParameter
-        a = eelm.SemiMajorAxis
-        l = eelm.TrueLongitude 
-        n = eelm.N
-        sl = sy.sin(l)
-        cl = sy.cos(l)
-        return (n*(1+h*sl+k*cl)**2)/(1-h**2-k**2)**(3/2)
-
-    def UnperturbedTrueLongitudeTimeDerivativeWithWeirdRadius(eelm, subsDict : Dict[sy.Expr, SymbolOrNumber]) ->sy.Expr :
-        p = eelm.InclinationSinTermP
-        q = eelm.InclinationCosTermQ
-        h = eelm.EccentricitySinTermH
-        k = eelm.EccentricityCosTermK
-        mu = eelm.GravitationalParameter
-        a = eelm.SemiMajorAxis
-        f = eelm.EccentricLongitude
-        l = eelm.TrueLongitude 
-        n = eelm.N
-        sl = sy.sin(eelm.TrueLongitude)
-        cl = sy.cos(eelm.TrueLongitude)
-
-        r = sy.Function('r')(a, f, k)
-        subsDict[r] = eelm.ROverA*a
-
-        return n*(a**2)*sy.sqrt(1-h**2-k**2)/(r**2)
-
-    #B = CreatePerturbationMatrixWithTrueLongitudeDirectlyFromBook(simpleBoringEquiElements, fullSubsDictionary)
-    #lonDot = sy.Matrix([[0],[0],[0],[0],[0],[1]])*UnperturbedTrueLongitudeTimeDerivativeWithWeirdRadius(simpleBoringEquiElements, fullSubsDictionary)
-
-    B = CreatePerturbationMatrixWithTrueLongitude(simpleBoringEquiElements, fullSubsDictionary)
-    lonDot = sy.Matrix([[0],[0],[0],[0],[0],[1]])*UnperturbedTrueLongitudeTimeDerivative(simpleBoringEquiElements, fullSubsDictionary)
+    
+    B = simpleBoringEquiElements.CreatePerturbationMatrixWithTrueLongitude(fullSubsDictionary)
+    lonDot = sy.Matrix([[0],[0],[0],[0],[0],[1]])*simpleBoringEquiElements.UnperturbedTrueLongitudeTimeDerivative(fullSubsDictionary)
 
     r = simpleBoringEquiElements.ROverA * simpleBoringEquiElements.SemiMajorAxis
     jh.showEquation("r", r)
@@ -280,7 +103,7 @@ def doItAll(tArray, includeJ2):
 
     qMult = 1
     if includeJ2:
-        qMult = 1
+        qMult = 1000
 
     problem.BoundaryConditions.append(zF[0]-aFV)
     problem.BoundaryConditions.append(zF[1]-hFV)
@@ -289,7 +112,7 @@ def doItAll(tArray, includeJ2):
     problem.BoundaryConditions.append((zF[4]-qFV)*qMult)
     problem.BoundaryConditions.append(zF[5])
 
-    zDot = B*uSy*accelSy + lonDot
+    
     sl = sy.sin(simpleBoringEquiElements.TrueLongitude)
     cl = sy.cos(simpleBoringEquiElements.TrueLongitude)
     j2Pert_r  =  -1*(3*mu*J2*(rEarth**2)/(2*r**4))*(1-(12*(q*sl-p*cl)**2)/(1+p*p+q*q)**2)
@@ -302,6 +125,7 @@ def doItAll(tArray, includeJ2):
     j2Equi = sy.Matrix([[cl, -1*sl, 0],[sl, cl, 0], [0,0,1]])*j2GaussianVec
 
     j2Equi = Cartesian(cl*j2Pert_r-sl*j2Pert_th, sl*j2Pert_r+cl*j2Pert_th, j2Pert_h)
+    zDot = B*uSy*accelSy + lonDot
     if includeJ2:
         zDot = B*(uSy*accelSy +j2Equi) + lonDot
 
@@ -399,9 +223,7 @@ def doItAll(tArray, includeJ2):
 
     # now we try to integrate
 
-    accelVal = 9.8e-5
-    fullSubsDictionary[accelSy] = accelVal
-    fullSubsDictionary[mu]=muVal
+
 
     eoms = []
 
@@ -456,7 +278,6 @@ def doItAll(tArray, includeJ2):
     fSolveInitialState = [*lmdGuess[0:5]]
     fSolveInitialState.append(tfV)
 
-    from pyeq2orb.Numerical import ScipyCallbackCreators #type: ignore
 
     ipvCallback = lmdHelper.CreateSimpleCallbackForSolveIvp()
 
@@ -546,9 +367,9 @@ def doItAll(tArray, includeJ2):
     solution =realIpvCallback(tArray, finalInitialState, ipvCallback, actualTfSec) #solve_ivp(ipvCallback, [tArray[0], tArray[-1]], finalInitialState, args=(fSolveSol[-1]), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
     print(solution)
     hamlfLambdifyHelper = LambdifyHelper(lmdHelper.LambdifyArguments, hamiltonian, fullSubsDictionary)
-    jh.showEquation("H", hamiltonian[0,0].subs(t, tau*tfV))
-    hamltSubs1 = SafeSubs(hamiltonian[0,0].subs(t, tau*tfV), lmdHelper.SubstitutionDictionary).doit(deep=True)
-    hamltSubsFinal = SafeSubs(hamltSubs1, lmdHelper.SubstitutionDictionary).doit(deep=True)
+    jh.showEquation("H", hamiltonian[0,0])
+    hamltSubs1 = SafeSubs(hamiltonian[0,0], lmdHelper.SubstitutionDictionary).doit(deep=True)
+    hamltSubsFinal = SafeSubs(hamltSubs1, lmdHelper.SubstitutionDictionary).subs(t, tau*actualTfSec).subs(originalProblem.TimeFinalSymbol, 1.0).doit(deep=True)
     hamlfEvala = sy.lambdify(lmdHelper.LambdifyArguments, hamltSubsFinal, modules="numpy", cse=True)
     solution["hamlt"] = hamlfEvala(tArray, solution.y)
     return fSolveSol, solution, fullBoundaryConditionState
@@ -558,6 +379,10 @@ tArray = np.linspace(0.0, 1.0, 400)
 
 fSolveSolJ2, solutionJ2, fullBoundaryConditionStateJ2 = doItAll(tArray, True)
 actualTfSecJ2 = fSolveSolJ2[0][-1]
+#fSolveSol=fSolveSolJ2
+#solution=solutionJ2
+#fullBoundaryConditionState=fullBoundaryConditionStateJ2
+#actualTfSec = fSolveSol[0][-1]
 
 fSolveSol, solution, fullBoundaryConditionState = doItAll(tArray, False)
 actualTfSec = fSolveSol[0][-1]
@@ -648,4 +473,3 @@ df.style \
   .format_index(str.upper, axis=1) \
   .relabel_index(initialKepElements.NamesToArray(), axis=0)
 
-# %%

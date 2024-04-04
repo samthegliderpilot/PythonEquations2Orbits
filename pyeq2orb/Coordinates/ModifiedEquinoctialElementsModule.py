@@ -332,7 +332,72 @@ class EquinoctialElementsHalfITrueLongitude :
         wm = multiplier*sy.Matrix([[2*p], [-2*q], [1-p**2-q**2]]) # orbit normal
 
         return sy.Matrix([[fm[0,0], fm[1,0], fm[2,0]],[gm[0,0],gm[1,0],gm[2,0] ],[wm[0,0], wm[1,0], wm[2,0]]]).transpose()
-    
+
+    def CreatePerturbationMatrixWithTrueLongitude(self, subsDict : Optional[Dict[sy.Expr, SymbolOrNumber]]= None) ->sy.Matrix:
+        if subsDict == None:
+            subsDict = {} #type: ignore
+        p = self.InclinationSinTermP
+        q = self.InclinationCosTermQ
+        h = self.EccentricitySinTermH
+        k = self.EccentricityCosTermK
+        mu = self.GravitationalParameter
+        a = self.SemiMajorAxis
+        l = self.TrueLongitude
+
+        G = sy.sqrt(1-h**2-k**2)
+        K = (1+p**2+q**2)
+        n = self.NSy
+        subsDict[n] = self.N
+        GExp = sy.sqrt(1-h*h-k*k)
+        G = sy.Function("G")(h, k)
+        subsDict[G] = GExp
+
+        KExp = K
+        K = sy.Function("K")(p, q)
+        subsDict[K] = KExp
+
+        r = sy.Function('r')(a)
+        subsDict[r] = self.ROverA*a
+
+        sl = sy.sin(self.TrueLongitude)
+        cl = sy.cos(self.TrueLongitude)
+        #u is radial, intrack, out of plane, AKA r, theta, h
+
+        onephspkc = 1+h*sl+k*cl
+        aDotMult = (2/(n*G))
+        b11 = aDotMult*(k*sl-h*cl) #aDot in r direction
+        b12 = aDotMult*(onephspkc) #aDot in theta direction
+        b13 = 0  # a dot in h direction, you get the pattern...
+
+        hDotMult = G/(n*a*onephspkc)
+        b21 = hDotMult*(-(onephspkc)*cl)
+        b22 = hDotMult*((h+(2+h*sl+k*cl)*sl))
+        b23 = -hDotMult*(k*(p*cl-q*sl))
+
+        kDotMult = G/(n*a*onephspkc)
+        b31 = kDotMult*((onephspkc)*sl)
+        b32 = kDotMult*((k+(2+h*sl+k*cl)*cl))
+        b33 = kDotMult*(h*(p*cl-q*sl)) 
+
+        pDotMult = G/(2*n*a*onephspkc)
+        b41 = 0
+        b42 = 0
+        b43 = pDotMult*K*sl
+        
+        qDotMult = G/(2*n*a*onephspkc)
+        b51 = 0
+        b52 = 0
+        b53 = qDotMult*K*cl
+        
+        b61 = 0
+        b62 = 0
+        b63 = (G*(q*sl-p*cl))/(n*a*onephspkc)
+        #b63 = r*(q*sl-p*cl)/(n*G*a**2)
+
+        #M = sy.Matrix([[m11, m12, m13], [m21, m22, m23],[m31, m32, m33],[m41, m42, m43],[m51, m52, m53]])
+        B = sy.Matrix([[b11, b12, b13], [b21, b22, b23],[b31, b32, b33],[b41, b42, b43],[b51, b52, b53],[b61, b62, b63]])   
+        return B     
+
     # def CreateFgwToInertialAxes(self) -> sy.Matrix:
     #     p = self.InclinationSinTermP
     #     q = self.InclinationCosTermQ
@@ -395,56 +460,8 @@ class EquinoctialElementsHalfITrueLongitude :
 
     #     return [x1Dot, x2Dot]
 
-    def CreatePerturbationMatrixWithTrueLongitude(self) ->sy.Matrix:
-        p = self.InclinationSinTermP
-        q = self.InclinationCosTermQ
-        h = self.EccentricitySinTermH
-        k = self.EccentricityCosTermK
-        mu = self.GravitationalParameter
-        a = self.SemiMajorAxis
-        l = self.TrueLongitude
-        n = self.N
 
-        sl = sy.sin(self.TrueLongitude)
-        cl = sy.cos(self.TrueLongitude)
-        #u is radial, intrack, out of plane, AKA r, theta, h
-
-        sqrt1mhhmkk = sy.sqrt(1-h**2-k**2)
-        onephspkc = 1+h*sl+k*cl
-        aDotMult = (2/(n*sqrt1mhhmkk))*(k*sy.sin)
-        b11 = aDotMult*(k*sl-h*cl) #aDot in r direction
-        b12 = aDotMult*(onephspkc) #aDot in theta direction
-        b13 = 0  # a dot in h direction, you get the pattern...
-
-        hDotMult = sqrt1mhhmkk/(n*a*onephspkc)
-        b21 = hDotMult*(-(1+onephspkc)*cl)
-        b22 = hDotMult*((h+(2+h*sl+k*cl)*sl))
-        b23 = -hDotMult*(k*(p*cl-q*sl))
-
-        kDotMult = sqrt1mhhmkk/(n*a*onephspkc)
-        b31 = hDotMult*((1+onephspkc)*sl)
-        b32 = hDotMult*((h+(2+h*sl+k*cl)*cl))
-        b33 = hDotMult*(h*(p*cl-q*sl)) 
-
-        pDotMult = sqrt1mhhmkk/(2*n*a*onephspkc)
-        b41 = 0
-        b42 = 0
-        b43 = pDotMult*(1+p**2+q**2)*sl
-        
-        qDotMult = sqrt1mhhmkk/(2*n*a*onephspkc)
-        b51 = 0
-        b52 = 0
-        b53 = qDotMult*(1+p**2+q**2)*cl
-        
-        b61 = 0
-        b62 = 0
-        b63 = (sqrt1mhhmkk*(q*sl-p*cl))/(n*a*onephspkc)
-
-        #M = sy.Matrix([[m11, m12, m13], [m21, m22, m23],[m31, m32, m33],[m41, m42, m43],[m51, m52, m53]])
-        B = sy.Matrix([[b11, b12, b13], [b21, b22, b23],[b31, b32, b33],[b41, b42, b43],[b51, b52, b53],[b61, b62, b63]])   
-        return B     
-
-    def UnperturbedTrueLongitudeTimeDerivative(self) ->sy.Expr :
+    def UnperturbedTrueLongitudeTimeDerivative(self, subsDict : Optional[Dict[sy.Expr, SymbolOrNumber]]=None) ->sy.Expr :
         p = self.InclinationSinTermP
         q = self.InclinationCosTermQ
         h = self.EccentricitySinTermH
@@ -453,8 +470,8 @@ class EquinoctialElementsHalfITrueLongitude :
         a = self.SemiMajorAxis
         l = self.TrueLongitude 
         n = self.N
-        sl = sy.sin(self.TrueLongitude)
-        cl = sy.cos(self.TrueLongitude)
+        sl = sy.sin(l)
+        cl = sy.cos(l)
         return (n*(1+h*sl+k*cl)**2)/(1-h**2-k**2)**(3/2)
 
     def TrueLongitudeEquationsOfMotionInMatrixForm(self, otherForceVector)->sy.Expr:
