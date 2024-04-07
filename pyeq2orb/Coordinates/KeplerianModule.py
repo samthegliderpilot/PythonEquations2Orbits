@@ -10,6 +10,8 @@ def MeanAnomalyFromEccentricAnomaly(eccentricAnomaly: SymbolOrNumber, eccentrici
     if eccentricAnomaly % math.pi == 0:
         return eccentricAnomaly
     ma = eccentricAnomaly - eccentricity*sy.sin(eccentricAnomaly)
+    if hasattr(ma, "evalf"):
+        ma = ma.evalf()
     ma = ma.evalf()
     if ma.is_Float:
         ma = float(ma)%(2*math.pi)
@@ -44,7 +46,8 @@ def TrueAnomalyFromEccentricAnomaly(eccentricAnomaly: SymbolOrNumber, eccentrici
         sinTa = -1*sy.sinh(eccentricAnomaly) * sy.sqrt((eccentricity**2)-1)/(1-eccentricity*sy.cosh(eccentricAnomaly))
         cosTa = (sy.cosh(eccentricAnomaly) - eccentricity)/(1-eccentricity*sy.cosh(eccentricAnomaly))
         ta = sy.atanh(cosTa/sinTa)        
-
+    if hasattr(ta, "evalf"):
+        ta = ta.evalf()
     ta = ta.evalf()
     if ta.is_Float:
         ta = float(ta)%(2*math.pi)
@@ -54,17 +57,21 @@ def EccentricAnomalyFromTrueAnomaly(trueAnomaly: SymbolOrNumber, eccentricity : 
     if trueAnomaly % math.pi == 0:
         return trueAnomaly
 
-    if eccentricity < 1.0 :
+    eccentricityAsFloat =-1.0
+    if isinstance(eccentricity, float) or hasattr(eccentricity, "is_float") :
+        eccentricityAsFloat = float(eccentricity)
+    if eccentricityAsFloat < 1.0 :# minus 1 default case is caught here too
         sinEa = sy.sin(trueAnomaly)*sy.sqrt(1-eccentricity**2)/(1+eccentricity*sy.cos(trueAnomaly))
         cosEa = (eccentricity+sy.cos(trueAnomaly))/(1+eccentricity*sy.cos(trueAnomaly))
         ea = sy.atan2(sinEa, cosEa)
-    elif eccentricity == 1.0:
+    elif eccentricityAsFloat == 1.0:
         ea = sy.atan(trueAnomaly/2.0)
-    elif eccentricity > 1.0 :
+    elif eccentricityAsFloat > 1.0 :
         sinHa = sy.sin(trueAnomaly)*sy.sqrt((eccentricity**2) - 1)/(1+eccentricity*sy.cos(trueAnomaly))
         cosHa = (eccentricity+sy.cos(trueAnomaly))/(1+eccentricity*sy.cos(trueAnomaly))
         ea = sy.atan2(sinHa, cosHa)
-    ea = ea.evalf()
+    if hasattr(ea, "evalf"):
+        ea = ea.evalf()
     if ea.is_Float:
         ea = float(ea)%(2*math.pi)
     return ea
@@ -273,6 +280,10 @@ class KeplerianElements() :
         motion = self.ToPerifocalCartesian()
         rotMatrix = self.PerifocalToInertialRotationMatrix()
         return MotionCartesian(rotMatrix*motion.Position, rotMatrix*motion.Velocity)
+
+    def ToInertialMotionCartesianOverridingTrueAnomaly(self, trueAnomaly) -> MotionCartesian:
+        tempElements = KeplerianElements(self.SemiMajorAxis, self.Eccentricity, self.Inclination, self.ArgumentOfPeriapsis, self.RightAscensionOfAscendingNode, trueAnomaly, self.GravitationalParameter)
+        return tempElements.ToInertialMotionCartesian()
 
     def ToArray(self, deg : Optional[bool] = False) -> List[SymbolOrNumber] :
         radToDeg = 180.0/math.pi

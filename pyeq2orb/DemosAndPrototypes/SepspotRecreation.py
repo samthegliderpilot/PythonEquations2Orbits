@@ -87,8 +87,8 @@ def doItAll(tArray, includeJ2):
     u3 = sy.Symbol("u_3", real=True)
     uSy = sy.Matrix([[u1, u2, u3]]).transpose()
     
-    B = simpleBoringEquiElements.CreatePerturbationMatrixWithTrueLongitude(fullSubsDictionary)
-    lonDot = sy.Matrix([[0],[0],[0],[0],[0],[1]])*simpleBoringEquiElements.UnperturbedTrueLongitudeTimeDerivative(fullSubsDictionary)
+    B = simpleBoringEquiElements.CreatePerturbationMatrix(fullSubsDictionary)
+    lonDot = sy.Matrix([[0],[0],[0],[0],[0],[1]])*simpleBoringEquiElements.UnperturbedLongitudeTimeDerivative(fullSubsDictionary)
 
     r = simpleBoringEquiElements.ROverA * simpleBoringEquiElements.SemiMajorAxis
     jh.showEquation("r", r)
@@ -414,7 +414,7 @@ for i in range(0, len(tArray)):
     equiElements.append(temp)
 finalKepElements = equiElements[-1].ConvertToModifiedEquinoctial().ToKeplerian()
 initialKepElements = equiElements[0].ConvertToModifiedEquinoctial().ToKeplerian()
-motions = mee.EquinoctialElementsHalfITrueLongitude.CreateEphemeris(equiElements)
+motions = mee.EquinoctialElementsHalfI.CreateEphemeris(equiElements)
 satEphemeris = prim.EphemerisArrays()
 satEphemeris.InitFromMotions(tArray, motions)
 satPath = prim.PathPrimitive(satEphemeris)

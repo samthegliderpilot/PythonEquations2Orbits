@@ -1,7 +1,7 @@
 from __future__ import annotations
 import sympy as sy
 import math
-from pyeq2orb.Coordinates.KeplerianModule import KeplerianElements
+import pyeq2orb.Coordinates.KeplerianModule as Keplerian
 from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
 from typing import List, Dict, Optional, cast, Union, cast
@@ -64,7 +64,7 @@ class ModifiedEquinoctialElements:
     def RadiusSymbol(self)->sy.Symbol :
         return self._rSymbol
 
-    def ToKeplerian(self) -> KeplerianElements :
+    def ToKeplerian(self) -> Keplerian.KeplerianElements :
         l = self.TrueLongitude
         f = self.EccentricityCosTermF
         g = self.EccentricitySinTermG
@@ -81,7 +81,7 @@ class ModifiedEquinoctialElements:
             w=0.0
         raan = sy.atan2(k, h)
         ta = l-raan+w
-        return KeplerianElements(a, e, i, w, raan, ta, self.GravitationalParameter)
+        return Keplerian.KeplerianElements(a, e, i, w, raan, ta, self.GravitationalParameter)
     
     def CreateFgwToInertialAxes(self)->sy.Matrix:
         p = self.InclinationSinTermK
@@ -168,7 +168,7 @@ class ModifiedEquinoctialElements:
     @staticmethod
     def FromMotionCartesian(motion, gravitationalParameter :SymbolOrNumber) ->ModifiedEquinoctialElements:
         # TODO: something that avoids keplerian elements
-        return ConvertKeplerianToEquinoctial(KeplerianElements.FromMotionCartesian(motion, gravitationalParameter))
+        return ConvertKeplerianToEquinoctial(Keplerian.KeplerianElements.FromMotionCartesian(motion, gravitationalParameter))
 
     @staticmethod
     def CreateEphemeris(equinoctialElementsList : List[ModifiedEquinoctialElements]) -> List[MotionCartesian] :
@@ -221,7 +221,7 @@ class ModifiedEquinoctialElements:
         return 6
 
 
-def ConvertKeplerianToEquinoctial(keplerianElements : KeplerianElements, nonModdedLongitude : Optional[bool]= True) ->ModifiedEquinoctialElements :
+def ConvertKeplerianToEquinoctial(keplerianElements : Keplerian.KeplerianElements, nonModdedLongitude : Optional[bool]= True) ->ModifiedEquinoctialElements :
     a = keplerianElements.SemiMajorAxis
     e = keplerianElements.Eccentricity
     i = keplerianElements.Inclination
@@ -265,17 +265,104 @@ def CreateSymbolicElements(elementOf :Optional[SymbolOrNumber]= None, mu : Optio
     
     return ModifiedEquinoctialElements(p, f, g, h, k, l, mu)
 
+from abc import ABC, abstractmethod
+class EquinoctialElementsHalfI(ABC):
 
+    @staticmethod
+    @abstractmethod
+    def CreateSymbolicElements(elementOf :Optional[SymbolOrNumber]= None, mu : Optional[SymbolOrNumber] = None) ->EquinoctialElementsHalfI : 
+        pass
 
-class EquinoctialElementsHalfITrueLongitude :
+    @staticmethod
+    def CreateEphemeris(equinoctialElementsList : List[EquinoctialElementsHalfI]) -> List[MotionCartesian] :
+        motions = []
+        for equi in equinoctialElementsList :
+            motions.append(equi.ToCartesian())
+        return motions
+
+    @abstractmethod
+    def ToCartesian(self)->MotionCartesian:
+        pass
+
+    @abstractmethod
+    def CreatePerturbationMatrix(self, subsDict : Optional[Dict[sy.Expr, SymbolOrNumber]]= None) ->sy.Matrix:
+        pass
+
+    @abstractmethod
+    def UnperturbedLongitudeTimeDerivative(self) -> SymbolOrNumber:
+        pass
+
+    def LongitudeEquationsOfMotionInMatrixForm(self, otherForceVector)->sy.Expr:
+        return self.CreatePerturbationMatrix() * otherForceVector + sy.Matrix([[0],[0],[1]])*self.UnperturbedLongitudeTimeDerivative()
+
+    @staticmethod
+    def CreateFgwToInertialAxesStatic(p:SymbolOrNumber, q:SymbolOrNumber) -> sy.Matrix:
+        multiplier = 1/(1+p**2+q**2)
+        fm = multiplier*sy.Matrix([[1-p**2+q**2], [2*p*q], [-2*p]]) # first point of aries
+        gm = multiplier*sy.Matrix([[2*p*q], [1+p**2-q**2], [2*q]]) # completes triad
+        wm = multiplier*sy.Matrix([[2*p], [-2*q], [1-p**2-q**2]]) # orbit normal
+
+        return sy.Matrix([[fm[0,0], fm[1,0], fm[2,0]],[gm[0,0],gm[1,0],gm[2,0] ],[wm[0,0], wm[1,0], wm[2,0]]]).transpose()
+    
+    def CreateFgwToInertialAxes(self) -> sy.Matrix:
+        p = self.InclinationSinTermP
+        q = self.InclinationCosTermQ
+        return EquinoctialElementsHalfIMeanLongitude.CreateFgwToInertialAxesStatic(p, q)
+
+    @property
+    def SemiMajorAxis(self) :
+        return self._semiMajorAxis
+
+    @property
+    def EccentricitySinTermH(self) :
+        return self._eccentricitySinTermH
+
+    @property
+    def EccentricityCosTermK(self) :
+        return self._eccentricityCosTermK
+
+    @property
+    def InclinationSinTermP(self) :
+        return self._inclinationSinTermP
+
+    @property
+    def InclinationCosTermQ(self) :
+        return self._inclinationCosTermQ
+
+    @property
+    def GravitationalParameter(self) :
+        return self._gravitationalParameter
+
+    def MeanMotion(self):
+        a = self.SemiMajorAxis
+        return sy.sqrt(mu/(a**3))
+
+    def ToKeplerianIgnoringAnomaly(self) -> Keplerian.KeplerianElements :
+        h = self.EccentricitySinTermH
+        k = self.EccentricityCosTermK
+        p = self.InclinationSinTermP
+        q = self.InclinationCosTermQ
+        a = self.SemiMajorAxis
+        
+        e = sy.sqrt(h*h+k*k)
+        # it is not clear to me if the atan2 in the MME PDF passes in x,y or y,x (y,x is right for sy)
+        i = sy.atan(sy.sqrt(p*p+q*q))
+        w = sy.atan2(k, h) - sy.atan2(q,p)
+        if math.isnan(w):
+            w=0.0
+        raan = sy.atan2(q, p)
+        
+        return Keplerian.KeplerianElements(a, e, i, w, raan, 0, self.GravitationalParameter)        
+
+class EquinoctialElementsHalfITrueLongitude(EquinoctialElementsHalfI) :
     def __init__(self, a:SymbolOrNumber, h:SymbolOrNumber, k:SymbolOrNumber, p:SymbolOrNumber, q:SymbolOrNumber, trueLongitude:SymbolOrNumber, mu:SymbolOrNumber) :
-        self.SemiMajorAxis = a
-        self.EccentricitySinTermH = h
-        self.EccentricityCosTermK = k
-        self.InclinationSinTermP = p
-        self.InclinationCosTermQ = q
-        self.TrueLongitude = trueLongitude
-        self.GravitationalParameter = mu
+        self._semiMajorAxis = a
+        self._eccentricitySinTermH = h
+        self._eccentricityCosTermK = k
+        self._inclinationSinTermP = p
+        self._inclinationCosTermQ = q
+        self._trueLongitude = trueLongitude
+        self._gravitationalParameter = mu
 
         self.BetaSy = sy.Function(r'\beta')(h, k)
         self.NSy = sy.Function('n')(a)
@@ -285,12 +372,14 @@ class EquinoctialElementsHalfITrueLongitude :
         self.N = sy.sqrt(mu/(a**3))
         self.ROverA= (1-h**2-k**2)/(1+h*sy.sin(trueLongitude)+k*sy.cos(trueLongitude))
 
-    @staticmethod
-    def CreateEphemeris(equinoctialElementsList : List[EquinoctialElementsHalfITrueLongitude]) -> List[MotionCartesian] :
-        motions = []
-        for equi in equinoctialElementsList :
-            motions.append(EquinoctialElementsHalfITrueLongitude.ConvertToModifiedEquinoctial(equi).ToMotionCartesian())
-        return motions
+    @property
+    def TrueLongitude(self):
+        return self._trueLongitude
+
+    def ToCartesian(self) -> MotionCartesian :
+        tempKep = self.ToKeplerianIgnoringAnomaly()        
+        ta = self.TrueLongitude - tempKep.ArgumentOfPeriapsis-tempKep.RightAscensionOfAscendingNode
+        return tempKep.ToInertialMotionCartesianOverridingTrueAnomaly(ta)
 
     def ConvertToModifiedEquinoctial(self) ->ModifiedEquinoctialElements:
         eSq = self.EccentricityCosTermK**2+self.EccentricitySinTermH**2
@@ -324,16 +413,7 @@ class EquinoctialElementsHalfITrueLongitude :
 
         return EquinoctialElementsHalfITrueLongitude(a, h, k, p, q, l, mu)
     
-    @staticmethod
-    def CreateFgwToInertialAxesStatic(p:SymbolOrNumber, q:SymbolOrNumber) -> sy.Matrix:
-        multiplier = 1/(1+p**2+q**2)
-        fm = multiplier*sy.Matrix([[1-p**2+q**2], [2*p*q], [-2*p]]) # first point of aries
-        gm = multiplier*sy.Matrix([[2*p*q], [1+p**2-q**2], [2*q]]) # completes triad
-        wm = multiplier*sy.Matrix([[2*p], [-2*q], [1-p**2-q**2]]) # orbit normal
-
-        return sy.Matrix([[fm[0,0], fm[1,0], fm[2,0]],[gm[0,0],gm[1,0],gm[2,0] ],[wm[0,0], wm[1,0], wm[2,0]]]).transpose()
-
-    def CreatePerturbationMatrixWithTrueLongitude(self, subsDict : Optional[Dict[sy.Expr, SymbolOrNumber]]= None) ->sy.Matrix:
+    def CreatePerturbationMatrix(self, subsDict : Optional[Dict[sy.Expr, SymbolOrNumber]]= None) ->sy.Matrix:
         if subsDict == None:
             subsDict = {} #type: ignore
         p = self.InclinationSinTermP
@@ -347,17 +427,17 @@ class EquinoctialElementsHalfITrueLongitude :
         G = sy.sqrt(1-h**2-k**2)
         K = (1+p**2+q**2)
         n = self.NSy
-        subsDict[n] = self.N
+        subsDict[n] = self.N #type: ignore
         GExp = sy.sqrt(1-h*h-k*k)
         G = sy.Function("G")(h, k)
-        subsDict[G] = GExp
+        subsDict[G] = GExp#type: ignore
 
         KExp = K
         K = sy.Function("K")(p, q)
-        subsDict[K] = KExp
+        subsDict[K] = KExp#type: ignore
 
         r = sy.Function('r')(a)
-        subsDict[r] = self.ROverA*a
+        subsDict[r] = self.ROverA*a#type: ignore
 
         sl = sy.sin(self.TrueLongitude)
         cl = sy.cos(self.TrueLongitude)
@@ -398,70 +478,7 @@ class EquinoctialElementsHalfITrueLongitude :
         B = sy.Matrix([[b11, b12, b13], [b21, b22, b23],[b31, b32, b33],[b41, b42, b43],[b51, b52, b53],[b61, b62, b63]])   
         return B     
 
-    # def CreateFgwToInertialAxes(self) -> sy.Matrix:
-    #     p = self.InclinationSinTermP
-    #     q = self.InclinationCosTermQ
-    #     return EquinoctialElementsHalfI.CreateFgwToInertialAxesStatic(p, q)
-
-    # def RadiusInFgw(self, eccentricLongitude : SymbolOrNumber, subsDict : Optional[dict[sy.Expr, SymbolOrNumber]]=None) -> List[SymbolOrNumber]:
-    #     p = self.InclinationSinTermP
-    #     q = self.InclinationCosTermQ
-    #     h = self.EccentricitySinTermH
-    #     k = self.EccentricityCosTermK
-    #     mu = self.GravitationalParameter
-    #     a = self.SemiMajorAxis
-    #     f = eccentricLongitude
-
-    #     b = self.Beta
-    #     n = self.N
-    #     rOverA = self.ROverA
-    #     if(subsDict != None) :          
-    #         subsDict = cast(dict, subsDict)  
-    #         bSy = self.BetaSy
-    #         nSy = self.NSy
-    #         rOverASy = self.ROverASy
-    #         subsDict[bSy] = b
-    #         subsDict[nSy] = n
-    #         subsDict[rOverASy] = rOverA
-    #         b = bSy
-    #         n = nSy
-    #         rOverA = rOverASy
-
-    #     x1 = a*((1-h**2*b)*sy.cos(f)+h*k*b*sy.sin(f)-k)
-    #     x2 = a*((1-k**2*b)*sy.sin(f)+h*k*b*sy.cos(f)-h)
-
-    #     return [x1, x2]
-
-    # def VelocityInFgw(self, eccentricLongitude : SymbolOrNumber, subsDict : Optional[Dict[sy.Expr, SymbolOrNumber]]=None) -> List[SymbolOrNumber]:
-    #     p = self.InclinationSinTermP
-    #     q = self.InclinationCosTermQ
-    #     h = self.EccentricitySinTermH
-    #     k = self.EccentricityCosTermK
-    #     mu = self.GravitationalParameter
-    #     a = self.SemiMajorAxis
-    #     f = eccentricLongitude
-
-    #     b = self.Beta
-    #     n = self.N
-    #     rOverA = self.ROverA
-    #     if(subsDict != None) :          
-    #         subsDict = cast(dict, subsDict)  
-    #         bSy = self.BetaSy
-    #         nSy = self.NSy
-    #         rOverASy = self.ROverASy
-    #         subsDict[bSy] = b
-    #         subsDict[nSy] = n
-    #         subsDict[rOverASy] = rOverA
-    #         b = bSy
-    #         n = nSy
-    #         rOverA = rOverASy
-    #     x1Dot = (n*a/rOverA)*(h*k*b*sy.cos(f)-(1-(h**2)*b*sy.sin(f)))
-    #     x2Dot = (n*a/rOverA)*((1-(k**2)*b*sy.cos(f)-h*k*b*sy.sin(f)))
-
-    #     return [x1Dot, x2Dot]
-
-
-    def UnperturbedTrueLongitudeTimeDerivative(self, subsDict : Optional[Dict[sy.Expr, SymbolOrNumber]]=None) ->sy.Expr :
+    def UnperturbedLongitudeTimeDerivative(self, subsDict : Optional[Dict[sy.Expr, SymbolOrNumber]]=None) ->sy.Expr :
         p = self.InclinationSinTermP
         q = self.InclinationCosTermQ
         h = self.EccentricitySinTermH
@@ -474,96 +491,33 @@ class EquinoctialElementsHalfITrueLongitude :
         cl = sy.cos(l)
         return (n*(1+h*sl+k*cl)**2)/(1-h**2-k**2)**(3/2)
 
-    def TrueLongitudeEquationsOfMotionInMatrixForm(self, otherForceVector)->sy.Expr:
-        return self.CreatePerturbationMatrixWithTrueLongitude() * otherForceVector + sy.Matrix([[0],[0],[1]])*self.UnperturbedTrueLongitudeTimeDerivative()
 
 
-    
-
-    # @staticmethod
-    # def InTermsOfX1And2AndTheirDots(x1:SymbolOrNumber, x2:SymbolOrNumber, x3:SymbolOrNumber, x1Dot:SymbolOrNumber, x2Dot:SymbolOrNumber, x3Dot:SymbolOrNumber, p:SymbolOrNumber, q:SymbolOrNumber, mu:SymbolOrNumber, subsDict :Optional[Dict[sy.Symbol, SymbolOrNumber]] = None, longitude :Optional[SymbolOrNumber]= 0.0) ->EquinoctialElementsHalfI:
-    #     rotMat = sy.Matrix.eye(3,3)# EquinoctialElementsHalfI.CreateFgwToInertialAxesStatic(p, q)
-    #     # if(subsDict != None) :
-    #     #     rotSymbol = sy.Matrix.zeros(3,3)
-    #     #     fgw = ["f", "g", "w"]
-    #     #     xyz = ["x","y","z"]
-    #     #     for r in range(0, 3) :                
-    #     #         for c in range(0, 3) :
-    #     #             rotSymbol[r,c] = sy.Function(str(fgw[r]) + "_{" + str(xyz[c]) +"}", real=True)(p, q)
-    #     #             subsDict[rotSymbol[r,c]] = rotMat[r,c]
-    #     #     rotMat = rotSymbol
-    #     xVec = rotMat * Cartesian(x1, x2, x3)
-    #     xDotVec = rotMat * Cartesian(x1Dot, x2Dot, x3Dot)
-    #     sma = (1/sy.sqrt(x1*x1+x2**2) - (x1Dot**2+x2Dot**2)/mu)**(-1)
-    #     rXv = xVec.cross(xDotVec)
-    #     eVec = (rXv).cross(xDotVec)/mu
-    #     magSymbol =rXv.Magnitude()#  sy.Function("|rXv|")(rXv)
-    #     wVec = rXv/magSymbol
-
-    #     pOut = wVec[0]/(1+wVec[2])
-    #     qOut = wVec[1]/(1+wVec[2])
-
-    #     hOut = eVec.dot(Cartesian(rotMat[1,0], rotMat[1,1], rotMat[1,2]))
-    #     kOut = eVec.dot(Cartesian(rotMat[0,0], rotMat[0,1], rotMat[0,2]))
-    #     if longitude == None:
-    #         longitude = 0.0
-    #     lon : SymbolOrNumber = longitude #type:ignore
-    #     return EquinoctialElementsHalfITrueLongitude(sma, hOut, kOut, pOut, qOut, lon, mu)
-    # def ToFgwRotationMatrix(self) :
-    #     p = self.InclinationSinTermP
-    #     q = self.InclinationCosTermQ
-
-    #     denom = 1+p*p+q*q
-    #     f1 = (1/denom)*(1-p*p+q*q)
-    #     f2 = 2*p*q
-    #     f3 = -2*p
-
-    #     g1 = f2
-    #     g2 = 1+p*p-q*q
-    #     g3 = 2*q
-
-    #     w1 = 2*p
-    #     w2 = -2*q
-    #     w3 = 1-p*p-q*q
-
-    #     return Matrix([[]])
-
-
-class EquinoctialElementsHalfIMeanLongitude :
+class EquinoctialElementsHalfIMeanLongitude(EquinoctialElementsHalfI) :
     def __init__(self, a:SymbolOrNumber, h:SymbolOrNumber, k:SymbolOrNumber, p:SymbolOrNumber, q:SymbolOrNumber, meanLongitude:SymbolOrNumber, mu:SymbolOrNumber) :
-        self.SemiMajorAxis = a
-        self.EccentricitySinTermH = h
-        self.EccentricityCosTermK = k
-        self.InclinationSinTermP = p
-        self.InclinationCosTermQ = q
-        self.GravitationalParameter = mu
-        self.MeanLongitude = meanLongitude
+        self._semiMajorAxis = a
+        self._eccentricitySinTermH = h
+        self._eccentricityCosTermK = k
+        self._inclinationSinTermP = p
+        self._inclinationCosTermQ = q
+        self._meanLongitude = meanLongitude
+        self._gravitationalParameter = mu
 
         self.BetaSy = sy.Function(r'\beta')(h, k)
         self.NSy = sy.Function('n')(a)
-        #self.ROverASy = sy.Function(r'\frac{r}{a}')(h, k, self.TrueLongitude)# assuming true longitude
 
         self.Beta = 1/(1+sy.sqrt(1-h**2-k**2))
         self.N = sy.sqrt(mu/(a**3))
-        #self.ROverA= (1-h**2-k**2)/(1+h*sy.sin(trueLongitude)+k*sy.cos(trueLongitude))
 
-    # @staticmethod
-    # def CreateEphemeris(equinoctialElementsList : List[EquinoctialElementsHalfI]) -> List[MotionCartesian] :
-    #     motions = []
-    #     for equi in equinoctialElementsList :
-    #         motions.append(EquinoctialElementsHalfI.ConvertToModifiedEquinoctial(equi).ToMotionCartesian())
-    #     return motions
+    @property
+    def MeanLongitude(self):
+        return self._meanLongitude
 
-    # def ConvertToModifiedEquinoctial(self) ->ModifiedEquinoctialElements:
-    #     eSq = self.EccentricityCosTermK**2+self.EccentricitySinTermH**2
-    #     param = self.SemiMajorAxis * (1.0 - eSq)
-    #     return ModifiedEquinoctialElements(param, self.EccentricityCosTermK, self.EccentricitySinTermH, self.InclinationCosTermQ, self.InclinationSinTermP, self.TrueLongitude, self.GravitationalParameter, self.MeanLongitude, self.EccentricLongitude)
-
-    # @staticmethod
-    # def FromModifiedEquinoctialElements(mee : ModifiedEquinoctialElements)->EquinoctialElementsHalfI :
-    #     eSq = mee.EccentricityCosTermF**2+mee.EccentricitySinTermG**2
-    #     sma = mee.SemiParameter/(1-eSq)
-    #     return EquinoctialElementsHalfI(sma, mee.EccentricitySinTermG, mee.EccentricityCosTermF, mee.InclinationSinTermK, mee.InclinationCosTermH, mee.TrueLongitude, mee.GravitationalParameter, 0, 0) #TODO
+    def ToCartesian(self) -> MotionCartesian :
+        tempKep = self.ToKeplerianIgnoringAnomaly()        
+        ma = self.MeanLongitude - tempKep.ArgumentOfPeriapsis-tempKep.RightAscensionOfAscendingNode
+        ta = Keplerian.TrueAnomalyFromMeanAnomaly(ma, tempKep.Eccentricity)
+        return tempKep.ToInertialMotionCartesianOverridingTrueAnomaly(ta)
 
     @staticmethod
     def CreateSymbolicElements(elementOf :Optional[SymbolOrNumber]= None, mu : Optional[SymbolOrNumber] = None) ->EquinoctialElementsHalfIMeanLongitude : 
@@ -586,203 +540,120 @@ class EquinoctialElementsHalfIMeanLongitude :
 
         return EquinoctialElementsHalfIMeanLongitude(a, h, k, p, q, m, mu)
     
-    @staticmethod
-    def CreateFgwToInertialAxesStatic(p:SymbolOrNumber, q:SymbolOrNumber) -> sy.Matrix:
-        multiplier = 1/(1+p**2+q**2)
-        fm = multiplier*sy.Matrix([[1-p**2+q**2], [2*p*q], [-2*p]]) # first point of aries
-        gm = multiplier*sy.Matrix([[2*p*q], [1+p**2-q**2], [2*q]]) # completes triad
-        wm = multiplier*sy.Matrix([[2*p], [-2*q], [1-p**2-q**2]]) # orbit normal
 
-        return sy.Matrix([[fm[0,0], fm[1,0], fm[2,0]],[gm[0,0],gm[1,0],gm[2,0] ],[wm[0,0], wm[1,0], wm[2,0]]]).transpose()
-    
-    def CreateFgwToInertialAxes(self) -> sy.Matrix:
+
+    def CreatePerturbationMatrix(self, subsDict : Optional[Dict[sy.Expr, SymbolOrNumber]]= None) ->sy.Matrix:
+        a = self.SemiMajorAxis
+        h = self.EccentricitySinTermH
+        k = self.EccentricityCosTermK
         p = self.InclinationSinTermP
         q = self.InclinationCosTermQ
-        return EquinoctialElementsHalfIMeanLongitude.CreateFgwToInertialAxesStatic(p, q)
+        l = self.MeanLongitude
+        sl = sy.sin(l)
+        cl = sy.cos(l)
+        #page 80
+        # f = l-k*
+        # mu = self.GravitationalParameter
+        # n = self.N
+        # G = sy.sqrt(1-h*h-k*k)
+        # K = 3 #TODO!!!
+        
+        # beta = 1/(1+G)
 
-    # def RadiusInFgw(self, eccentricLongitude : SymbolOrNumber, subsDict : Optional[dict[sy.Expr, SymbolOrNumber]]=None) -> List[SymbolOrNumber]:
-    #     p = self.InclinationSinTermP
-    #     q = self.InclinationCosTermQ
-    #     h = self.EccentricitySinTermH
-    #     k = self.EccentricityCosTermK
-    #     mu = self.GravitationalParameter
-    #     a = self.SemiMajorAxis
+        # b11 = 2*(k*sl-h*cl)/(G*n) #this ended up being the true longitude implimentation
+        # b12 = 2*G*a/(n*r)
+        # b13 = 0
 
-    #     b = self.Beta
-    #     n = self.N
-    #     rOverA = self.ROverA
-    #     if(subsDict != None) :          
-    #         subsDict = cast(dict, subsDict)  
-    #         bSy = self.BetaSy
-    #         nSy = self.NSy
-    #         rOverASy = self.ROverASy
-    #         subsDict[bSy] = b
-    #         subsDict[nSy] = n
-    #         subsDict[rOverASy] = rOverA
-    #         b = bSy
-    #         n = nSy
-    #         rOverA = rOverASy
+        # b21 = -1*G*cl/(n*a)
+        # b22 = r*(h+sl)/(n*a*a*G) + G*sl/(n*a)
+        # b23 = r*k*(p*cl-q*sl)/(n*a*a*G)
 
-    #     x1 = a*((1-h**2*b)*sy.cos(f)+h*k*b*sy.sin(f)-k)
-    #     x2 = a*((1-k**2*b)*sy.sin(f)+h*k*b*sy.cos(f)-h)
+        # b31 = G*sl/(n*a)
+        # b32 = r*(k+cl)/(n*a*a*G)+G*sl/(n*a)
+        # b33 = r*h*(p*cl-q*sl)/(n*a*a*G)
 
-    #     return [x1, x2]
+        # b41 = 0
+        # b42 = 0
+        # b43 = r*K*sl/(2*n*a*a*G)
 
-    # def VelocityInFgw(self, eccentricLongitude : SymbolOrNumber, subsDict : Optional[Dict[sy.Expr, SymbolOrNumber]]=None) -> List[SymbolOrNumber]:
-    #     p = self.InclinationSinTermP
-    #     q = self.InclinationCosTermQ
-    #     h = self.EccentricitySinTermH
-    #     k = self.EccentricityCosTermK
-    #     mu = self.GravitationalParameter
-    #     a = self.SemiMajorAxis
-    #     f = eccentricLongitude
+        # b51 = 0
+        # b52 = 0
+        # b53 = r*K*cl/(2*n*a*a*G)
 
-    #     b = self.Beta
-    #     n = self.N
-    #     rOverA = self.ROverA
-    #     if(subsDict != None) :          
-    #         subsDict = cast(dict, subsDict)  
-    #         bSy = self.BetaSy
-    #         nSy = self.NSy
-    #         rOverASy = self.ROverASy
-    #         subsDict[bSy] = b
-    #         subsDict[nSy] = n
-    #         subsDict[rOverASy] = rOverA
-    #         b = bSy
-    #         n = nSy
-    #         rOverA = rOverASy
-    #     x1Dot = (n*a/rOverA)*(h*k*b*sy.cos(f)-(1-(h**2)*b*sy.sin(f)))
-    #     x2Dot = (n*a/rOverA)*((1-(k**2)*b*sy.cos(f)-h*k*b*sy.sin(f)))
+        # b61 = -1*(1-beta)*(h*sl+k*cl)/(n*a) -2*r/(n*a*a)
+        # b62 = -1*(1-beta)*(h*cl-k*sl)*(1+r/(a*G*G))/(n*a)
+        # b63 = -1*r*(p*cl-q*sl)/(n*a*a*G)
 
-    #     return [x1Dot, x2Dot]
+        # return sy.Matrix([[b11, b12, b13], [b21, b22, b23], [b31, b32, b33], [b41, b42, b43], [b51, b52, b53], [b61, b62, b63]])#TODO
+        return sy.Matrix([[0]]) #TODO
+
+
+    def UnperturbedLongitudeTimeDerivative(self) -> SymbolOrNumber:
+        return self.N
 
 
 
-    # def CreatePerturbationMatrixWithMeanLongitude(self, eccentricLongitude : sy.Expr, subsDict : Optional[Dict[sy.Expr, SymbolOrNumber]]=None) ->sy.Matrix:
-    #     p = self.InclinationSinTermP
-    #     q = self.InclinationCosTermQ
-    #     h = self.EccentricitySinTermH
-    #     k = self.EccentricityCosTermK
-    #     mu = self.GravitationalParameter
-    #     a = self.SemiMajorAxis
-    #     f = eccentricLongitude
+class EquinoctialElementsHalfIEccentricLongitude(EquinoctialElementsHalfI) :
+    def __init__(self, a:SymbolOrNumber, h:SymbolOrNumber, k:SymbolOrNumber, p:SymbolOrNumber, q:SymbolOrNumber, eccentricLongitude:SymbolOrNumber, mu:SymbolOrNumber) :
+        self._semiMajorAxis = a
+        self._eccentricitySinTermH = h
+        self._eccentricityCosTermK = k
+        self._inclinationSinTermP = p
+        self._inclinationCosTermQ = q
+        self._eccentricLongitude = eccentricLongitude
+        self._gravitationalParameter = mu
 
-    #     b = self.Beta
-    #     n = self.N
-    #     rOverA = self.ROverA
+        self.BetaSy = sy.Function(r'\beta')(h, k)
+        self.NSy = sy.Function('n')(a)
 
-    #     x1Sy = sy.Function('X_1')(a, h, k, f)
-    #     x2Sy = sy.Function('X_2')(a, h, k, f)
-    #     x1DotSy = sy.Function(r'\dot{X_1}')(a, h, k, f)
-    #     x2DotSy = sy.Function(r'\dot{X_2}')(a, h, k, f)
+        self.Beta = 1/(1+sy.sqrt(1-h**2-k**2))
+        self.N = sy.sqrt(mu/(a**3))
 
-    #     [x1SimpleEqui, x2SimpleEqui] = self.RadiusInFgw(eccentricLongitude, subsDict)
-    #     [x1DotSimpleEqui, x2DotSimpleEqui] = self.VelocityInFgw(eccentricLongitude, subsDict)
-    #     x1SimpleEqui=cast(sy.Expr, x1SimpleEqui)
-    #     x2SimpleEqui=cast(sy.Expr, x2SimpleEqui)
-    #     x1DotSimpleEqui=cast(sy.Expr, x1DotSimpleEqui)
-    #     x2DotSimpleEqui=cast(sy.Expr, x2DotSimpleEqui)
+    @property
+    def EccentricLongitude(self):
+        return self._eccentricLongitude
 
-    #     if(subsDict != None) :          
-    #         subsDict = cast(dict, subsDict)  
-    #         bSy = self.BetaSy
-    #         nSy = self.NSy
-    #         rOverASy = self.ROverASy
-    #         subsDict[bSy] = b
-    #         subsDict[nSy] = n
-    #         subsDict[rOverASy] = rOverA
-    #         b = bSy
-    #         n = nSy
-    #         rOverA = rOverASy        
-    #         subsDict[x1Sy] =x1SimpleEqui
-    #         subsDict[x2Sy] =x2SimpleEqui
-    #         subsDict[x1DotSy] =x1DotSimpleEqui
-    #         subsDict[x2DotSy] =x2DotSimpleEqui
-    #         x1 = x1Sy
-    #         y1 = x2Sy
-    #         xDot = x1DotSy
-    #         yDot = x2DotSy
-    #     else:
-    #         x1 = x1SimpleEqui
-    #         y1 = x2SimpleEqui
-    #         xDot = x1DotSimpleEqui
-    #         yDot = x2DotSimpleEqui            
-    #     g = sy.sqrt(1-h**2-k**2)
-    #     dX1dh = x1.diff(h).doit()#a*(-h*beta*sy.cos(F)- (beta+(h**2)*beta**3)*(h*sy.cos(F)-k*sy.sin(F))/(1-beta))
-    #     dY1dh = y1.diff(h).doit()#a*( k*beta*sy.cos(F)-1      +h*k* (beta**3)*(h*sy.cos(F)-k*sy.sin(F))/(1-beta))
-    #     dX1dk = xDot.diff(k).doit()#a*( h*beta*sy.sin(F)-1      -h*k* (beta**3)*(h*sy.cos(F)-k*sy.sin(F))/(1-beta))
-    #     dY1dk = yDot.diff(h).doit()#a*(-k*beta*sy.sin(F)+beta+((k**2)*(beta**3)*(h*sy.cos(F)-k*sy.sin(F))/(1-beta)))
-    #     m11 = 2*xDot/(n*n*a)
-    #     m12 = 2*yDot/(n*n*a)
-    #     m13 = 0
-    #     m21 = (sy.sqrt(1-h**2-k**2)/(n*a**2))*(dX1dk+(xDot/n)*(sy.sin(f)-h*b))
-    #     m22 = (sy.sqrt(1-h**2-k**2)/(n*a**2))*(dY1dk+(yDot/n)*(sy.sin(f)-h*b))
-    #     m23 = k*(q*y1-p*x1)/(n*(a**2)*sy.sqrt(1-h**2-k**2))
-    #     m31 = -1*(sy.sqrt(1-h**2-k**2)/(n*a**2))*(dX1dh-(xDot/n)*(sy.cos(f)-k*b))
-    #     m32 = -1*(sy.sqrt(1-h**2-k**2)/(n*a**2))*(dY1dh-(yDot/n)*(sy.cos(f)-k*b))
-    #     m33 = -1*h*(q*y1-p*x1)/(n*(a**2)*sy.sqrt(1-h**2-k**2))
-    #     m41 = 0
-    #     m42 = 0
-    #     m43 = (1+p**2+q**2)*y1/(2*n*a**2*sy.sqrt(1-h**2-k**2))
-    #     m51 = 0
-    #     m52 = 0
-    #     m53 = (1+p**2+q**2)*x1/(2*n*a**2*sy.sqrt(1-h**2-k**2))
+    def ToCartesian(self) -> MotionCartesian :
+        tempKep = self.ToKeplerianIgnoringAnomaly()        
+        ea = self.EccentricLongitude - tempKep.ArgumentOfPeriapsis-tempKep.RightAscensionOfAscendingNode
+        ta = Keplerian.TrueAnomalyFromMeanAnomaly(ea, tempKep.Eccentricity)
+        return tempKep.ToInertialMotionCartesianOverridingTrueAnomaly(ta)
 
-    #     m61 = (-2*x1+g*(h*b*dX1dh+k*b*dX1dh))/(n*a**2)
-    #     m62 = (-2*y1+g*(h*b*dY1dh+k*b*dY1dh))/(n*a**2)
-    #     m63 = (q*y1-p*x1/(n*g*a**2))
+    @staticmethod
+    def CreateSymbolicElements(elementOf :Optional[SymbolOrNumber]= None, mu : Optional[SymbolOrNumber] = None) ->EquinoctialElementsHalfIEccentricLongitude : 
+        if(elementOf == None) : 
+            a = sy.Symbol('a', real=True)
+            h = sy.Symbol('h', real=True)
+            k = sy.Symbol('k', real=True)
+            p = sy.Symbol('p', real=True)
+            q = sy.Symbol('q', real=True)
+            f = sy.Symbol('F', real=True)
+        else :
+            a = sy.Function('a', positive=True)(elementOf)
+            h = sy.Function('h', real=True)(elementOf)
+            k = sy.Function('k', real=True)(elementOf)
+            p = sy.Function('p', real=True)(elementOf)
+            q= sy.Function('q', real=True)(elementOf)
+            f = sy.Function('F', real=True)(elementOf)
+        if mu is None :
+            mu = cast(SymbolOrNumber, sy.Symbol(r'\mu', positive=True, real=True))
 
-    #     #M = sy.Matrix([[m11, m12, m13], [m21, m22, m23],[m31, m32, m33],[m41, m42, m43],[m51, m52, m53]])
-    #     M = sy.Matrix([[m11, m12, m13], [m21, m22, m23],[m31, m32, m33],[m41, m42, m43],[m51, m52, m53],[m61, m62, m63]])   
-    #     return M     
-
+        return EquinoctialElementsHalfIEccentricLongitude(a, h, k, p, q, f, mu)
     
 
-    # @staticmethod
-    # def InTermsOfX1And2AndTheirDots(x1:SymbolOrNumber, x2:SymbolOrNumber, x3:SymbolOrNumber, x1Dot:SymbolOrNumber, x2Dot:SymbolOrNumber, x3Dot:SymbolOrNumber, p:SymbolOrNumber, q:SymbolOrNumber, mu:SymbolOrNumber, subsDict :Optional[Dict[sy.Symbol, SymbolOrNumber]] = None, longitude :Optional[SymbolOrNumber]= 0.0) ->EquinoctialElementsHalfI:
-    #     rotMat = sy.Matrix.eye(3,3)# EquinoctialElementsHalfI.CreateFgwToInertialAxesStatic(p, q)
-    #     # if(subsDict != None) :
-    #     #     rotSymbol = sy.Matrix.zeros(3,3)
-    #     #     fgw = ["f", "g", "w"]
-    #     #     xyz = ["x","y","z"]
-    #     #     for r in range(0, 3) :                
-    #     #         for c in range(0, 3) :
-    #     #             rotSymbol[r,c] = sy.Function(str(fgw[r]) + "_{" + str(xyz[c]) +"}", real=True)(p, q)
-    #     #             subsDict[rotSymbol[r,c]] = rotMat[r,c]
-    #     #     rotMat = rotSymbol
-    #     xVec = rotMat * Cartesian(x1, x2, x3)
-    #     xDotVec = rotMat * Cartesian(x1Dot, x2Dot, x3Dot)
-    #     sma = (1/sy.sqrt(x1*x1+x2**2) - (x1Dot**2+x2Dot**2)/mu)**(-1)
-    #     rXv = xVec.cross(xDotVec)
-    #     eVec = (rXv).cross(xDotVec)/mu
-    #     magSymbol =rXv.Magnitude()#  sy.Function("|rXv|")(rXv)
-    #     wVec = rXv/magSymbol
 
-    #     pOut = wVec[0]/(1+wVec[2])
-    #     qOut = wVec[1]/(1+wVec[2])
+    def CreatePerturbationMatrix(self, subsDict : Optional[Dict[sy.Expr, SymbolOrNumber]]= None) ->sy.Matrix:
+        a = self.SemiMajorAxis
+        h = self.EccentricitySinTermH
+        k = self.EccentricityCosTermK
+        p = self.InclinationSinTermP
+        q = self.InclinationCosTermQ
+        l = self.EccentricLongitude
+        mu = self.GravitationalParameter
 
-    #     hOut = eVec.dot(Cartesian(rotMat[1,0], rotMat[1,1], rotMat[1,2]))
-    #     kOut = eVec.dot(Cartesian(rotMat[0,0], rotMat[0,1], rotMat[0,2]))
-    #     if longitude == None:
-    #         longitude = 0.0
-    #     lon : SymbolOrNumber = longitude #type:ignore
-    #     return EquinoctialElementsHalfIMeanLongitude(sma, hOut, kOut, pOut, qOut, lon, mu) #TODO
+        #Page 105
+        return sy.Matrix([[0]])#TODO
 
-    # def ToFgwRotationMatrix(self) :
-    #     p = self.InclinationSinTermP
-    #     q = self.InclinationCosTermQ
 
-    #     denom = 1+p*p+q*q
-    #     f1 = (1/denom)*(1-p*p+q*q)
-    #     f2 = 2*p*q
-    #     f3 = -2*p
-
-    #     g1 = f2
-    #     g2 = 1+p*p-q*q
-    #     g3 = 2*q
-
-    #     w1 = 2*p
-    #     w2 = -2*q
-    #     w3 = 1-p*p-q*q
-
-    #     return Matrix([[]])    
+    def UnperturbedLongitudeTimeDerivative(self) -> SymbolOrNumber:
+        return -1
