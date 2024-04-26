@@ -28,6 +28,16 @@ from pyeq2orb import SafeSubs, MakeMatrixOfSymbols
 from scipy.optimize import fsolve  #type: ignore
 from pyeq2orb.Numerical import ScipyCallbackCreators #type: ignore
 
+from pyeq2orb.Utilities.LambdifiedExpressionCache import CacheKey, ExpressionCache
+
+expressionCache = ExpressionCache("SepspotRecreationExpressions.pickle")
+expressionCache.ReloadFile()
+def CreateAndCacheExpression(cache : ExpressionCache, id:str, sympyExpression, lmdfyCallback):
+    key = CacheKey(id, str(sympyExpression))    
+    item = cache.GetOrCreateAndCacheObject(key, lmdfyCallback)
+    expressionCache.SaveCache()
+    return item
+
 jh.printMarkdown("# SEPSPOT Recreation")
 #jh.printMarkdown("In working my way up through low-thrust modeling for satellite maneuvers, it is inevitable to run into Dr. Edelbaum's work.  Newer work such as Jean Albert Kechichian's practically requires understanding SEPSPOT as a prerequesit.  This writeup will go through the basics of SEPSPOT's algorithsm as described in the references below.")
 muVal = 3.986004418e5  
@@ -58,39 +68,38 @@ def doItAll(tArray, includeJ2):
     k = cast(sy.Expr, simpleBoringEquiElements.EccentricityCosTermK)
     p = cast(sy.Expr, simpleBoringEquiElements.InclinationSinTermP)
     q = cast(sy.Expr, simpleBoringEquiElements.InclinationCosTermQ)
-    L = cast(sy.Expr, simpleBoringEquiElements.TrueLongitude)
+    L = cast(sy.Expr, simpleBoringEquiElements.Longitude)
     #n = sy.sqrt(mu/(a**3))
 
-    initialModifiedEquiElements = mee.ConvertKeplerianToEquinoctial(initialKepElements)
-    initialEquiElements = mee.EquinoctialElementsHalfITrueLongitude.FromModifiedEquinoctialElements(initialModifiedEquiElements)
+    initialEquiElements = mee.EquinoctialElementsHalfITrueLongitude.FromKeplerian(initialKepElements)
     a0V = float(initialEquiElements.SemiMajorAxis)
     h0V = float(initialEquiElements.EccentricitySinTermH)
     k0V = float(initialEquiElements.EccentricityCosTermK)
     p0V = float(initialEquiElements.InclinationSinTermP)
     q0V = float(initialEquiElements.InclinationCosTermQ)
-    lon0= float(initialEquiElements.TrueLongitude)
+    lon0= float(initialEquiElements.Longitude)
     
-    finalModifiedEquiElements = mee.ConvertKeplerianToEquinoctial(finalKepElements)
-    finalEquiElements = mee.EquinoctialElementsHalfITrueLongitude.FromModifiedEquinoctialElements(finalModifiedEquiElements)
+    finalEquiElements = mee.EquinoctialElementsHalfITrueLongitude.FromKeplerian(finalKepElements)
     aFV = float(finalEquiElements.SemiMajorAxis)
     hFV = float(finalEquiElements.EccentricitySinTermH)
     kFV = float(finalEquiElements.EccentricityCosTermK)
     pFV = float(finalEquiElements.InclinationSinTermP)
     qFV = float(finalEquiElements.InclinationCosTermQ)
-    lonF= float(finalEquiElements.TrueLongitude) 
+    lonF= float(finalEquiElements.Longitude) 
 
-    x = sy.Matrix([[simpleBoringEquiElements.SemiMajorAxis, simpleBoringEquiElements.EccentricitySinTermH, simpleBoringEquiElements.EccentricityCosTermK, simpleBoringEquiElements.InclinationSinTermP, simpleBoringEquiElements.InclinationCosTermQ, simpleBoringEquiElements.TrueLongitude]]).transpose()
-    z = [simpleBoringEquiElements.SemiMajorAxis, simpleBoringEquiElements.EccentricitySinTermH, simpleBoringEquiElements.EccentricityCosTermK, simpleBoringEquiElements.InclinationSinTermP, simpleBoringEquiElements.InclinationCosTermQ, simpleBoringEquiElements.TrueLongitude]
+    x = sy.Matrix([[simpleBoringEquiElements.SemiMajorAxis, simpleBoringEquiElements.EccentricitySinTermH, simpleBoringEquiElements.EccentricityCosTermK, simpleBoringEquiElements.InclinationSinTermP, simpleBoringEquiElements.InclinationCosTermQ, simpleBoringEquiElements.Longitude]]).transpose()
+    z = [simpleBoringEquiElements.SemiMajorAxis, simpleBoringEquiElements.EccentricitySinTermH, simpleBoringEquiElements.EccentricityCosTermK, simpleBoringEquiElements.InclinationSinTermP, simpleBoringEquiElements.InclinationCosTermQ, simpleBoringEquiElements.Longitude]
     aSy = sy.Function('A', commutative=True)(x, t)
     u1 = sy.Symbol("u_1", real=True)
     u2 = sy.Symbol("u_2", real=True)
     u3 = sy.Symbol("u_3", real=True)
     uSy = sy.Matrix([[u1, u2, u3]]).transpose()
     
-    B = simpleBoringEquiElements.CreatePerturbationMatrix(fullSubsDictionary)
+    B = simpleBoringEquiElements.CreatePerturbationMatrix(t, fullSubsDictionary)
     lonDot = sy.Matrix([[0],[0],[0],[0],[0],[1]])*simpleBoringEquiElements.UnperturbedLongitudeTimeDerivative(fullSubsDictionary)
 
     r = simpleBoringEquiElements.ROverA * simpleBoringEquiElements.SemiMajorAxis
+
     jh.showEquation("r", r)
     problem = Problem()
     for (k,v) in fullSubsDictionary.items():
@@ -113,8 +122,8 @@ def doItAll(tArray, includeJ2):
     problem.BoundaryConditions.append(zF[5])
 
     
-    sl = sy.sin(simpleBoringEquiElements.TrueLongitude)
-    cl = sy.cos(simpleBoringEquiElements.TrueLongitude)
+    sl = sy.sin(simpleBoringEquiElements.Longitude)
+    cl = sy.cos(simpleBoringEquiElements.Longitude)
     j2Pert_r  =  -1*(3*mu*J2*(rEarth**2)/(2*r**4))*(1-(12*(q*sl-p*cl)**2)/(1+p*p+q*q)**2)
     j2Pert_th = -1*(12*mu*J2*(rEarth**2)/(r**4))*((q*sl-p*cl)*(q*cl+p*sl)/(1+p*p+q*q)**2)
     j2Pert_h  =  -1*(6*mu*J2*(rEarth**2)/(r**4))*(q*sl-p*cl)*(1-p*p-q*q)/((1+p*p+q*q)**2)
@@ -278,9 +287,13 @@ def doItAll(tArray, includeJ2):
     fSolveInitialState = [*lmdGuess[0:5]]
     fSolveInitialState.append(tfV)
 
-
-    ipvCallback = lmdHelper.CreateSimpleCallbackForSolveIvp()
-
+    display("Starting ipv callback lambdification")
+    name = "SepSpotRecreationIpvCallback_" + type(initialEquiElements).__name__
+    if includeJ2:
+        name= name+"_With J2"
+    ipvCallback =CreateAndCacheExpression(expressionCache, name, sy.ImmutableMatrix(lmdHelper.ExpressionsToLambdify), lmdHelper.CreateSimpleCallbackForSolveIvp)
+    #ipvCallback = lmdHelper.CreateSimpleCallbackForSolveIvp()
+    display("Finished ipv callback lambdification")
 
 
     bcCallbacks = []
@@ -310,6 +323,17 @@ def doItAll(tArray, includeJ2):
 
     boundaryConditionsLambdified = sy.lambdify(fullBoundaryConditionState, bcCallbacks)
     
+
+    hamlfLambdifyHelper = LambdifyHelper(lmdHelper.LambdifyArguments, hamiltonian, fullSubsDictionary)
+    jh.showEquation("H", hamiltonian[0,0])
+    hamltSubs1 = SafeSubs(hamiltonian[0,0], lmdHelper.SubstitutionDictionary).doit(deep=True)
+    #hamltSubsFinal = SafeSubs(hamltSubs1, lmdHelper.SubstitutionDictionary).subs(t, tau*actualTfSec).subs(originalProblem.TimeFinalSymbol, 1.0).doit(deep=True)
+    hamltSubsFinal = SafeSubs(hamltSubs1, lmdHelper.SubstitutionDictionary).subs(originalProblem.TimeFinalSymbol, 1.0).doit(deep=True)
+    hamltEvalArgs = []
+    hamltEvalArgs.extend(lmdHelper.LambdifyArguments)
+    hamltEvalArgs.append(problem.TimeFinalSymbol)
+    hamlfEvala = sy.lambdify(hamltEvalArgs, hamltSubsFinal, modules="numpy", cse=True)
+
     def realIpvCallback(tArray, ivpInitialState, ipvCallbackInner, tf = None) :
         #print(initialStateInCb)
         odeArgs = ()
@@ -340,9 +364,12 @@ def doItAll(tArray, includeJ2):
         finalLongitude = bcFinalState[5]
         boundaryConditionSolution[-1] = 0#math.sin(finalLongitude)
         boundaryConditionSolution.append(0)#math.cos(finalLongitude)-1)
+        boundaryConditionSolution.append(hamlfEvala(tArray, ivpSol.y, tArray[-1])[-1]-1.0)
         boundaryConditionSolution.append(0)
-        boundaryConditionSolution.append(0)
+
         return boundaryConditionSolution
+
+
 
     
     fSolveGuess = []
@@ -350,7 +377,7 @@ def doItAll(tArray, includeJ2):
     fSolveGuess.extend(lmdGuess)
     fSolveGuess.append(tfV)
     from scipy.optimize import newton_krylov, anderson, root
-    fSolveSol = fsolve(fSolveCallback, fSolveGuess, full_output=True, factor=0.1, epsfcn=0.000)
+    fSolveSol = fsolve(fSolveCallback, fSolveGuess, full_output=True, factor=0.2, epsfcn=0.001, maxfev=0)
     #fSolveSol = root(fSolveCallback, fSolveGuess, method='lm')
     print(fSolveSol)
     finalInitialState = [a0V, h0V,k0V, p0V, q0V]#, lon0 ]
@@ -366,26 +393,25 @@ def doItAll(tArray, includeJ2):
     
     solution =realIpvCallback(tArray, finalInitialState, ipvCallback, actualTfSec) #solve_ivp(ipvCallback, [tArray[0], tArray[-1]], finalInitialState, args=(fSolveSol[-1]), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
     print(solution)
-    hamlfLambdifyHelper = LambdifyHelper(lmdHelper.LambdifyArguments, hamiltonian, fullSubsDictionary)
-    jh.showEquation("H", hamiltonian[0,0])
-    hamltSubs1 = SafeSubs(hamiltonian[0,0], lmdHelper.SubstitutionDictionary).doit(deep=True)
-    hamltSubsFinal = SafeSubs(hamltSubs1, lmdHelper.SubstitutionDictionary).subs(t, tau*actualTfSec).subs(originalProblem.TimeFinalSymbol, 1.0).doit(deep=True)
-    hamlfEvala = sy.lambdify(lmdHelper.LambdifyArguments, hamltSubsFinal, modules="numpy", cse=True)
-    solution["hamlt"] = hamlfEvala(tArray, solution.y)
+
+    solution["hamlt"] = hamlfEvala(tArray, solution.y, actualTfSec)
     return fSolveSol, solution, fullBoundaryConditionState
 
 
 tArray = np.linspace(0.0, 1.0, 400)
 
+fSolveSol, solution, fullBoundaryConditionState = doItAll(tArray, False)
+actualTfSec = fSolveSol[0][-1]
+
 fSolveSolJ2, solutionJ2, fullBoundaryConditionStateJ2 = doItAll(tArray, True)
-actualTfSecJ2 = fSolveSolJ2[0][-1]
+
 #fSolveSol=fSolveSolJ2
 #solution=solutionJ2
 #fullBoundaryConditionState=fullBoundaryConditionStateJ2
-#actualTfSec = fSolveSol[0][-1]
-
-fSolveSol, solution, fullBoundaryConditionState = doItAll(tArray, False)
-actualTfSec = fSolveSol[0][-1]
+# fSolveSolJ2 = fSolveSol
+# solutionJ2 = solution
+# fullBoundaryConditionStateJ2 = fullBoundaryConditionState
+actualTfSecJ2 = fSolveSolJ2[0][-1]
 
 #azimuthPlotDataSim = prim.XAndYPlottableLineData(time, np.array(simOtherValues[stateSymbols[7]])*180.0/math.pi, "azimuth_sim", '#ff00ff', 2, 0)
 #elevationPlotDataSim = prim.XAndYPlottableLineData(time, np.array(simOtherValues[stateSymbols[8]])*180.0/math.pi, "elevation_sim", '#ffff00', 2, 0)
@@ -406,14 +432,16 @@ i=0
 
 plotAThing("Hamiltonian", "H", graphTArray, solution["hamlt"], "H_{J_2}", graphTArrayJ2, solutionJ2["hamlt"])
 
-equiElements = []
+equiElements = [] #type: List[mee.EquinoctialElementsHalfI]
 for i in range(0, len(tArray)):    
     temp = mee.EquinoctialElementsHalfITrueLongitude(solution.y[0][i], solution.y[1][i], solution.y[2][i],solution.y[3][i],solution.y[4][i],solution.y[5][i], muVal)
     
     #realEqui = scaleEquinoctialElements(temp, 1.0, 1.0)
     equiElements.append(temp)
-finalKepElements = equiElements[-1].ConvertToModifiedEquinoctial().ToKeplerian()
-initialKepElements = equiElements[0].ConvertToModifiedEquinoctial().ToKeplerian()
+
+
+finalKepElements = equiElements[-1].ToKeplerianConvertingAnomaly()
+initialKepElements = equiElements[0].ToKeplerianConvertingAnomaly()
 motions = mee.EquinoctialElementsHalfI.CreateEphemeris(equiElements)
 satEphemeris = prim.EphemerisArrays()
 satEphemeris.InitFromMotions(tArray, motions)
@@ -466,10 +494,13 @@ import numpy as np #type:ignore
 df = pd.DataFrame({
     "Elements" : initialKepElements.NamesToArray,
     "Initial Elements" : initialKepElements.ToArray(True),    
-    "Final Elements" : [float(x) for x in finalKepElements.ToArray(True)]
+    "Final Elements" : [float(x) for x in finalKepElements.ToArray(True)],
 })
 df.style \
   .format(precision=3, thousands=",", decimal=".") \
   .format_index(str.upper, axis=1) \
   .relabel_index(initialKepElements.NamesToArray(), axis=0)
 
+
+print(actualTfSec)
+print(actualTfSecJ2)

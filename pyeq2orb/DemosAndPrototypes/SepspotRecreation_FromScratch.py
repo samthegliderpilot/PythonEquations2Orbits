@@ -15,7 +15,7 @@ from pyeq2orb.Coordinates.KeplerianModule import KeplerianElements
 import pyeq2orb.Coordinates.KeplerianModule as KepModule
 import pyeq2orb.Coordinates.ModifiedEquinoctialElementsModule as mee
 from IPython.display import display
-from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
+
 import scipyPaperPrinter as jh #type: ignore
 
 
@@ -53,8 +53,7 @@ mu = sy.Symbol(r'\mu', real=True, positive=True)
 muVal = 3.986004418e5  
 #kepElements = KepModule.CreateSymbolicElements(t, mu)
 
-equiElements = mee.EquinoctialElementsHalfI.CreateSymbolicElements(t, mu)
-equiElements.SemiMajorAxis = sy.Function('a', real=True, positive=True)(t)
+equiElements = mee.EquinoctialElementsHalfIEccentricLongitude.CreateSymbolicElements(t, mu)
 a = equiElements.SemiMajorAxis
 h = equiElements.EccentricitySinTermH
 k = equiElements.EccentricityCosTermK
@@ -425,7 +424,7 @@ print(integratorCallback(0, fullInitialState, (0)))
 
 # jh.printMarkdown("With this, we need to start filling in our G1 and G2 expressions.  After that, it is applying the Optimal Control Euler-Lagrange expressions.")
 
-#display(equiElements.CreatePerturbationMatrix())
+#display(equiElements.CreatePerturbationMatrix(t))
 
 
 #%%

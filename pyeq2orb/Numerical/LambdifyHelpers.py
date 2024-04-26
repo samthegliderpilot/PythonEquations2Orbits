@@ -205,7 +205,7 @@ class OdeLambdifyHelper(LambdifyHelper):
         if self.OtherArguments != None and len(self.OtherArguments) >0 :
             odeArgs.append(self.OtherArguments)
         
-        eomCallback = sy.lambdify(odeArgs, eomList, modules=['numpy'], cse=True)
+        eomCallback = sy.lambdify(odeArgs, eomList, modules=['numpy'], cse=True, dummify=True)
         #TODO: This cant call lambdify directly, it must call base class
 
         # don't need the next wrapper if there are no other args
