@@ -29,6 +29,7 @@ from scipy.optimize import fsolve  #type: ignore
 from pyeq2orb.Numerical import ScipyCallbackCreators #type: ignore
 
 from pyeq2orb.Utilities.LambdifiedExpressionCache import CacheKey, ExpressionCache
+import pygmo as pg #type: ignore
 
 expressionCache = ExpressionCache("SepspotRecreationExpressions.pickle")
 expressionCache.ReloadFile()
@@ -339,7 +340,8 @@ def doItAll(tArray, includeJ2):
         odeArgs = ()
         if tf != None :
             odeArgs = (tf,)
-        solution = solve_ivp(ipvCallbackInner, [tArray[0], tArray[-1]], ivpInitialState, args=odeArgs, t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
+        tArray = np.linspace(0.0, 1.0, 400)            
+        solution = solve_ivp(ipvCallbackInner, [tArray[0], tArray[-1]], ivpInitialState, args=odeArgs, t_eval=tArray, dense_output=True, method="RK45", rtol=1.49012e-8, atol=1.49012e-11)
         #solutionDictionary = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(lmdHelper.NonTimeLambdifyArguments, solution)
         return solution
 
@@ -356,7 +358,7 @@ def doItAll(tArray, includeJ2):
         localIvpState = []
         localIvpState.extend(initialStateValues[0:5])
         localIvpState.extend(justFSolveState[0:-1])
-        
+        tArray = np.linspace(0.0, 1.0, 400)   
         ivpSol = realIpvCallback(tArray, localIvpState, ipvCallback, justFSolveState[-1])
         bcFinalState = ScipyCallbackCreators.GetFinalStateFromIntegratorResults(ivpSol)
         boundaryConditionSolution = boundaryConditionEvaluationCallback(localIvpState, bcFinalState, justFSolveState[-1], boundaryConditionsLambdified)[0:-1]
@@ -371,14 +373,40 @@ def doItAll(tArray, includeJ2):
 
 
 
+    class pygmoProblem :
+        def fitness(self, x):
+            return [0, *fSolveCallback(x)]
+
+        def get_bounds(self):
+            return ([-3.15, 1,   100.0,-20000.0,   1.0, -100000.0, -5.0, 57000.0], 
+                    [ 3.15, 6, 10000.0,  -100.0, 100.0,    -100.0, -1.0, 59000.0])
+
+        def get_nic(self):
+            return 0
+
+        def get_nec(self):
+            return 8
+        def gradient(self, x):
+            return pg.estimate_gradient_h(lambda x: self.fitness(x), x)            
+
     
     fSolveGuess = []
     fSolveGuess.append(lon0)
     fSolveGuess.extend(lmdGuess)
     fSolveGuess.append(tfV)
     from scipy.optimize import newton_krylov, anderson, root
-    fSolveSol = fsolve(fSolveCallback, fSolveGuess, full_output=True, factor=0.2, epsfcn=0.001, maxfev=0)
+    #fSolveSol = fsolve(fSolveCallback, fSolveGuess, full_output=True, factor=0.2, epsfcn=0.001, maxfev=0)
     #fSolveSol = root(fSolveCallback, fSolveGuess, method='lm')
+    prob = pygmoProblem()
+    algo = pg.algorithm(uda = pg.mbh(pg.nlopt("slsqp"), stop = 20, perturb = .1))
+    #algo.extract(pg.nlopt).local_optimizer = pg.nlopt('var2')
+    algo.set_verbosity(1)
+    pop = pg.population(prob = prob, size = 50)
+    pop.problem.c_tol = [1E-6] * 8
+    pop = algo.evolve(pop)
+    best_fitness = pop.get_f()[pop.best_idx()]
+
+    fSolveSol = best_fitness
     print(fSolveSol)
     finalInitialState = [a0V, h0V,k0V, p0V, q0V]#, lon0 ]
     finalInitialState.extend(fSolveSol[0][0:-1])
