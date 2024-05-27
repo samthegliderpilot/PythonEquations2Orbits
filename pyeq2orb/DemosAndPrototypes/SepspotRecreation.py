@@ -74,14 +74,20 @@ class singleShootingFunctions(ABC):
     def fSolveCallback(self, justFSolveState):
         pass
 
+    @abstractmethod
+    def hamiltonianCallback(self, tArray, ivpY, tf):
+        pass
+
+
 
 class blackBoxSingleShootingFunctions(singleShootingFunctions):
-    def __init__(self, diffeqCallback, boundaryConditionCallback, fSolveCallback, initialDifeqState, initialFSolveGuess):
+    def __init__(self, diffeqCallback, boundaryConditionCallback, fSolveCallback, initialDifeqState, initialFSolveGuess, hamiltonianCallback):
         self._difeqCallback = diffeqCallback
         self._boundaryConditionCallback = boundaryConditionCallback
         self._fSolveCallback = fSolveCallback
         self.InitialFSolveGuess = initialFSolveGuess
         self.InitialStateForDifferentailEquations = initialDifeqState
+        self._hamiltionCallback = hamiltonianCallback
 
     def differentialEquationCallback(self, t, y, args):
         return self._difeqCallback(t, y, args)
@@ -92,6 +98,8 @@ class blackBoxSingleShootingFunctions(singleShootingFunctions):
     def fSolveCallback(self, justFSolveState):
         return self._fSolveCallback(justFSolveState)
 
+    def hamiltonianCallback(self, tArray, ivpY, tf):
+        return self._hamiltionCallback(tArray, ivpY, tf)
 
 jh.printMarkdown("# SEPSPOT Recreation")
 #jh.printMarkdown("In working my way up through low-thrust modeling for satellite maneuvers, it is inevitable to run into Dr. Edelbaum's work.  Newer work such as Jean Albert Kechichian's practically requires understanding SEPSPOT as a prerequesit.  This writeup will go through the basics of SEPSPOT's algorithsm as described in the references below.")
@@ -322,13 +330,14 @@ def doItAll(tArray, includeJ2) ->blackBoxSingleShootingFunctions:
     lmdHelper = OdeLambdifyHelperWithBoundaryConditions.CreateFromProblem(problem)
 
     lmdHelper.SubstitutionDictionary[originalProblem.TimeFinalSymbol] = originalProblem.TimeFinalSymbol
+    lmdHelper.SubstitutionDictionary[lambdas[-1]] = 0
     #lmdHelper = OdeLambdifyHelperWithBoundaryConditions(t, sy.Symbol('t_0', real=True), sy.Symbol('t_f', real=True), list(x), list(zDot), [], [], fullSubsDictionary)
 
     
     print(problem.BoundaryConditions)
-    lmdGuess = [4.675229762, 5.413413947e2, -9.202702084e3, 1.778011878e1, -2.268455855e4, -2.274742851]#-2.2747428]
+    lmdGuess = [4.675229762, 5.413413947e2, -9.202702084e3, 1.778011878e1, -2.268455855e4]#-2.2747428]
     if includeJ2 :
-        lmdGuess = [4.800100306, 8.060772261e2,-9.150040837e3,3.281827358e1,-2.254928992e4, -2.274742851]
+        lmdGuess = [4.800100306, 8.060772261e2,-9.150040837e3,3.281827358e1,-2.254928992e4]
     #lmdGuess = [4.475229762, 5.913413947e2, -9.702702084e3, 1.278011878e1, -2.968455855e4, -2.974742851]#-2.2747428] # bad values
     fullInitialState = [a0V, h0V, k0V, p0V, q0V, lon0]
     fullInitialState.extend(lmdGuess)
@@ -412,6 +421,7 @@ def doItAll(tArray, includeJ2) ->blackBoxSingleShootingFunctions:
         localIvpState = []
         localIvpState.extend(initialStateValues[0:5])
         localIvpState.extend(justFSolveState[0:-1])
+        localIvpState.append(0)
         tArray = np.linspace(0.0, 1.0, 400)   
         ivpSol = realIpvCallback(tArray, localIvpState, ipvCallback, justFSolveState[-1])
         bcFinalState = ScipyCallbackCreators.GetFinalStateFromIntegratorResults(ivpSol)
@@ -421,7 +431,6 @@ def doItAll(tArray, includeJ2) ->blackBoxSingleShootingFunctions:
         boundaryConditionSolution[-1] = 0#math.sin(finalLongitude)
         boundaryConditionSolution.append(0)#math.cos(finalLongitude)-1)
         boundaryConditionSolution.append(hamlfEvala(tArray, ivpSol.y, tArray[-1])[-1]-1.0)
-        boundaryConditionSolution.append(0)
 
         return boundaryConditionSolution
 
@@ -429,82 +438,74 @@ def doItAll(tArray, includeJ2) ->blackBoxSingleShootingFunctions:
     fSolveGuess.append(lon0)
     fSolveGuess.extend(lmdGuess)
     fSolveGuess.append(tfV)
-    allTheCallbacks = blackBoxSingleShootingFunctions(ipvCallback, boundaryConditionsLambdified, fSolveCallback, initialStateValues[0:5], fSolveGuess)
+    allTheCallbacks = blackBoxSingleShootingFunctions(ipvCallback, boundaryConditionsLambdified, fSolveCallback, initialStateValues[0:5], fSolveGuess, hamlfEvala)
     return allTheCallbacks
-    # class pygmoProblem :
-    #     def fitness(self, x):
-    #         return [0, *fSolveCallback(x)]
-
-    #     def get_bounds(self):
-    #         return ([-3.15, 1,   100.0,-20000.0,   1.0, -100000.0, -5.0, 57000.0], 
-    #                 [ 3.15, 6, 10000.0,  -100.0, 100.0,    -100.0, -1.0, 59000.0])
-
-    #     def get_nic(self):
-    #         return 0
-
-    #     def get_nec(self):
-    #         return 8
-    #     def gradient(self, x):
-    #         return pg.estimate_gradient_h(lambda x: self.fitness(x), x)            
-
-    
-
-    # from scipy.optimize import newton_krylov, anderson, root
-    # #fSolveSol = fsolve(fSolveCallback, fSolveGuess, full_output=True, factor=0.2, epsfcn=0.001, maxfev=0)
-    # #fSolveSol = root(fSolveCallback, fSolveGuess, method='lm')
-    # prob = pygmoProblem()
-    # algo = pg.algorithm(uda = pg.mbh(pg.nlopt("slsqp"), stop = 20, perturb = .1))
-    # #algo.extract(pg.nlopt).local_optimizer = pg.nlopt('var2')
-    # algo.set_verbosity(1)
-    # pop = pg.population(prob = prob, size = 50)
-    # pop.problem.c_tol = [1E-6] * 8
-    # pop = algo.evolve(pop)
-    # best_fitness = pop.get_f()[pop.best_idx()]
-
-    # fSolveSol = best_fitness
-    # print(fSolveSol)
-    # finalInitialState = [a0V, h0V,k0V, p0V, q0V]#, lon0 ]
-    # finalInitialState.extend(fSolveSol[0][0:-1])
-    # actualTfSec = fSolveSol[0][-1]
-
-    # #finalInitialState = [a0V, h0V,k0V, p0V, q0V, lon0 ]
-    # #finalInitialState.extend(lmdGuess)
-    # #actualTfSec = tfV
-
-    # #finalInitialState.append(lmdGuess[5])
-    
-    
-    # solution =realIpvCallback(tArray, finalInitialState, ipvCallback, actualTfSec) #solve_ivp(ipvCallback, [tArray[0], tArray[-1]], finalInitialState, args=(fSolveSol[-1]), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
-    # print(solution)
-
-    # solution["hamlt"] = hamlfEvala(tArray, solution.y, actualTfSec)
-    # return fSolveSol, solution, fullBoundaryConditionState
 
 
 tArray = np.linspace(0.0, 1.0, 400)
 #%%
 twoBodyCallbacks = doItAll(tArray, False)
+
+#%%
 fSolveSol = fsolve(twoBodyCallbacks.fSolveCallback, twoBodyCallbacks.InitialFSolveGuess, full_output=True, factor=0.2, epsfcn=0.001, maxfev=0)
 
 #%%
 
 finalInitialState = [*twoBodyCallbacks.InitialStateForDifferentailEquations]
 finalInitialState.extend(fSolveSol[0][0:-1])
+finalInitialState.append(0)
 actualTfSec = fSolveSol[0][-1]
-
-#%%
-
 solution = twoBodyCallbacks.realIpvCallback(tArray, finalInitialState, twoBodyCallbacks._difeqCallback, actualTfSec)
+hamltSolutionTwoBody = twoBodyCallbacks.hamiltonianCallback(tArray, solution.y, actualTfSec)
 
 j2Callbacks = doItAll(tArray, True)
 fSolveSolJ2 = fsolve(j2Callbacks.fSolveCallback, j2Callbacks.InitialFSolveGuess, full_output=True, factor=0.2, epsfcn=0.001, maxfev=0)
 actualTfSecJ2 = fSolveSolJ2[0][-1]
 finalInitialJ2State = [*j2Callbacks.InitialStateForDifferentailEquations]
 finalInitialJ2State.extend(fSolveSolJ2[0][0:-1])
+finalInitialJ2State.append(0)
 
 solutionJ2 = j2Callbacks.realIpvCallback(tArray, finalInitialJ2State, j2Callbacks._difeqCallback, actualTfSecJ2)
+hamltSolutionJ2 = j2Callbacks.hamiltonianCallback(tArray, solutionJ2.y, actualTfSecJ2)
 
 
+#%%
+#solve with pygmo
+class pygmoProblem :
+    def __init__(self, callbacks : singleShootingFunctions):
+        self.Callbacks = callbacks
+
+    def fitness(self, x):
+        return [0, *self.Callbacks.fSolveCallback(x)]
+
+    def get_bounds(self):
+        return ([-3.0, 4,  100.0, -11000.0, 10.0, -25000.0, 58050.0], 
+                [-2.0, 5, 1000.0,  -8000.0, 40.0, -20000.0, 58200.0])
+
+    def get_nic(self):
+        return 0
+
+    def get_nec(self):
+        return 7
+
+    def gradient(self, x):
+        return pg.estimate_gradient_h(lambda x: self.fitness(x), x)  
+
+prob = pygmoProblem(j2Callbacks)
+algo = pg.algorithm(uda = pg.mbh(pg.nlopt("cobyla"), seed=1))#, stop = 40, perturb = .01))
+#algo.extract(pg.nlopt).local_optimizer = pg.nlopt('var2')
+algo.set_verbosity(1)
+pop = pg.population(prob = prob, size = 2000)
+pop.problem.c_tol = [1.0, 1E-4, 1E-4, 1E-4, 1E-4, 1E-4, 1E-4]
+pop = algo.evolve(pop)
+
+bestX = pop.get_x()[pop.best_idx()]
+finalInitialState = [*twoBodyCallbacks.InitialStateForDifferentailEquations]
+finalInitialState.extend(bestX[:-1])
+finalInitialState.append(0)
+actualTfSec = fSolveSol[0][-1]
+solution = twoBodyCallbacks.realIpvCallback(tArray, finalInitialState, twoBodyCallbacks._difeqCallback, actualTfSec)
+hamltSolutionTwoBody = twoBodyCallbacks.hamiltonianCallback(tArray, solution.y, actualTfSec)
 
 #fSolveSolJ2, solutionJ2, fullBoundaryConditionStateJ2 = doItAll(tArray, True)
 
@@ -533,8 +534,9 @@ for title in titles:
     i=i+1
 i=0
 
-#plotAThing("Hamiltonian", "H", graphTArray, solution["hamlt"], "H_{J_2}", graphTArrayJ2, solutionJ2["hamlt"])
-#%%
+
+plotAThing("Hamiltonian", "H", graphTArray, hamltSolutionTwoBody, "H_{J_2}", graphTArrayJ2, hamltSolutionJ2)
+
 equiElements = [] #type: List[mee.EquinoctialElementsHalfI]
 for i in range(0, len(tArray)):    
     temp = mee.EquinoctialElementsHalfITrueLongitude(solution.y[0][i], solution.y[1][i], solution.y[2][i],solution.y[3][i],solution.y[4][i],solution.y[5][i], muVal)
@@ -607,4 +609,3 @@ df.style \
 
 print(actualTfSec)
 print(actualTfSecJ2)
-# %%
