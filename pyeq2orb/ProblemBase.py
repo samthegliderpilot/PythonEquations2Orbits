@@ -724,7 +724,10 @@ class Problem(ABC) :
 
     @staticmethod
     def CreateLambdaDotEquationsStatic(hamiltonian : sy.Expr, t : sy.Symbol, stateVariables, lambdaSymbols) :
-        rightHandSides = -1*sy.Derivative(hamiltonian, stateVariables).doit()
+        rightHandSides = []
+        for i in range(0, len(stateVariables)):
+            dThisDH = -1*sy.Derivative(hamiltonian, stateVariables[i]).doit()
+            rightHandSides.append(dThisDH)
         eqs = []
         for i in range(0, len(lambdaSymbols)) :
             eqs.append(sy.Eq(lambdaSymbols[i].diff(t), rightHandSides[i]))
