@@ -12,7 +12,7 @@ x = sy.Function('x', real=True)
 y = sy.Function('y', real=True)
 vx = sy.Function('v_x', real=True)
 vy = sy.Function('v_y', real=True)
-F = sy.Symbol('F', real=True, positive=True)
+accel = sy.Symbol('a', real=True, positive=True)
 m = sy.Function('m', real=True, positive=True)
 g = sy.Symbol('g', real=True, positive=True)
 
@@ -25,8 +25,8 @@ m0 = sy.Symbol("m_0", real=True, positive=True)
 
 xDot = vx(t)
 yDot = vy(t)
-vxDot = F*sy.cos(alpha(t))/m(t)
-vyDot = F*sy.sin(alpha(t))/m(t) - g
+vxDot = accel*sy.cos(alpha(t))
+vyDot = accel*sy.sin(alpha(t)) - g
 mDot = t*mDotS
 
 display(vxDot)
@@ -34,19 +34,18 @@ display(vxDot)
 bc1 = y(tf)-rc+rCb#=0
 bc2 = vxf-vx(tf)#=0
 bc3 = vy(tf) #=0
-bc4 = m0-m0
 
 
 ######## Standard problem setup
 pr_t = t
-pr_y = [x(t), y(t), vx(t), vy(t), m(t)] 
-pr_eom = [xDot, yDot, vxDot, vyDot, mDot]
-pr_initialGuesses = [0, 0, 0, 0, m0]
-pr_bcs = [bc1, bc2, bc3, bc4]
+pr_y = [x(t), y(t), vx(t), vy(t)] 
+pr_eom = [xDot, yDot, vxDot, vyDot]
+pr_initialGuesses = [0, 0, 0, 0]
+pr_bcs = [bc1, bc2, bc3]
 pr_j = tf
 pr_sense = -1 # minimize
 pr_controls = [alpha(t)]
-pr_subsDict = {vxf:1.6270, rCb:1740.0, rc:1852.000, g:0.00162, F:10000*g, mDotS:-0.001, m0:2000.0} #type: ignore
+pr_subsDict = {vxf:1.6270, rCb:1740.0, rc:1852.000, g:0.00162, accel:3*g, mDotS:-0.001, m0:2000.0} #type: ignore
 
 problem = Problem()
 for (k,v) in pr_subsDict.items():
@@ -102,14 +101,14 @@ for i in range(0, len(xversality)):
 ###### Indirect Problem is fully setup, time to start doing numerical things.....
 #%%
 import numpy as np
-initialGuess = [0,0,0,0,2000,  0,-3000.0,0.001,3000.0,0]
+initialGuess = [0,0,0,0,  -1.0,-1.0,-0.01,-10.0]
 tArray = np.linspace(0.0, 1.0, 400)
 
 from pyeq2orb.Numerical.LambdifyHelpers import OdeLambdifyHelperWithBoundaryConditions
 
 numerical = OdeLambdifyHelperWithBoundaryConditions.CreateFromProblem(problem)
 numerical.SymbolsToSolveForWithBoundaryConditions.clear()
-numerical.SymbolsToSolveForWithBoundaryConditions.extend(lambdas_0[:4])
+numerical.SymbolsToSolveForWithBoundaryConditions.extend(lambdas_0)
 numerical.SymbolsToSolveForWithBoundaryConditions.append(tf)
 numerical.ApplySubstitutionDictionaryToExpressions()
 ivpCallback = numerical.CreateSimpleCallbackForSolveIvp()
@@ -121,12 +120,12 @@ bcCallback = numerical.createCallbackToSolveForBoundaryConditionsBetter(solve_iv
 from scipy.integrate import solve_ivp #type: ignore
 from scipy.optimize import fsolve  #type: ignore
 
-fSolveInitialGuess = initialGuess[5:-1]
+fSolveInitialGuess = initialGuess[4:]
 fSolveInitialGuess.append(480)
 fsolveAns = fsolve(bcCallback, fSolveInitialGuess, full_output=True,  factor=0.2,epsfcn=0.001 )
 print(fsolveAns)
-finalInitialState = initialGuess[:5]
-finalInitialState.extend(fsolveAns[0][:5])
+finalInitialState = initialGuess[:4]
+finalInitialState.extend(fsolveAns[0][:4])
 tfReal = fsolveAns[0][-1]
 anAns = solve_ivp(ivpCallback, [0,1], finalInitialState, dense_output=True, args=(fsolveAns[0][-1],), method='LSODA')
 print(anAns)
@@ -137,7 +136,7 @@ import pyeq2orb.Graphics.Primitives as prim
 def plotAThing(title, label1, t1, dataset1):
     plot2DLines([prim.XAndYPlottableLineData(t1, dataset1, label1, '#0000ff', 2, 0)], title)
 
-titles = ["x", "y", "vx", "vy", "m"]
+titles = ["x", "y", "vx", "vy"]
 i=0
 for title in titles:
     plotAThing(titles[i], titles[i], anAns.t*tfReal, anAns.y[i])
