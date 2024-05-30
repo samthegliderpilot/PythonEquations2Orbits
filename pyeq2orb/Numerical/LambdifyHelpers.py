@@ -8,7 +8,7 @@ from typing import Optional, List, Dict, Callable, cast, Any, Union, Tuple
 from pyeq2orb.ProblemBase import Problem
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
 from pyeq2orb.Symbolics.SymbolicUtilities import SafeSubs
-
+from copy import deepcopy
 
 class LambdifyHelper :
     """As I've worked with more and more problems, trying to find the line of responsibility for the library to assist
@@ -214,7 +214,7 @@ class OdeLambdifyHelper(LambdifyHelper):
 
         # but if there are other arguments, handle that
         def callbackFunc(t, y, *args) :
-            return eomCallback(t, y,args)
+            return eomCallback(t, y, args)
         return callbackFunc        
 
     def CreateListOfStateVariableCallbacksTimeFirst(self) ->List[Callable]:
@@ -358,6 +358,7 @@ class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
         stateForBoundaryConditions.extend(SafeSubs(self.NonTimeLambdifyArguments, {self.Time: self.t0}))
         stateForBoundaryConditions.append(self.tf)
         stateForBoundaryConditions.extend(SafeSubs(self.NonTimeLambdifyArguments, {self.Time: self.tf}))
+        stateForBoundaryConditions.extend(self.OtherArguments)
         #stateForBoundaryConditions.extend(self.OtherArguments) #even if things are repeated, that is ok
         #if not self.tf in stateForBoundaryConditions:
         #    stateForBoundaryConditions.append(self.tf)# This maybe shouldn't be needed, poorly formed problem if this happens
@@ -367,31 +368,45 @@ class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
         return (stateForBoundaryConditions,boundaryConditionEvaluationCallbacks)
     
     
-    def createCallbackToSolveForBoundaryConditions(self, solveIvpCallback, tArray, preSolveInitialGuessForIntegrator : List[float]) :
+    def createCallbackToSolveForBoundaryConditions(self, solveIvpCallback, stateToSolveFor, tArray, preSolveInitialGuessForIntegrator : List[float]) :
+        return self.createCallbackToSolveForBoundaryConditionsBetter(solveIvpCallback, self.SymbolsToSolveForWithBoundaryConditions, tArray, preSolveInitialGuessForIntegrator, None) 
+
+    def createCallbackToSolveForBoundaryConditionsBetter(self, solveIvpCallback, stateToSolveFor, tArray, preSolveInitialGuessForIntegrator : List[float], integratorArgGuess) :
         (stateForBoundaryConditions,boundaryConditionEvaluationCallbacks) = self.CreateCallbackForBoundaryConditionsWithFullState()
         mapForIntegrator = [] #type: List[int]
+        integratorArgsIndices = {} #type: Dict[int,int]
         mapForBcs = [] #type: List[int]
-        for i in range(0, len(self.SymbolsToSolveForWithBoundaryConditions)) :
-            mapForBcs.append(stateForBoundaryConditions.index(self.SymbolsToSolveForWithBoundaryConditions[i]))
+
+        for i in range(0, len(stateToSolveFor)) :
+            mapForBcs.append(stateForBoundaryConditions.index(stateToSolveFor[i]))
             try :
-                indexForIntegrator = self.NonTimeLambdifyArguments.index(SafeSubs(self.SymbolsToSolveForWithBoundaryConditions[i], {self.t0: self.Time})) #TODO: Do I need to do TF?
+                indexForIntegrator = self.NonTimeLambdifyArguments.index(SafeSubs(stateToSolveFor[i], {self.t0: self.Time})) #TODO: Do I need to do TF?                
                 mapForIntegrator.append(indexForIntegrator)
             except ValueError:
-                pass
-              
+                # maybe an arg?
+                indexForArg = self.OtherArguments.index(SafeSubs(stateToSolveFor[i], {self.t0: self.Time}))
+                integratorArgsIndices[indexForArg] = i
         
+        integratorArgsCopy = deepcopy(integratorArgGuess)
         preSolveInitialGuessForIntegrator = preSolveInitialGuessForIntegrator.copy()
 
         def callbackForFsolve(bcSolverState) :
             for j in range(0, len(mapForIntegrator)) :
                 preSolveInitialGuessForIntegrator[mapForIntegrator[j]] = bcSolverState[j]
             
-            ans = solveIvpCallback(tArray, preSolveInitialGuessForIntegrator)
+            localIntegratorArgs = deepcopy(integratorArgGuess)
+            argsAsList = list(integratorArgGuess)
+            for (k,v) in integratorArgsIndices.items():
+                argsAsList[k] = bcSolverState[v]
+            localIntegratorArgs = tuple(argsAsList)
+            #print(bcSolverState)
+            ans = solveIvpCallback(tArray, preSolveInitialGuessForIntegrator, localIntegratorArgs)
             finalState = []
             finalState.append(tArray[0])
             finalState.extend(ScipyCallbackCreators.GetInitialStateFromIntegratorResults(ans))
             finalState.append(tArray[-1])
             finalState.extend(ScipyCallbackCreators.GetFinalStateFromIntegratorResults(ans))
+            finalState.extend(argsAsList)
             # for j in range(0, len(mapForBcs)) :
             #     finalState[mapForBcs[j]] = bcSolverState[j]
             
