@@ -40,8 +40,54 @@ def CreateAndCacheExpression(cache : ExpressionCache, id:str, sympyExpression, l
     expressionCache.SaveCache()
     return item
 
+class EverythingAnswer(ABC):
+    def __init__(self):
+        pass
 
-class singleShootingFunctions(ABC):
+    @abstractmethod
+    @property
+    def StateHistory(self) -> Dict[sy.Symbol, List[float]]:
+        pass
+
+    @abstractmethod
+    @property
+    def BoundaryConditionValues(self) -> List[float]:
+        pass
+
+class SimpleEverythingAnswer(EverythingAnswer):
+    def __init__(self, StateHistory : Dict[sy.Symbol, List[float]], bcAnswer : List[float]):
+        self._stateHistory = StateHistory
+        self._boundaryConditionValues = bcAnswer
+
+    @property
+    def StateHistory(self) -> Dict[sy.Symbol, List[float]]:
+        return self._stateHistory
+
+    @property
+    def BoundaryConditionValues(self) -> List[float]:
+        return self._boundaryConditionValues
+
+class EverythingProblem(ABC):
+    def __init__(self):
+        pass
+
+    @abstractmethod
+    @property
+    def StateVariables(self) ->List[sy.Symbol]:
+        pass
+
+    @abstractmethod
+    def EvaluateProblem(self, time, initialState : List[float], parameters : List[float]) ->EverythingAnswer:
+        pass
+
+    def EvaluateIndirectProble(self, time, initialStateValues: List[float], initialCostateValues: List[float], parameters : List[float]) ->EverythingAnswer:
+        fullInitialState = []
+        fullInitialState.extend(initialStateValues)
+        fullInitialState.extend(initialCostateValues)
+        return self.EvaluateProblem(time, fullInitialState, parameters)
+
+
+class singleShootingFunctions(EverythingProblem, ABC):
     def __init__(self):
         pass
 
@@ -49,11 +95,12 @@ class singleShootingFunctions(ABC):
     def differentialEquationCallback(self, t, y, args):
         pass
 
-    def realIpvCallback(self, tArray, ivpInitialState, ipvCallbackInner, tf = None) :
+    def realIpvCallback(self, tArray, ivpInitialState, ipvCallbackInner, parameters : List[float]) :
         #print(initialStateInCb)
-        odeArgs = ()
-        if tf != None :
-            odeArgs = (tf,)
+        if parameters != None:
+            odeArgs = tuple(parameters)
+        else:
+            odeArgs = None
         tArray = np.linspace(0.0, 1.0, 400)            
         solution = solve_ivp(ipvCallbackInner, [tArray[0], tArray[-1]], ivpInitialState, args=odeArgs, t_eval=tArray, dense_output=True, method="RK45", rtol=1.49012e-8, atol=1.49012e-11)
         #solutionDictionary = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(lmdHelper.NonTimeLambdifyArguments, solution)
@@ -66,18 +113,25 @@ class singleShootingFunctions(ABC):
         stateNow.append(bcTimeValue)
         return stateNow
 
-    @abstractmethod
-    def boundaryConditionEvaluationCallback(self, fullBcState):
-        pass
+    def buildBoundaryConditionStateFromSolutionDict(self, solutionDict):
+        bcState = []
+        #TODO: Obviously need to do it
+        return bcState
 
     @abstractmethod
-    def fSolveCallback(self, justFSolveState):
+    def boundaryConditionEvaluationCallback(self, fullBcState) -> List[float]:
         pass
 
     @abstractmethod
     def hamiltonianCallback(self, tArray, ivpY, tf):
         pass
-
+    
+    def EvaluateProblem(self, time, initialState : List[float], parameters : List[float]) -> EverythingAnswer:
+        ivpAns = self.realIpvCallback(time, initialState, None, parameters)
+        solDict = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(self.StateVariables, ivpAns)
+        bcState = self.buildBoundaryConditionStateFromSolutionDict(solDict)
+        bcAns = self.boundaryConditionEvaluationCallback(bcState)
+        return SimpleEverythingAnswer(solDict, bcAns)
 
 
 class blackBoxSingleShootingFunctions(singleShootingFunctions):

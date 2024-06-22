@@ -4,7 +4,115 @@ from pyeq2orb import SafeSubs
 from pyeq2orb.NumericalOptimizerProblem import NumericalOptimizerProblemBase
 import sympy as sy
 from IPython.display import display
-from scipyPaperPrinter import printMarkdown, showEquation
+from scipyPaperPrinter import printMarkdown, showEquation #type: ignore
+from abc import ABC, abstractmethod
+from typing import Dict, List, Tuple
+import pyeq2orb.Numerical.ScipyCallbackCreators as ScipyCallbackCreators
+from scipy.integrate import solve_ivp
+class EverythingAnswer(ABC):
+    def __init__(self):
+        pass
+
+    @property
+    @abstractmethod    
+    def StateHistory(self) -> Dict[sy.Symbol, List[float]]:
+        pass
+
+    @property
+    @abstractmethod
+    def BoundaryConditionValues(self) -> List[float]:
+        pass
+
+class SimpleEverythingAnswer(EverythingAnswer):
+    def __init__(self, StateHistory : Dict[sy.Symbol, List[float]], bcAnswer : List[float]):
+        self._stateHistory = StateHistory
+        self._boundaryConditionValues = bcAnswer
+
+    @property
+    def StateHistory(self) -> Dict[sy.Symbol, List[float]]:
+        return self._stateHistory
+
+    @property
+    def BoundaryConditionValues(self) -> List[float]:
+        return self._boundaryConditionValues
+
+
+
+
+class EverythingProblem(ABC):
+    def __init__(self):
+        pass
+
+    @property
+    @abstractmethod
+    def StateVariables(self) ->List[sy.Symbol]:
+        pass
+
+    @abstractmethod
+    def EvaluateProblem(self, time, initialState : List[float], parameters : Tuple[float]) ->EverythingAnswer:
+        pass
+
+    def EvaluateIndirectProblem(self, time, initialStateValues: List[float], initialCostateValues: List[float], parameters : Tuple[float]) ->EverythingAnswer:
+        fullInitialState = []
+        fullInitialState.extend(initialStateValues)
+        fullInitialState.extend(initialCostateValues)
+        return self.EvaluateProblem(time, fullInitialState, parameters)
+
+
+class singleShootingFunctions(EverythingProblem, ABC):
+    def __init__(self):
+        pass
+
+    @abstractmethod
+    def differentialEquation(self, t, y, args) -> Dict[sy.Symbol, Tuple[float]]:
+        pass
+
+    def buildBoundaryConditionState(self, bcInitialState, bcFinalState):
+        stateNow = []
+        stateNow.extend(bcInitialState)
+        stateNow.extend(bcFinalState)
+        stateNow.append(bcTimeValue)
+        return stateNow
+
+    def buildBoundaryConditionStateFromSolutionDict(self, solutionDict):
+        bcState = []
+        bcState.append(0)
+        for k, v in solutionDict.items():
+            bcState.append(v[0])
+        bcState.append(1)
+        for k, v in solutionDict.items():
+            bcState.append(v[-1])            
+        return bcState
+
+    @abstractmethod
+    def boundaryConditionEvaluation(self, fullBcState, args) -> List[float]:
+        pass
+    
+    def EvaluateProblem(self, time, initialState : List[float], parameters : Tuple[float]) -> EverythingAnswer:
+        ivpAns = self.differentialEquation(time, initialState, parameters)
+        bcState = self.buildBoundaryConditionStateFromSolutionDict(ivpAns)
+        bcAns = self.boundaryConditionEvaluation(bcState, parameters)
+        return SimpleEverythingAnswer(ivpAns, bcAns)
+
+
+class blackBoxSingleShootingFunctions(singleShootingFunctions):
+    def __init__(self, diffeqCallback, boundaryConditionCallback,  stateVariables):
+        self._difeqCallback = diffeqCallback
+        self._boundaryConditionCallback = boundaryConditionCallback
+        self._stateVariables = stateVariables
+
+    def differentialEquation(self, t, y, args):
+        return self._difeqCallback(t, y, args)
+
+    def boundaryConditionEvaluation(self, fullBcState, args):
+        return self._boundaryConditionCallback(fullBcState, args)
+
+    @property
+    def StateVariables(self) ->List[sy.Symbol]:
+        return self._stateVariables
+
+
+#%%
 t = sy.Symbol('t', real=True, positive=True)
 t0 = sy.Symbol('t_0', real=True, positive=True)
 tf = sy.Symbol('t_f', real=True, positive=True)
@@ -112,10 +220,28 @@ numerical.SymbolsToSolveForWithBoundaryConditions.extend(lambdas_0)
 numerical.SymbolsToSolveForWithBoundaryConditions.append(tf)
 numerical.ApplySubstitutionDictionaryToExpressions()
 ivpCallback = numerical.CreateSimpleCallbackForSolveIvp()
+
+integrationVariables = []
+integrationVariables.extend(problem.StateVariables)
+integrationVariables.extend(problem.CostateSymbols)
+
 def solve_ivp_wrapper(t, y, args):
+    if isinstance(args, list):
+        args = tuple(args)
     anAns = solve_ivp(ivpCallback, [t[0], t[-1]], y, dense_output=True, args=args, method='LSODA')
-    return anAns
-bcCallback = numerical.createCallbackToSolveForBoundaryConditionsBetter(solve_ivp_wrapper, [lambdas_0[0], lambdas_0[1], lambdas_0[2], lambdas_0[3], tf], tArray, initialGuess, (480,))
+    anAnsDict = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(integrationVariables, anAns)
+    return anAnsDict
+
+bcCallback = numerical.CreateCallbackForBoundaryConditionsWithFullState()
+
+#bcCallback = numerical.createCallbackToSolveForBoundaryConditionsBetter(solve_ivp_wrapper, [lambdas_0[0], lambdas_0[1], lambdas_0[2], lambdas_0[3], tf], tArray, initialGuess, (480,))
+def tempBcCallback(state, args):
+    return bcCallback[1](*state, *args)
+problemEvaluator = blackBoxSingleShootingFunctions(solve_ivp_wrapper, tempBcCallback, integrationVariables)
+everything = problemEvaluator.EvaluateProblem(tArray, initialGuess, (3600,))
+print(everything.BoundaryConditionValues)
+print(everything.StateHistory)
+#%%
 
 from scipy.integrate import solve_ivp #type: ignore
 from scipy.optimize import fsolve  #type: ignore
@@ -129,6 +255,7 @@ finalInitialState.extend(fsolveAns[0][:4])
 tfReal = fsolveAns[0][-1]
 anAns = solve_ivp(ivpCallback, [0,1], finalInitialState, dense_output=True, args=(fsolveAns[0][-1],), method='LSODA')
 print(anAns)
+
 
 from pyeq2orb.Graphics.Plotly2DModule import plot2DLines
 import pyeq2orb.Graphics.Primitives as prim
