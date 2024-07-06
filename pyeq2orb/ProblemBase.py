@@ -62,6 +62,8 @@ class Problem(ABC) :
 
         self._substitutionDictionary = OrderedDict()
 
+        self._otherArgs : List[sy.Symbol] = []
+
 
     @staticmethod
     def CreateBarVariables(orgVariables : List[sy.Symbol], timeSymbol :sy.Symbol) ->List[sy.Symbol] :
@@ -277,6 +279,10 @@ class Problem(ABC) :
         for i in range(0, len(self.StateVariables)):
             equations.append(sy.Eq(self.StateVariables[i].diff(self.TimeSymbol), self.StateVariableDynamics[i]))
         return equations
+
+    @property
+    def OtherArguments(self) -> List[sy.Symbol]:
+        return self._otherArgs
 
     def CreateEquationOfMotionsAsEquations(self) -> List[sy.Eq] :
         """Converts the equations of motion dictionary into a list in the order of the state variables.
@@ -527,6 +533,7 @@ class Problem(ABC) :
             newProblem.AddCostateVariable(ProblemVariable(SafeSubs(self.CostateSymbols[i], symbolSubs), SafeSubs(self.CostateDynamicsEquations[i], dictOfOriginalSvsToNewSvs)*dtDTau))
 
         newProblem._timeScaleFactor =self.TimeFinalSymbol #TODO: User needs to set this to some degree
+        newProblem._otherArgs.append(self.TimeFinalSymbol)
         return newProblem        
 
 

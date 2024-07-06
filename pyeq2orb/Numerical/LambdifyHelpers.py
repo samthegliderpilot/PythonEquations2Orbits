@@ -51,6 +51,7 @@ class LambdifyHelper :
             i=i+1
         self._substitutionDictionary = substitutionDictionary
 
+
     @property
     def LambdifyArguments(self) -> List[Union[sy.Symbol, List[sy.Symbol]]]:
         """The list of state variables that are used to lambdify an expression.  This list is never 
@@ -316,9 +317,10 @@ class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
     @staticmethod
     def CreateFromProblem(problem : Problem) :
         stateAndControl = [*problem.StateVariables, *problem.CostateSymbols]
-        otherArgs = [] #type: List[sy.Symbol]
-        if(problem.TimeScaleFactor != None and isinstance(problem.TimeScaleFactor, sy.Symbol)) :
-            otherArgs = [cast(sy.Symbol, problem.TimeScaleFactor)]
+        # otherArgs = [] #type: List[sy.Symbol]
+        # if(problem.TimeScaleFactor != None and isinstance(problem.TimeScaleFactor, sy.Symbol)) :
+        #     otherArgs = [cast(sy.Symbol, problem.TimeScaleFactor)]
+        otherArgs : List[sy.Symbol] = problem.OtherArguments
         dynamics = []
         dynamics.extend(problem.StateVariableDynamics)
         dynamics.extend(problem.CostateDynamicsEquations)
@@ -358,7 +360,8 @@ class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
         stateForBoundaryConditions.extend(SafeSubs(self.NonTimeLambdifyArguments, {self.Time: self.t0}))
         stateForBoundaryConditions.append(self.tf)
         stateForBoundaryConditions.extend(SafeSubs(self.NonTimeLambdifyArguments, {self.Time: self.tf}))
-        stateForBoundaryConditions.extend(self.OtherArguments)
+        if not( self.OtherArguments == None or len(self.OtherArguments) == 0):
+            stateForBoundaryConditions.extend(self.OtherArguments)
         #stateForBoundaryConditions.extend(self.OtherArguments) #even if things are repeated, that is ok
         #if not self.tf in stateForBoundaryConditions:
         #    stateForBoundaryConditions.append(self.tf)# This maybe shouldn't be needed, poorly formed problem if this happens
@@ -367,6 +370,15 @@ class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
         boundaryConditionEvaluationCallbacks = LambdifyHelper.CreateLambdifiedExpressions(stateForBoundaryConditions, self.BoundaryConditionExpressions, self.SubstitutionDictionary)    
         return (stateForBoundaryConditions,boundaryConditionEvaluationCallbacks)
     
+    @staticmethod
+    def CreateStateForBoundaryConditions(t0 : SymbolOrNumber, valuesAtT0: List[SymbolOrNumber], tf:SymbolOrNumber, valuesAtTf : List[SymbolOrNumber], otherArgs : Tuple[SymbolOrNumber])-> List[SymbolOrNumber]:
+        state :List[SymbolOrNumber] = []
+        state.append(t0)
+        state.extend(valuesAtT0)
+        state.append(tf)
+        state.extend(valuesAtTf)
+        state.extend(otherArgs)
+        return state
     
     def createCallbackToSolveForBoundaryConditions(self, solveIvpCallback, stateToSolveFor, tArray, preSolveInitialGuessForIntegrator : List[float]) :
         return self.createCallbackToSolveForBoundaryConditionsBetter(solveIvpCallback, self.SymbolsToSolveForWithBoundaryConditions, tArray, preSolveInitialGuessForIntegrator, None) 
@@ -382,7 +394,7 @@ class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
             try :
                 indexForIntegrator = self.NonTimeLambdifyArguments.index(SafeSubs(stateToSolveFor[i], {self.t0: self.Time})) #TODO: Do I need to do TF?                
                 mapForIntegrator.append(indexForIntegrator)
-            except ValueError:
+            except ValueError: #TODO: Do better in this case
                 # maybe an arg?
                 indexForArg = self.OtherArguments.index(SafeSubs(stateToSolveFor[i], {self.t0: self.Time}))
                 integratorArgsIndices[indexForArg] = i
@@ -390,7 +402,7 @@ class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
         integratorArgsCopy = deepcopy(integratorArgGuess)
         preSolveInitialGuessForIntegrator = preSolveInitialGuessForIntegrator.copy()
 
-        def callbackForFsolve(bcSolverState) :
+        def callbackForFsolve(bcSolverState, optionalArgs = None) :
             for j in range(0, len(mapForIntegrator)) :
                 preSolveInitialGuessForIntegrator[mapForIntegrator[j]] = bcSolverState[j]
             

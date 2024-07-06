@@ -1,118 +1,20 @@
 #%%
-from pyeq2orb.ProblemBase import Problem, ProblemVariable
-from pyeq2orb import SafeSubs
-from pyeq2orb.NumericalOptimizerProblem import NumericalOptimizerProblemBase
 import sympy as sy
 from IPython.display import display
 from scipyPaperPrinter import printMarkdown, showEquation #type: ignore
 from abc import ABC, abstractmethod
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Any, Optional, Iterable
+from scipy.integrate import solve_ivp #type: ignore
+import numpy as np
+from scipy.integrate import solve_ivp #type: ignore
+from scipy.optimize import fsolve  #type: ignore
+from pyeq2orb.Numerical.SimpleProblemCallers import blackBoxSingleShootingFunctions, SimpleEverythingAnswer, fSolveSingleShootingSolver
+from pyeq2orb.Numerical.LambdifyHelpers import OdeLambdifyHelperWithBoundaryConditions
 import pyeq2orb.Numerical.ScipyCallbackCreators as ScipyCallbackCreators
-from scipy.integrate import solve_ivp
-class EverythingAnswer(ABC):
-    def __init__(self):
-        pass
+from pyeq2orb.ProblemBase import Problem, ProblemVariable
+from pyeq2orb import SafeSubs
+from pyeq2orb.NumericalOptimizerProblem import NumericalOptimizerProblemBase
 
-    @property
-    @abstractmethod    
-    def StateHistory(self) -> Dict[sy.Symbol, List[float]]:
-        pass
-
-    @property
-    @abstractmethod
-    def BoundaryConditionValues(self) -> List[float]:
-        pass
-
-class SimpleEverythingAnswer(EverythingAnswer):
-    def __init__(self, StateHistory : Dict[sy.Symbol, List[float]], bcAnswer : List[float]):
-        self._stateHistory = StateHistory
-        self._boundaryConditionValues = bcAnswer
-
-    @property
-    def StateHistory(self) -> Dict[sy.Symbol, List[float]]:
-        return self._stateHistory
-
-    @property
-    def BoundaryConditionValues(self) -> List[float]:
-        return self._boundaryConditionValues
-
-
-
-
-class EverythingProblem(ABC):
-    def __init__(self):
-        pass
-
-    @property
-    @abstractmethod
-    def StateVariables(self) ->List[sy.Symbol]:
-        pass
-
-    @abstractmethod
-    def EvaluateProblem(self, time, initialState : List[float], parameters : Tuple[float]) ->EverythingAnswer:
-        pass
-
-    def EvaluateIndirectProblem(self, time, initialStateValues: List[float], initialCostateValues: List[float], parameters : Tuple[float]) ->EverythingAnswer:
-        fullInitialState = []
-        fullInitialState.extend(initialStateValues)
-        fullInitialState.extend(initialCostateValues)
-        return self.EvaluateProblem(time, fullInitialState, parameters)
-
-
-class singleShootingFunctions(EverythingProblem, ABC):
-    def __init__(self):
-        pass
-
-    @abstractmethod
-    def differentialEquation(self, t, y, args) -> Dict[sy.Symbol, Tuple[float]]:
-        pass
-
-    def buildBoundaryConditionState(self, bcInitialState, bcFinalState):
-        stateNow = []
-        stateNow.extend(bcInitialState)
-        stateNow.extend(bcFinalState)
-        stateNow.append(bcTimeValue)
-        return stateNow
-
-    def buildBoundaryConditionStateFromSolutionDict(self, solutionDict):
-        bcState = []
-        bcState.append(0)
-        for k, v in solutionDict.items():
-            bcState.append(v[0])
-        bcState.append(1)
-        for k, v in solutionDict.items():
-            bcState.append(v[-1])            
-        return bcState
-
-    @abstractmethod
-    def boundaryConditionEvaluation(self, fullBcState, args) -> List[float]:
-        pass
-    
-    def EvaluateProblem(self, time, initialState : List[float], parameters : Tuple[float]) -> EverythingAnswer:
-        ivpAns = self.differentialEquation(time, initialState, parameters)
-        bcState = self.buildBoundaryConditionStateFromSolutionDict(ivpAns)
-        bcAns = self.boundaryConditionEvaluation(bcState, parameters)
-        return SimpleEverythingAnswer(ivpAns, bcAns)
-
-
-class blackBoxSingleShootingFunctions(singleShootingFunctions):
-    def __init__(self, diffeqCallback, boundaryConditionCallback,  stateVariables):
-        self._difeqCallback = diffeqCallback
-        self._boundaryConditionCallback = boundaryConditionCallback
-        self._stateVariables = stateVariables
-
-    def differentialEquation(self, t, y, args):
-        return self._difeqCallback(t, y, args)
-
-    def boundaryConditionEvaluation(self, fullBcState, args):
-        return self._boundaryConditionCallback(fullBcState, args)
-
-    @property
-    def StateVariables(self) ->List[sy.Symbol]:
-        return self._stateVariables
-
-
-#%%
 t = sy.Symbol('t', real=True, positive=True)
 t0 = sy.Symbol('t_0', real=True, positive=True)
 tf = sy.Symbol('t_f', real=True, positive=True)
@@ -208,11 +110,8 @@ for i in range(0, len(xversality)):
 
 ###### Indirect Problem is fully setup, time to start doing numerical things.....
 #%%
-import numpy as np
-initialGuess = [0,0,0,0,  -1.0,-1.0,-0.01,-10.0]
+initialGuess = [0,0,0,0,  0.0, -0.1, 0.0, 0.1]
 tArray = np.linspace(0.0, 1.0, 400)
-
-from pyeq2orb.Numerical.LambdifyHelpers import OdeLambdifyHelperWithBoundaryConditions
 
 numerical = OdeLambdifyHelperWithBoundaryConditions.CreateFromProblem(problem)
 numerical.SymbolsToSolveForWithBoundaryConditions.clear()
@@ -233,18 +132,19 @@ def solve_ivp_wrapper(t, y, args):
     return anAnsDict
 
 bcCallback = numerical.CreateCallbackForBoundaryConditionsWithFullState()
-
-#bcCallback = numerical.createCallbackToSolveForBoundaryConditionsBetter(solve_ivp_wrapper, [lambdas_0[0], lambdas_0[1], lambdas_0[2], lambdas_0[3], tf], tArray, initialGuess, (480,))
-def tempBcCallback(state, args):
-    return bcCallback[1](*state, *args)
-problemEvaluator = blackBoxSingleShootingFunctions(solve_ivp_wrapper, tempBcCallback, integrationVariables)
+problemEvaluator = blackBoxSingleShootingFunctions(bcCallback[0], bcCallback[1], integrationVariables, problem.BoundaryConditions)
 everything = problemEvaluator.EvaluateProblem(tArray, initialGuess, (3600,))
 print(everything.BoundaryConditionValues)
 print(everything.StateHistory)
+
+tArray = np.linspace(0.0, 1.0, 1200)
+fSolveSolver = fSolveSingleShootingSolver(problem, problemEvaluator, [ *problem.CostateSymbols[0:4], problem.OtherArguments[0]], problem.BoundaryConditions)
+tfEst = 250.0
+theAnswer = fSolveSolver.solve([*initialGuess[4:], 250.0], tArray, initialGuess, (tfEst,), full_output=True,  factor=0.2,epsfcn=0.001)
+print(theAnswer)
 #%%
 
-from scipy.integrate import solve_ivp #type: ignore
-from scipy.optimize import fsolve  #type: ignore
+
 
 fSolveInitialGuess = initialGuess[4:]
 fSolveInitialGuess.append(480)

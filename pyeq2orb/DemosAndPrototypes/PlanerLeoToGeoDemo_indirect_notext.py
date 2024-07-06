@@ -66,7 +66,8 @@ if scaleElements :
                                                        problem.StateVariables[3]: newSvs[3]}) #type: ignore
     if scaleTime :
         tau = sy.Symbol('\tau', real=True)
-        problem = problem.ScaleTime(tau, sy.Symbol('\tau_0', real=True), sy.Symbol('\tau_f', real=True), tau*problem.TimeFinalSymbol)   
+        problem = problem.ScaleTime(tau, sy.Symbol('\tau_0', real=True), sy.Symbol('\tau_f', real=True), tau*problem.TimeFinalSymbol)  
+        problem.OtherArguments.append(baseProblem.TimeFinalSymbol) 
 
 stateAtTf = SafeSubs(problem.StateVariables, {problem.TimeSymbol: problem.TimeFinalSymbol})
 
@@ -81,6 +82,7 @@ constantsSubsDict[baseProblem.Thrust] = thrust
 # register initial state values
 constantsSubsDict.update(zip(initialStateValues, [r0, u0, v0, lon0]))
 if scaleElements :
+    originalProblem = problem
     # and reset the real initial values using tau_0 instead of time
     initialValuesAtTau0 = SafeSubs(initialStateValues, {baseProblem.TimeInitialSymbol: problem.TimeInitialSymbol})
     constantsSubsDict.update(zip(initialValuesAtTau0, [r0, u0, v0, lon0]))
@@ -159,6 +161,7 @@ if scaleTime : # add BC if we are working with the final time (not all solvers n
 problem.BoundaryConditions.remove(transversalityCondition[-1])
 lmdTheta = costateSymbols.pop()
 problem._costateElements.pop()
+problem.StateVariables.remove(problem.StateVariables[3])
 constantsSubsDict[lmdTheta]=0
 constantsSubsDict[lmdTheta.subs(problem.TimeSymbol, problem.TimeFinalSymbol)]=0
 constantsSubsDict[lmdTheta.subs(problem.TimeSymbol, problem.TimeInitialSymbol)]=0
@@ -182,13 +185,13 @@ integrationSymbols = [] #List[sy.Symbol]
 integrationSymbols.extend(problem.StateVariables)
 integrationSymbols.extend([x.Element for x in problem._costateElements])
 
-eoms = problem.EquationsOfMotionAsEquations
+equationsOfMotion = problem.EquationsOfMotionAsEquations
 for i in range(0, len(problem._costateElements)) :
-    eoms.append(sy.Eq(problem._costateElements[i].Element.diff(problem.TimeSymbol), problem._costateElements[i].FirstOrderDynamics))
+    equationsOfMotion.append(sy.Eq(problem._costateElements[i].Element.diff(problem.TimeSymbol), problem._costateElements[i].FirstOrderDynamics))
 
-initialCostates = SafeSubs(problem.CostateSymbols, {problem.TimeSymbol:problem.TimeInitialSymbol})
+initialLambdaValues = SafeSubs(problem.CostateSymbols, {problem.TimeSymbol:problem.TimeInitialSymbol})
 
-lambdifyHelper = OdeLambdifyHelperWithBoundaryConditions(problem.TimeSymbol, problem.TimeInitialSymbol, problem.TimeFinalSymbol, integrationSymbols, eoms,  initialCostates, problem.BoundaryConditions, otherArgs, problem.SubstitutionDictionary)
+lambdifyHelper = OdeLambdifyHelperWithBoundaryConditions(problem.TimeSymbol, problem.TimeInitialSymbol, problem.TimeFinalSymbol, integrationSymbols, equationsOfMotion, initialLambdaValues, problem.BoundaryConditions, otherArgs, problem.SubstitutionDictionary)
 
 
 # this next block is for when we are using the adjoined form of the transversality condition.  However it is also REALLY useful to just have 
@@ -229,14 +232,56 @@ print(thing)
 def ivpCallback(tArray, state):
     return solve_ivp(odeIntEomCallback, [tArray[0], tArray[-1]], state, args=tuple(), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
 
-fSolveCallbackAlt = lambdifyHelper.createCallbackToSolveForBoundaryConditions(ivpCallback, tArray, [r0, u0, v0, lon0, *initialFSolveStateGuess])    
-display(fSolveCallback([1,2,3]))
-display(fSolveCallbackAlt([1,2,3]))
+
+from pyeq2orb.Numerical.SimpleProblemCallers import blackBoxSingleShootingFunctions, SimpleEverythingAnswer, fSolveSingleShootingSolver
+
+
+initialStateValues = [r0, u0, v0, lon0, 1.0, 0.00010000000130634948, 1.0]
+
+numerical = OdeLambdifyHelperWithBoundaryConditions.CreateFromProblem(problem)
+numerical.SymbolsToSolveForWithBoundaryConditions.clear()
+numerical.SymbolsToSolveForWithBoundaryConditions.extend(initialFSolveStateGuess)
+numerical.SymbolsToSolveForWithBoundaryConditions.append(tfVal)
+numerical.ApplySubstitutionDictionaryToExpressions()
+ivpCallback = numerical.CreateSimpleCallbackForSolveIvp()
+
+integrationVariables = []
+integrationVariables.extend(problem.StateVariables)
+integrationVariables.extend(problem.CostateSymbols)
+
+def solve_ivp_wrapper(t, y, args):
+    if isinstance(args, list):
+        args = tuple(args)
+    anAns = solve_ivp(ivpCallback, [t[0], t[-1]], y, dense_output=True, t_eval=t, args=args, method='LSODA')
+    anAnsDict = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(integrationVariables, anAns)
+    return anAnsDict
+
+bcCallback = numerical.CreateCallbackForBoundaryConditionsWithFullState()
+problemEvaluator = blackBoxSingleShootingFunctions(solve_ivp_wrapper, bcCallback[1], integrationVariables, problem.BoundaryConditions)
+everything = problemEvaluator.EvaluateProblem(tArray, initialStateValues, None)
+print(everything.BoundaryConditionValues)
+print(everything.StateHistory)
+
+tArray = np.linspace(0.0, 1.0, 1200)
+fSolveSolver = fSolveSingleShootingSolver(problem, problemEvaluator, [ *problem.CostateSymbols[0:3]], problem.BoundaryConditions)
+tfEst = 250.0
+theAnswer = fSolveSolver.solve([*initialStateValues[4:]], tArray, initialStateValues, parameters=None, full_output=True,  factor=0.2,epsfcn=0.001)
+print(theAnswer)
+
+
+
+
+
+
+
+# fSolveCallbackAlt = lambdifyHelper.createCallbackToSolveForBoundaryConditions(ivpCallback, tArray, [r0, u0, v0, lon0, *initialFSolveStateGuess])    
+# display(fSolveCallback([1,2,3]))
+# display(fSolveCallbackAlt([1,2,3]))
 #%%
-print(initialFSolveStateGuess)
-#initialFSolveStateGuess = [1, 0.001, 0.001]
-fSolveSol = fsolve(fSolveCallbackAlt, initialFSolveStateGuess, epsfcn=0.00001, full_output=True) # just to speed things up and see how the initial one works
-print(fSolveSol)
+# print(initialFSolveStateGuess)
+# #initialFSolveStateGuess = [1, 0.001, 0.001]
+# fSolveSol = fsolve(fSolveCallbackAlt, initialFSolveStateGuess, epsfcn=0.00001, full_output=True) # just to speed things up and see how the initial one works
+# print(fSolveSol)
 
 
 solution = solve_ivp(odeIntEomCallback, [tArray[0], tArray[-1]], [r0, u0, v0, lon0, *fSolveSol[0][0:3]], args=tuple(fSolveSol[0][3:len(fSolveSol[0])]), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
