@@ -194,7 +194,7 @@ class ContinuousThrustCircularOrbitTransferProblem(Problem) :
     @staticmethod
     def CreateInitialLambdaGuessForLeoToGeo(problem : Problem, controlSolved : sy.Expr, lambdas : List[sy.Symbol]) :
         # creating the initial values is unique to each problem, it is luck that 
-        # my intuition pays off and we find a solution later
+        # my intuition payed off and we find a solution later
         # We want initial alpha to be 0 (or really close to it) per intuition
         # We can choose lmdv and solve for lmdu.  Start with lmdv to be 1
         # solve for lmdu with those assumptions      

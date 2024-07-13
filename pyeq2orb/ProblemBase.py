@@ -814,8 +814,8 @@ class Problem(ABC) :
             if lmd in finalSvs :
                 finalSvs.remove(lmd)
         bcsToUse = problemToWorkWith.BoundaryConditions
-        if problemToWorkWith.TimeScaleFactor != None:
-            bcsToUse = bcsToUse[:-1]
+        #if problemToWorkWith.TimeScaleFactor != None:
+        #    bcsToUse = bcsToUse[:-1]
         transversalityConditions = Problem.TransversalityConditionInTheDifferentialFormStatic(hamiltonian, dtf, lambdasFinal, problemToWorkWith.TerminalCost, problemToWorkWith.TimeFinalSymbol, bcsToUse, finalSvs)
         return transversalityConditions
 
