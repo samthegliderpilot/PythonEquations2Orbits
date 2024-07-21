@@ -8,7 +8,7 @@ from scipy.integrate import solve_ivp #type: ignore
 import numpy as np
 from scipy.integrate import solve_ivp #type: ignore
 from scipy.optimize import fsolve  #type: ignore
-from pyeq2orb.Numerical.SimpleProblemCallers import blackBoxSingleShootingFunctions, SimpleEverythingAnswer, fSolveSingleShootingSolver
+from pyeq2orb.Numerical.SimpleProblemCallers import BlackBoxSingleShootingFunctions, SimpleEverythingAnswer, fSolveSingleShootingSolver, SimpleIntegrationAnswer, BlackBoxSingleShootingFunctionsFromLambdifiedFunctions
 from pyeq2orb.Numerical.LambdifyHelpers import OdeLambdifyHelperWithBoundaryConditions
 import pyeq2orb.Numerical.ScipyCallbackCreators as ScipyCallbackCreators
 from pyeq2orb.ProblemBase import Problem, ProblemVariable
@@ -110,7 +110,7 @@ for i in range(0, len(xversality)):
 
 ###### Indirect Problem is fully setup, time to start doing numerical things.....
 #%%
-initialGuess = [0,0,0,0,  0.0, -0.1, 0.0, 0.1]
+initialGuess = [0,0,0,0,  0.0, 0.1, 0.0, -0.1]
 tArray = np.linspace(0.0, 1.0, 400)
 
 numerical = OdeLambdifyHelperWithBoundaryConditions.CreateFromProblem(problem)
@@ -127,21 +127,24 @@ integrationVariables.extend(problem.CostateSymbols)
 def solve_ivp_wrapper(t, y, args):
     if isinstance(args, list):
         args = tuple(args)
+    if isinstance(args, float):
+        args = (args,)
     anAns = solve_ivp(ivpCallback, [t[0], t[-1]], y, dense_output=True, args=args, method='LSODA')
     anAnsDict = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(integrationVariables, anAns)
-    return anAnsDict
+    return (anAnsDict, anAns)
 
 bcCallback = numerical.CreateCallbackForBoundaryConditionsWithFullState()
-problemEvaluator = blackBoxSingleShootingFunctions(bcCallback[0], bcCallback[1], integrationVariables, problem.BoundaryConditions)
+problemEvaluator = BlackBoxSingleShootingFunctionsFromLambdifiedFunctions(solve_ivp_wrapper, bcCallback[1], integrationVariables, problem.BoundaryConditions, [problem.TimeFinalSymbol])
 everything = problemEvaluator.EvaluateProblem(tArray, initialGuess, (3600,))
 print(everything.BoundaryConditionValues)
 print(everything.StateHistory)
 
-tArray = np.linspace(0.0, 1.0, 1200)
-fSolveSolver = fSolveSingleShootingSolver(problem, problemEvaluator, [ *problem.CostateSymbols[0:4], problem.OtherArguments[0]], problem.BoundaryConditions)
+
+fSolveSolver = fSolveSingleShootingSolver(problemEvaluator, [*problem.CostateSymbols[1:], problem.TimeFinalSymbol], problem.BoundaryConditions)
 tfEst = 250.0
-theAnswer = fSolveSolver.solve([*initialGuess[4:], 250.0], tArray, initialGuess, (tfEst,), full_output=True,  factor=0.2,epsfcn=0.001)
+theAnswer = fSolveSolver.solve([*initialGuess[5:], 250.0], tArray, initialGuess, [tfEst], full_output=True,  factor=0.2,epsfcn=0.001)
 print(theAnswer)
+print(theAnswer.SolverResult)
 #%%
 
 
@@ -176,3 +179,5 @@ print(fsolveAns)
 
 
 
+
+# %%

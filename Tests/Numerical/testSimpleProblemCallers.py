@@ -102,9 +102,10 @@ class testFSolveSingleShootingSolver(unittest.TestCase):
 
     def testBasics(self):
         def solve_ivp_wrapper(t, y, *args):
-            if isinstance(args, list):
-                args = tuple(args)
-            anAns = solve_ivp(testFSolveSingleShootingSolver.simpleOdeCallback, [t[0], t[-1]], y, dense_output=True, t_eval=t, args=args, method='LSODA')
+            realArgs = args
+            # if isinstance(args, list):
+            #     realArgs = *args
+            anAns = solve_ivp(testFSolveSingleShootingSolver.simpleOdeCallback, [t[0], t[-1]], y, dense_output=True, t_eval=t, args=realArgs, method='LSODA')
             anAnsDict = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(stateSymbols, anAns)
             return SimpleIntegrationAnswer(basicProblem, t, anAnsDict)
 
@@ -140,5 +141,5 @@ class testFSolveSingleShootingSolver(unittest.TestCase):
         assert solverAns[0] == 5.0
         assert solverAns[1] == 6.0
 
-        ans = solver.solve([2.0, 3.0], [0.0, 5.0, 10.0], [2.0, 3.0], [6.0, 7.0], full_output=True)
+        ans = solver.solve([2.0, 3.0], [0.0, 5.0, 10.0], [2.0, 3.0], *(5.0, 6.0), full_output=True)
         print(ans)

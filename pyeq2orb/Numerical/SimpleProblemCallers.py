@@ -294,6 +294,13 @@ class SingleShootingFunctions(EverythingProblem, ABC):
             return bcSolved
         return callback #type: ignore
 
+    @staticmethod
+    def CreateIntegrationCallbackFromLambdifiedCallback(lambdifiedCallback : Callable[[List[float], List[float], Tuple[float, ...]], Tuple[Dict[sy.Symbol, List[float]], Optional[Any]]], problem) -> Callable[[List[float], List[float], Tuple[float, ...]], IIntegrationAnswer]:
+        def fullCallback(t : List[float], x : List[float], *args : Tuple[float, ...]) -> IIntegrationAnswer:
+            (dictAns, integratorOutput) = lambdifiedCallback(t, x, *args)
+            integrationAnswer = SimpleIntegrationAnswer(problem, t, dictAns, integratorOutput)
+            return integrationAnswer
+        return fullCallback
 
 
 class BlackBoxSingleShootingFunctions(SingleShootingFunctions):
@@ -318,14 +325,17 @@ class BlackBoxSingleShootingFunctions(SingleShootingFunctions):
     def OtherArgumentSymbols(self) ->List[sy.Symbol]:
         return self._otherArguments
 
-    def IntegrateDifferentialEquations(self, t, y, *args):
+    def IntegrateDifferentialEquations(self, t, y, *args) -> IIntegrationAnswer:
         return self._integrationCallback(t, y, *args)
 
     def BoundaryConditionEvaluation(self, integrationAnswer : IIntegrationAnswer, *args : float) -> List[float]:     
         return self._boundaryConditionCallback(integrationAnswer, *args)
 
-
-
+class BlackBoxSingleShootingFunctionsFromLambdifiedFunctions(BlackBoxSingleShootingFunctions):
+    def __init__(self, integrationCallback, boundaryConditionCallback,  stateVariables : List[sy.Symbol], boundaryConditionExpressions : List[sy.Expr], otherArgs : Optional[List[sy.Symbol]] = None):
+        realIvpCallback = BlackBoxSingleShootingFunctions.CreateIntegrationCallbackFromLambdifiedCallback(integrationCallback, self)
+        realBcCallback = BlackBoxSingleShootingFunctions.CreateBoundaryConditionCallbackFromLambdifiedCallback(boundaryConditionCallback)
+        super().__init__(realIvpCallback, realBcCallback, stateVariables, boundaryConditionExpressions, otherArgs)
 
 class solverAnswer:
     def __init__(self, evaluatedAnswer : IEverythingAnswer, solvedControls : List[float], constraintValues: List[float], solverResult: Optional[Any] = None):
@@ -368,13 +378,14 @@ class singleShootingSolver(ABC):
         for k,v in self._indicesOfInitialStateToUpdate.items():
             mutableInitialState[v] = solverGuess[k]
 
-    def updateInitialParametersWithSolverValues(self, solverGuess : List[float], mutableArgs : List[float]):
+    def updateInitialParametersWithSolverValues(self, solverGuess : List[float], mutableArgs : List[float]) ->Tuple[float,...]:
         for k,v in self._indicesOfProblemParametersToUpdate.items():
             mutableArgs[v] = solverGuess[k]
+        return tuple(mutableArgs)
 
     def createArgsForIntegrator(self, solverGuess:List[float], mutableIntegratorArgs : List[float]):
         for k,v in self._indicesOfProblemParametersToUpdate.items():
-            mutableArgs[v] = solverGuess[k]
+            mutableIntegratorArgs[v] = solverGuess[k]
 
     def createArgsForSolver(self, solverGuess:List[float], mutableIntegratorArgs: List[float]):
         pass #TODO
@@ -394,35 +405,30 @@ class fSolveSingleShootingSolver(singleShootingSolver):
     def __init__(self, evaluatableProblem:EverythingProblem, controlsForSolver, constraintsForSolver ):
         super().__init__(evaluatableProblem, controlsForSolver, constraintsForSolver)
 
-    def solve(self, initialGuessOfSolverControls : List[float], time, initialState : List[float], parameters : Tuple[float, ...], *args, **kwargs) ->solverAnswer:
+    def solve(self, initialGuessOfSolverControls : List[float], time, initialState : List[float], *argsForUnderlyingProblem, **kwargs) ->solverAnswer:
         # fsolve(bcCallback, fSolveInitialGuess, full_output=True,  factor=0.2,epsfcn=0.001 )
 
-        def evaluateAnswer(fSolveValues, time, initialState, *args) -> IEverythingAnswer:
+        def evaluateAnswer(fSolveValues, time, initialState) -> IEverythingAnswer:
             copiedInitialState = initialState.copy()
             self.updateInitialStateWithSolverValues(fSolveValues, copiedInitialState)
 
-            argsCopy = list(args)
-            self.updateInitialParametersWithSolverValues(fSolveValues, argsCopy)
+            argsCopy = list(argsForUnderlyingProblem)
+            finalArgs = self.updateInitialParametersWithSolverValues(fSolveValues, argsCopy)
 
-            everythingAns = self.EvaluatableProblem.EvaluateProblem(time, copiedInitialState, *argsCopy)     
+            everythingAns = self.EvaluatableProblem.EvaluateProblem(time, copiedInitialState, *finalArgs)
             return everythingAns   
 
         def fSolveCallback(fSolveGuess, *parametersForFSolve):
             # fsolve wraps the guess in an array, so pull it out
-            everythingAns = evaluateAnswer(fSolveGuess, time, initialState, *parametersForFSolve)
+            everythingAns = evaluateAnswer(fSolveGuess, time, initialState)
             solvedForValues = self.getSolverValuesFromEverythingAns(everythingAns)
             return solvedForValues
 
-        if parameters != None and len(parameters) > 0 and not "args" in kwargs:
-            kwargs["args"] = parameters
-        else:
-            kwargs["args"] = tuple()
-        # for fsolve, there are no real args other than the required ones
-        fsolveAns = self.fsolveRun(fSolveCallback, initialGuessOfSolverControls, **kwargs)# fsolve(fSolveCallback, initialGuessOfSolverControls, *args, **kwargs)
+        fsolveAns = self.fsolveRun(fSolveCallback, initialGuessOfSolverControls, **kwargs)
         fsolveX = fsolveAns[0]
         if isinstance(fsolveX , float):
             fsolveX = fsolveAns
-        finalRun = evaluateAnswer(fsolveX, time, initialState, *parameters)
+        finalRun = evaluateAnswer(fsolveX, time, initialState)
         return solverAnswer(finalRun, fsolveX, self.getSolverValuesFromEverythingAns(finalRun), fsolveAns)
 
     def fsolveRun(self, solverFunc, solverState, **kwargs):
