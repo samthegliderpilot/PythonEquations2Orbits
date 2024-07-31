@@ -114,9 +114,6 @@ initialGuess = [0,0,0,0,  0.0, 0.1, 0.0, -0.1]
 tArray = np.linspace(0.0, 1.0, 400)
 
 numerical = OdeLambdifyHelperWithBoundaryConditions.CreateFromProblem(problem)
-numerical.SymbolsToSolveForWithBoundaryConditions.clear()
-numerical.SymbolsToSolveForWithBoundaryConditions.extend(lambdas_0)
-numerical.SymbolsToSolveForWithBoundaryConditions.append(tf)
 numerical.ApplySubstitutionDictionaryToExpressions()
 ivpCallback = numerical.CreateSimpleCallbackForSolveIvp()
 
@@ -133,7 +130,8 @@ def solve_ivp_wrapper(t, y, args):
     anAnsDict = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(integrationVariables, anAns)
     return (anAnsDict, anAns)
 
-bcCallback = numerical.CreateCallbackForBoundaryConditionsWithFullState()
+stateForBoundaryConditions = numerical.CreateDefaultStateForBoundaryConditions()
+bcCallback = numerical.CreateCallbackForBoundaryConditionsWithFullState(stateForBoundaryConditions)
 problemEvaluator = BlackBoxSingleShootingFunctionsFromLambdifiedFunctions(solve_ivp_wrapper, bcCallback[1], integrationVariables, problem.BoundaryConditions, [problem.TimeFinalSymbol])
 everything = problemEvaluator.EvaluateProblem(tArray, initialGuess, (3600,))
 print(everything.BoundaryConditionValues)
@@ -147,17 +145,17 @@ print(theAnswer)
 print(theAnswer.SolverResult)
 #%%
 
-
-
-fSolveInitialGuess = initialGuess[4:]
-fSolveInitialGuess.append(480)
-fsolveAns = fsolve(bcCallback, fSolveInitialGuess, full_output=True,  factor=0.2,epsfcn=0.001 )
-print(fsolveAns)
-finalInitialState = initialGuess[:4]
-finalInitialState.extend(fsolveAns[0][:4])
-tfReal = fsolveAns[0][-1]
-anAns = solve_ivp(ivpCallback, [0,1], finalInitialState, dense_output=True, args=(fsolveAns[0][-1],), method='LSODA')
-print(anAns)
+anAns = theAnswer.EvaluatedAnswer.RawIntegratorOutput
+tfReal = theAnswer.SolverResult[0][-1]
+# fSolveInitialGuess = initialGuess[4:]
+# fSolveInitialGuess.append(480)
+# fsolveAns = fsolve(bcCallback, fSolveInitialGuess, full_output=True,  factor=0.2,epsfcn=0.001 )
+# print(fsolveAns)
+# finalInitialState = initialGuess[:4]
+# finalInitialState.extend(fsolveAns[0][:4])
+# tfReal = fsolveAns[0][-1]
+# anAns = solve_ivp(ivpCallback, [0,1], finalInitialState, dense_output=True, args=(fsolveAns[0][-1],), method='LSODA')
+# print(anAns)
 
 
 from pyeq2orb.Graphics.Plotly2DModule import plot2DLines

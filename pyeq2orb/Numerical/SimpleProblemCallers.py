@@ -371,7 +371,7 @@ class singleShootingSolver(ABC):
             self._indicesForConstraintsFromBoundaryConditions.append(thisConstraintIndex)
 
     @abstractmethod
-    def solve(self, initialGuessOfSolverControls : List[float], time, initialState : List[float], parameters : Tuple[float, ...], *solverArgs, **solverKwargs) -> solverAnswer:
+    def solve(self, initialGuessOfSolverControls : List[float], time, initialState : List[float], parameters : List[float], **solverKwargs) -> solverAnswer:
         pass
 
     def updateInitialStateWithSolverValues(self, solverGuess : List[float], mutableInitialState : List[float]):
@@ -405,15 +405,20 @@ class fSolveSingleShootingSolver(singleShootingSolver):
     def __init__(self, evaluatableProblem:EverythingProblem, controlsForSolver, constraintsForSolver ):
         super().__init__(evaluatableProblem, controlsForSolver, constraintsForSolver)
 
-    def solve(self, initialGuessOfSolverControls : List[float], time, initialState : List[float], *argsForUnderlyingProblem, **kwargs) ->solverAnswer:
+    def solve(self, initialGuessOfSolverControls : List[float], time, initialState : List[float], parameters: List[float], **kwargs) ->solverAnswer:
         # fsolve(bcCallback, fSolveInitialGuess, full_output=True,  factor=0.2,epsfcn=0.001 )
 
         def evaluateAnswer(fSolveValues, time, initialState) -> IEverythingAnswer:
             copiedInitialState = initialState.copy()
             self.updateInitialStateWithSolverValues(fSolveValues, copiedInitialState)
 
-            argsCopy = list(argsForUnderlyingProblem)
-            finalArgs = self.updateInitialParametersWithSolverValues(fSolveValues, argsCopy)
+            
+            if not(parameters == None or len(parameters) == 0):
+                argsCopy = list(parameters)
+                finalArgs = self.updateInitialParametersWithSolverValues(fSolveValues, argsCopy)
+            else:
+                finalArgs =tuple()
+            
 
             everythingAns = self.EvaluatableProblem.EvaluateProblem(time, copiedInitialState, *finalArgs)
             return everythingAns   
@@ -422,6 +427,9 @@ class fSolveSingleShootingSolver(singleShootingSolver):
             # fsolve wraps the guess in an array, so pull it out
             everythingAns = evaluateAnswer(fSolveGuess, time, initialState)
             solvedForValues = self.getSolverValuesFromEverythingAns(everythingAns)
+            while len(solvedForValues) < len(fSolveGuess):
+                solvedForValues.append(0.0)
+            print(solvedForValues)
             return solvedForValues
 
         fsolveAns = self.fsolveRun(fSolveCallback, initialGuessOfSolverControls, **kwargs)

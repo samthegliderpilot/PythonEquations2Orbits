@@ -482,7 +482,10 @@ class Problem(ABC) :
         newProblem._substitutionDictionary = {}
         for (k,v) in self._substitutionDictionary.items() :
             newProblem._substitutionDictionary[k.subs(symbolSubs)] = SafeSubs(v, symbolSubs)
-        newProblem._descaleDict = {newTimeSymbol: self.TimeSymbol, newInitialTimeSymbol: self.TimeInitialSymbol, newFinalTimeSymbol: self.TimeFinalSymbol}    
+        timeDescaleDict = {newTimeSymbol: self.TimeSymbol, newInitialTimeSymbol: self.TimeInitialSymbol, newFinalTimeSymbol: self.TimeFinalSymbol}    
+        newProblem._descaleDict={}
+        for k in self._descaleDict.keys():
+            newProblem._descaleDict[SafeSubs(k, symbolSubs)] = SafeSubs(self._descaleDict[k], symbolSubs)
         #newProblem._controlVariables = self.ControlVariables # need to do control variables separately below
         newProblem._scalingDict = dict(dictOfOriginalSvsToNewSvs) #make a copy since this problem is not the owner of the original
         for (k,v) in self._scalingDict.items():
@@ -534,6 +537,7 @@ class Problem(ABC) :
 
         newProblem._timeScaleFactor =self.TimeFinalSymbol #TODO: User needs to set this to some degree
         newProblem._otherArgs.append(self.TimeFinalSymbol)
+        
         return newProblem        
 
 
@@ -568,15 +572,22 @@ class Problem(ABC) :
             Dict[sy.Symbol, List[float]]: A new dictionary where the values are descaled AND the keys are the wrappedProblems's 
             state variables.
         """
+
+        
+
         if self._descaleDict == None or len(self._descaleDict) == 0:
             return resultsDictionary
         returnDict = {} #type: Dict[sy.Symbol, List[float]]
         counter = 0
+        scalingFactors ={}
+        for k,v in self._descaleDict.items():
+            factor = SafeSubs(v, self.SubstitutionDictionary)
+            scalingFactors[k] = factor
         for key, value in resultsDictionary.items() :
             sv = key
             if sv in self.StateVariables and counter < len(self.StateVariables):
                 originalSv = self.StateVariables[self.StateVariables.index(sv)]
-                convertedArray = np.array(value, copy=True)* SafeSubs(self._descaleDict[originalSv], self.SubstitutionDictionary) #TODO: This is probably a problem
+                convertedArray = np.array(value, copy=True)/scalingFactors[sv]# SafeSubs(self._descaleDict[originalSv], self.SubstitutionDictionary) #TODO: This is probably a problem
                 returnDict[originalSv] = convertedArray
                 counter = counter+1
             else :

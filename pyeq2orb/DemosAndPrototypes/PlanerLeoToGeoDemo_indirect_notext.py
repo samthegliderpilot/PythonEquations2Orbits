@@ -21,7 +21,7 @@ import scipyPaperPrinter as jh #type:ignore
 from datetime import datetime
 from typing import List
 from pyeq2orb.Numerical.SimpleProblemCallers import SimpleIntegrationAnswer,SingleShootingFunctions
-from pyeq2orb.Numerical.SimpleProblemCallers import BlackBoxSingleShootingFunctions, fSolveSingleShootingSolver
+from pyeq2orb.Numerical.SimpleProblemCallers import BlackBoxSingleShootingFunctions, fSolveSingleShootingSolver, BlackBoxSingleShootingFunctionsFromLambdifiedFunctions
 
 print(str(datetime.now()))
 # constants
@@ -42,8 +42,8 @@ tfVal  = 3600*3.97152*24
 tfOrg = tfVal
 
 # these are options to switch to try different things
-scaleElements = True
-scaleTime = scaleElements and True
+scaleElements = False
+scaleTime = scaleElements and False
 
 # make the time array
 tArray = np.linspace(0.0, tfOrg, 1200)
@@ -170,26 +170,29 @@ integrationVariables.extend(problem.CostateSymbols)
 def solve_ivp_wrapper(t, y, *args):
     if isinstance(args, list):
         args = tuple(args)
-    anAns = solve_ivp(ivpCallback, [t[0], t[-1]], y, dense_output=True, t_eval=t, args=args, method='LSODA')
+    if isinstance(args, float):
+        args = (args,)
+    anAns = solve_ivp(ivpCallback, [t[0], t[-1]], y, t_eval=t, dense_output=True, args=args, method='LSODA')
     anAnsDict = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(integrationVariables, anAns)
-    wrappedAnswer = SimpleIntegrationAnswer(function, t, anAnsDict, anAns)
-    return wrappedAnswer
+    return (anAnsDict, anAns)
 
-bcCallback = numerical.CreateCallbackForBoundaryConditionsWithFullState()
+boundaryConditionState = numerical.CreateDefaultStateForBoundaryConditions()
+bcCallback = numerical.CreateCallbackForBoundaryConditionsWithFullState(boundaryConditionState)
 betterFSolveCallback = SingleShootingFunctions.CreateBoundaryConditionCallbackFromLambdifiedCallback(bcCallback[1])
 initialStateValues = [r0, u0, v0, lon0, *initialFSolveStateGuess]
-function = BlackBoxSingleShootingFunctions(solve_ivp_wrapper, betterFSolveCallback, integrationVariables, problem.BoundaryConditions, problem.OtherArguments)
+problemEvaluator = BlackBoxSingleShootingFunctionsFromLambdifiedFunctions(solve_ivp_wrapper, bcCallback[1], integrationVariables, problem.BoundaryConditions, problem.OtherArguments)
 fSolveInputSymbols = problem.CostateSymbols[:3]
 if scaleTime:
     fSolveInputSymbols.append(originalProblem.TimeFinalSymbol)
-solver = fSolveSingleShootingSolver(function, fSolveInputSymbols, problem.BoundaryConditions)
+solver = fSolveSingleShootingSolver(problemEvaluator, fSolveInputSymbols, problem.BoundaryConditions)
 initialSolverGuess = initialStateValues[4:]
-argsArray = []
+argsArray = None
 if scaleTime:
-    initialSolverGuess.append(3.8*86400)
-    argsArray.append(3.8*86400)
+    argsArray = []
+    initialSolverGuess.append(tfOrg)
+    argsArray.append(tfOrg)
 
-ans = solver.solve(initialSolverGuess, tArray, initialStateValues, tuple(argsArray), full_output=True,  factor=0.2,epsfcn=0.001)
+ans = solver.solve(initialSolverGuess, tArray, initialStateValues, argsArray, full_output=True,  factor=0.2,epsfcn=0.001)
 print(ans.SolverResult)
 #%%
 
@@ -211,7 +214,7 @@ if scaleElements:
     jh.showEquation(stateAtTf[2], finalState[problem.StateVariables[2]], False)
     jh.showEquation(stateAtTf[3], (finalState[problem.StateVariables[3]]%(2*math.pi))*180.0/(2*math.pi), False)
 
-#%%
+
 baseProblem.PlotSolution(tArray*tfOrg, unscaledResults, "Test")
 jh.showEquation(baseProblem.StateVariables[0].subs(problem.TimeSymbol, problem.TimeFinalSymbol), unscaledResults[problem.StateVariables[0]][-1], False)
 jh.showEquation(baseProblem.StateVariables[1].subs(problem.TimeSymbol, problem.TimeFinalSymbol), unscaledResults[problem.StateVariables[1]][-1], False)
@@ -228,3 +231,5 @@ plt.tight_layout()
 plt.grid(alpha=0.5)
 plt.legend(framealpha=1, shadow=True)
 plt.show()   
+
+# %%

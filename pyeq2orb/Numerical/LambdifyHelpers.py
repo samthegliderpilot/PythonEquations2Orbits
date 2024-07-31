@@ -312,22 +312,16 @@ class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
         self._t0 = t0 #type: sy.Symbol
         self._tf = tf #type: sy.Symbol
         self._boundaryConditions = boundaryConditionEquations
-        self._symbolsToSolveForWithBcs = symbolsToSolveForWithBcs #type: List[sy.Symbol]
 
     @staticmethod
     def CreateFromProblem(problem : Problem) :
         stateAndControl = [*problem.StateVariables, *problem.CostateSymbols]
-        # otherArgs = [] #type: List[sy.Symbol]
-        # if(problem.TimeScaleFactor != None and isinstance(problem.TimeScaleFactor, sy.Symbol)) :
-        #     otherArgs = [cast(sy.Symbol, problem.TimeScaleFactor)]
         otherArgs : List[sy.Symbol] = problem.OtherArguments
         dynamics = []
         dynamics.extend(problem.StateVariableDynamics)
         dynamics.extend(problem.CostateDynamicsEquations)
         initialCostateVariables = SafeSubs(problem.CostateSymbols, {problem.TimeSymbol: problem.TimeInitialSymbol})
         helper = OdeLambdifyHelperWithBoundaryConditions(problem.TimeSymbol, problem.TimeInitialSymbol, problem.TimeFinalSymbol, stateAndControl, dynamics, initialCostateVariables, problem.BoundaryConditions, otherArgs, problem.SubstitutionDictionary)
-        #if problem.TimeScaleFactor != None and isinstance(problem.TimeScaleFactor, sy.Symbol):
-        #    helper.OtherArguments.append(problem.TimeScaleFactor)
 
         return helper
     @property
@@ -350,81 +344,16 @@ class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
     def BoundaryConditionExpressions(self) -> List[sy.Expr] :
         return self._boundaryConditions # must equal 0
     
-    @property
-    def SymbolsToSolveForWithBoundaryConditions(self) -> List[sy.Symbol] :
-        return self._symbolsToSolveForWithBcs # these need to be in terms of t0 or tf
-
-    def CreateCallbackForBoundaryConditionsWithFullState(self) ->tuple[List[sy.Expr], Callable[..., float]]: 
-        stateForBoundaryConditions = [] #type: List[sy.Expr]
+    def CreateCallbackForBoundaryConditionsWithFullState(self, stateForBoundaryConditions) ->tuple[List[sy.Expr], Callable[..., float]]: 
+        boundaryConditionEvaluationCallbacks = LambdifyHelper.CreateLambdifiedExpressions(stateForBoundaryConditions, self.BoundaryConditionExpressions, self.SubstitutionDictionary)    
+        return (stateForBoundaryConditions,boundaryConditionEvaluationCallbacks)
+    
+    def CreateDefaultStateForBoundaryConditions(self)->List[SymbolOrNumber]:
+        stateForBoundaryConditions : List[SymbolOrNumber] = []
         stateForBoundaryConditions.append(self.t0)
         stateForBoundaryConditions.extend(SafeSubs(self.NonTimeLambdifyArguments, {self.Time: self.t0}))
         stateForBoundaryConditions.append(self.tf)
         stateForBoundaryConditions.extend(SafeSubs(self.NonTimeLambdifyArguments, {self.Time: self.tf}))
         if not( self.OtherArguments == None or len(self.OtherArguments) == 0):
-            stateForBoundaryConditions.extend(self.OtherArguments)
-        #stateForBoundaryConditions.extend(self.OtherArguments) #even if things are repeated, that is ok
-        #if not self.tf in stateForBoundaryConditions:
-        #    stateForBoundaryConditions.append(self.tf)# This maybe shouldn't be needed, poorly formed problem if this happens
-        #stateForBoundaryConditions.extend(fSolveOnlyParameters)
-
-        boundaryConditionEvaluationCallbacks = LambdifyHelper.CreateLambdifiedExpressions(stateForBoundaryConditions, self.BoundaryConditionExpressions, self.SubstitutionDictionary)    
-        return (stateForBoundaryConditions,boundaryConditionEvaluationCallbacks)
-    
-    @staticmethod
-    def CreateStateForBoundaryConditions(t0 : SymbolOrNumber, valuesAtT0: List[SymbolOrNumber], tf:SymbolOrNumber, valuesAtTf : List[SymbolOrNumber], otherArgs : Tuple[SymbolOrNumber])-> List[SymbolOrNumber]:
-        state :List[SymbolOrNumber] = []
-        state.append(t0)
-        state.extend(valuesAtT0)
-        state.append(tf)
-        state.extend(valuesAtTf)
-        state.extend(otherArgs)
-        return state
-    
-    def createCallbackToSolveForBoundaryConditions(self, solveIvpCallback, stateToSolveFor, tArray, preSolveInitialGuessForIntegrator : List[float]) :
-        return self.createCallbackToSolveForBoundaryConditionsBetter(solveIvpCallback, self.SymbolsToSolveForWithBoundaryConditions, tArray, preSolveInitialGuessForIntegrator, None) 
-
-    def createCallbackToSolveForBoundaryConditionsBetter(self, solveIvpCallback, stateToSolveFor, tArray, preSolveInitialGuessForIntegrator : List[float], integratorArgGuess) :
-        (stateForBoundaryConditions,boundaryConditionEvaluationCallbacks) = self.CreateCallbackForBoundaryConditionsWithFullState()
-        mapForIntegrator = [] #type: List[int]
-        integratorArgsIndices = {} #type: Dict[int,int]
-        mapForBcs = [] #type: List[int]
-
-        for i in range(0, len(stateToSolveFor)) :
-            mapForBcs.append(stateForBoundaryConditions.index(stateToSolveFor[i]))
-            try :
-                indexForIntegrator = self.NonTimeLambdifyArguments.index(SafeSubs(stateToSolveFor[i], {self.t0: self.Time})) #TODO: Do I need to do TF?                
-                mapForIntegrator.append(indexForIntegrator)
-            except ValueError: #TODO: Do better in this case
-                # maybe an arg?
-                indexForArg = self.OtherArguments.index(SafeSubs(stateToSolveFor[i], {self.t0: self.Time}))
-                integratorArgsIndices[indexForArg] = i
-        
-        integratorArgsCopy = deepcopy(integratorArgGuess)
-        preSolveInitialGuessForIntegrator = preSolveInitialGuessForIntegrator.copy()
-
-        def callbackForFsolve(bcSolverState, optionalArgs = None) :
-            for j in range(0, len(mapForIntegrator)) :
-                preSolveInitialGuessForIntegrator[mapForIntegrator[j]] = bcSolverState[j]
-            
-            localIntegratorArgs = deepcopy(integratorArgGuess)
-            argsAsList = list(integratorArgGuess)
-            for (k,v) in integratorArgsIndices.items():
-                argsAsList[k] = bcSolverState[v]
-            localIntegratorArgs = tuple(argsAsList)
-            #print(bcSolverState)
-            ans = solveIvpCallback(tArray, preSolveInitialGuessForIntegrator, localIntegratorArgs)
-            finalState = []
-            finalState.append(tArray[0])
-            finalState.extend(ScipyCallbackCreators.GetInitialStateFromIntegratorResults(ans))
-            finalState.append(tArray[-1])
-            finalState.extend(ScipyCallbackCreators.GetFinalStateFromIntegratorResults(ans))
-            finalState.extend(argsAsList)
-            # for j in range(0, len(mapForBcs)) :
-            #     finalState[mapForBcs[j]] = bcSolverState[j]
-            
-            finalAnswers = []
-            finalAnswers.extend(boundaryConditionEvaluationCallbacks(*finalState))
-            print(finalAnswers)
-            return finalAnswers    
-        return callbackForFsolve
-
+            stateForBoundaryConditions.extend(self.OtherArguments)        
+        return stateForBoundaryConditions

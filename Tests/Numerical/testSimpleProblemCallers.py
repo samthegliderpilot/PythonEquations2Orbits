@@ -6,6 +6,7 @@ from pyeq2orb.Numerical.SimpleProblemCallers import SimpleEverythingAnswer, Sing
 import pyeq2orb.Numerical.ScipyCallbackCreators as ScipyCallbackCreators
 import math
 from typing import Tuple, List, Callable, Optional
+from types import MethodType
 
 class testSimpleEverythingAnswer(unittest.TestCase) :
 
@@ -90,8 +91,8 @@ class testFSolveSingleShootingSolver(unittest.TestCase):
 
     @staticmethod
     def simpleOdeCallback(t:float, xState:List[float], *args : float) ->List[float]:
-        dx1 = 1.0 + args[0]
-        dx2 = -1.0 + args[1]
+        dx1 = xState[1] + args[0] + 0.0
+        dx2 = xState[0] + args[1] + 1.0
         return [dx1, dx2]
 
     @staticmethod
@@ -141,5 +142,13 @@ class testFSolveSingleShootingSolver(unittest.TestCase):
         assert solverAns[0] == 5.0
         assert solverAns[1] == 6.0
 
-        ans = solver.solve([2.0, 3.0], [0.0, 5.0, 10.0], [2.0, 3.0], *(5.0, 6.0), full_output=True)
-        print(ans)
+        ans = solver.solve([2.0, 3.0], [0.0, 5.0, 10.0], [4.0, 5.0], *(5.0, 6.0), full_output=True)
+        # def interceptFsolveRun(self, solverFunc, solverState, **kwargs) :
+        #     print(solverState)
+        #     return "Solved"
+
+        # solver.fsolveRun = MethodType(interceptFsolveRun, solver)
+        solver.solve([2.0, 3.0], [0.0, 5.0, 10.0], [2.0, 3.0], *(5.0, 6.0), full_output=True)
+        
+        
+        
