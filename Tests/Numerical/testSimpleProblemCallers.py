@@ -64,14 +64,14 @@ class testBlackBoxSingleShootingFunctions(unittest.TestCase):
         assert len(bcState) == 6
 
         # test bc evaluation
-        bcValues = problem.BoundaryConditionEvaluation(difeqEvaluated, *passedInArgs)
+        bcValues = problem.BoundaryConditionEvaluation(difeqEvaluated, passedInArgs)
         expectedBcValues = bcCallback(*bcState, *passedInArgs)
         assert len(bcValues) == 2
         assert bcValues[0] == expectedBcValues[0]
         assert bcValues[0] == expectedBcValues[0]
 
         # test evaluating overall problem
-        answer = problem.EvaluateProblem([0.0, 1.0], [2.0, 3.0], *passedInArgs)
+        answer = problem.EvaluateProblem([0.0, 1.0], [2.0, 3.0], passedInArgs)
         assert len(answer.BoundaryConditionValues) == 2
         assert answer.BoundaryConditionValues[0] == bcValues[0]
         assert answer.BoundaryConditionValues[1] == bcValues[1]
@@ -90,13 +90,13 @@ class testBlackBoxSingleShootingFunctions(unittest.TestCase):
 class testFSolveSingleShootingSolver(unittest.TestCase):
 
     @staticmethod
-    def simpleOdeCallback(t:float, xState:List[float], *args : float) ->List[float]:
+    def simpleOdeCallback(t:float, xState:List[float], args : List[float]) ->List[float]:
         dx1 = xState[1] + args[0] + 0.0
         dx2 = xState[0] + args[1] + 1.0
         return [dx1, dx2]
 
     @staticmethod
-    def boundaryConditionCallback(integrationAnswer : IIntegrationAnswer, *args : float) ->List[float]:
+    def boundaryConditionCallback(integrationAnswer : IIntegrationAnswer, *args : Tuple[float, ...]) ->List[float]:
         desiredAnswer1 = integrationAnswer.StateVariableHistoryByIndex(0)[-1] - args[0]
         desiredAnswer2 = integrationAnswer.StateVariableHistoryByIndex(1)[-1] - args[1]
         return [desiredAnswer1, desiredAnswer2]
@@ -119,7 +119,7 @@ class testFSolveSingleShootingSolver(unittest.TestCase):
         
         basicProblem = BlackBoxSingleShootingFunctions(solve_ivp_wrapper, testFSolveSingleShootingSolver.boundaryConditionCallback, stateSymbols, boundaryConditionExpressions, argSymbols)
         solver = fSolveSingleShootingSolver(basicProblem, [stateSymbols[1], argSymbols[0]], boundaryConditionExpressions[:2])
-        problemEvaluated = solver.EvaluatableProblem.EvaluateProblem([0.0, 5.0, 10.0], [30, 20], *(15, 5))
+        problemEvaluated = solver.EvaluatableProblem.EvaluateProblem([0.0, 5.0, 10.0], [30, 20], [15, 5])
         print(problemEvaluated)
         valuesFromOneOffAnswer = solver.getSolverValuesFromEverythingAns(problemEvaluated)
         assert valuesFromOneOffAnswer[0] == problemEvaluated.BoundaryConditionValues[0]
@@ -142,13 +142,13 @@ class testFSolveSingleShootingSolver(unittest.TestCase):
         assert solverAns[0] == 5.0
         assert solverAns[1] == 6.0
 
-        ans = solver.solve([2.0, 3.0], [0.0, 5.0, 10.0], [4.0, 5.0], *(5.0, 6.0), full_output=True)
+        ans = solver.solve([2.0, 3.0], [0.0, 5.0, 10.0], [4.0, 5.0], [6.0, 7.0], full_output=True)
         # def interceptFsolveRun(self, solverFunc, solverState, **kwargs) :
         #     print(solverState)
         #     return "Solved"
 
         # solver.fsolveRun = MethodType(interceptFsolveRun, solver)
-        solver.solve([2.0, 3.0], [0.0, 5.0, 10.0], [2.0, 3.0], *(5.0, 6.0), full_output=True)
+        solver.solve([2.0, 3.0], [0.0, 5.0, 10.0], [2.0, 3.0], [6.0, 7.0], full_output=True)
         
         
         

@@ -12,33 +12,33 @@ class testSymbolicOptimizerProblem(unittest.TestCase) :
     def testCreateCoVectorFromList(self) :
         prob = OneDWorkSymbolicProblem()
         expectedCoVector = [sy.Function(r'\lambda_{x}', real=True)(prob.TimeSymbol), sy.Function(r'\lambda_{v}', real=True)(prob.TimeSymbol)]
-        actualCostateVector = Problem.CreateCoVector(prob.StateVariables, r'\lambda', prob.TimeSymbol)
+        actualCostateVector = Problem.CreateCostateVariables(prob.StateVariables, r'\lambda', prob.TimeSymbol)
         self.assertEqual(expectedCoVector[0], actualCostateVector[0], "lmd x")
         self.assertEqual(expectedCoVector[1], actualCostateVector[1], "lmd v")
 
     def testCreateCoVectorFromSymbol(self) :
         prob = OneDWorkSymbolicProblem()
         expectedCoVector = sy.Function(r'\lambda_{x}', real=True)(prob.TimeSymbol)
-        actualCostateVector = Problem.CreateCoVector(prob.StateVariables[0], r'\lambda', prob.TimeSymbol)
+        actualCostateVector = Problem.CreateCostateVariables(prob.StateVariables[0], r'\lambda', prob.TimeSymbol)
         self.assertEqual(expectedCoVector, actualCostateVector, "lmd x")
 
     def testCreateCoVectorFromVector(self) :
         prob = OneDWorkSymbolicProblem()
         expectedCoVector = [sy.Function(r'\lambda_{x}', real=True)(prob.TimeSymbol), sy.Function(r'\lambda_{v}', real=True)(prob.TimeSymbol)]
-        actualCostateVector = Problem.CreateCoVector(Vector.fromArray(prob.StateVariables), r'\lambda', prob.TimeSymbol)
+        actualCostateVector = Problem.CreateCostateVariables(Vector.fromArray(prob.StateVariables), r'\lambda', prob.TimeSymbol)
         self.assertEqual(expectedCoVector[0], actualCostateVector[0,0], "lmd x")
         self.assertEqual(expectedCoVector[1], actualCostateVector[1,0], "lmd v")
 
     def testCreateHamiltonian(self) :
         prob = OneDWorkSymbolicProblem()
-        lambdas = Problem.CreateCoVector(prob.StateVariables, 'L', prob.TimeSymbol)
+        lambdas = Problem.CreateCostateVariables(prob.StateVariables, 'L', prob.TimeSymbol)
         expectedHamiltonian = prob.UnIntegratedPathCost + lambdas[0]*prob.StateVariableDynamics[0] + lambdas[1]*prob.StateVariableDynamics[1] 
         actualHamiltonian = prob.CreateHamiltonian(lambdas)
         self.assertTrue((expectedHamiltonian-actualHamiltonian).simplify().expand().simplify().is_zero)
 
     def testCreateControlConditions(self) :
         prob = OneDWorkSymbolicProblem()
-        lambdas = Problem.CreateCoVector(prob.StateVariables, 'L', prob.TimeSymbol)
+        lambdas = Problem.CreateCostateVariables(prob.StateVariables, 'L', prob.TimeSymbol)
         hamiltonian = prob.CreateHamiltonian(lambdas)
         expectedControlCondition = lambdas[1] + 2.0*prob.ControlVariables[0]
         controlExp = prob.CreateHamiltonianControlExpressions(hamiltonian)
@@ -46,7 +46,7 @@ class testSymbolicOptimizerProblem(unittest.TestCase) :
 
     def testCreatingLambdaDotConditions(self) :
         prob = OneDWorkSymbolicProblem()
-        lambdas = Problem.CreateCoVector(prob.StateVariables, 'L', prob.TimeSymbol)
+        lambdas = Problem.CreateCostateVariables(prob.StateVariables, 'L', prob.TimeSymbol)
         hamiltonian = prob.CreateHamiltonian(lambdas)
         expectedLambdaXDot = 0
         expectedLambdaVDot = -1*lambdas[0]
@@ -56,7 +56,7 @@ class testSymbolicOptimizerProblem(unittest.TestCase) :
 
     def testCreatingDifferentialTransversalityCondition(self) :
         problem = ContinuousThrustCircularOrbitTransferProblem()
-        lambdas = Problem.CreateCoVector(problem.StateVariables, 'L', problem.TimeFinalSymbol)
+        lambdas = Problem.CreateCostateVariables(problem.StateVariables, 'L', problem.TimeFinalSymbol)
         hamiltonian = problem.CreateHamiltonian(lambdas)
         xversality = problem.TransversalityConditionInTheDifferentialForm(hamiltonian, 0.0, lambdas) # not allowing final time to vary
 
@@ -66,7 +66,7 @@ class testSymbolicOptimizerProblem(unittest.TestCase) :
 
     def testCreatingAugmentedTransversalityCondition(self) :
         problem = ContinuousThrustCircularOrbitTransferProblem()
-        lambdas = Problem.CreateCoVector(problem.StateVariables, 'l', problem.TimeFinalSymbol)
+        lambdas = Problem.CreateCostateVariables(problem.StateVariables, 'l', problem.TimeFinalSymbol)
         l_r = lambdas[0]
         l_u = lambdas[1]
         l_v = lambdas[2]
@@ -140,7 +140,7 @@ class testSymbolicOptimizerProblem(unittest.TestCase) :
         self.assertEqual(initialState[0], subsDict[initialSvs[0]], msg="x was added when no lambdas")
         self.assertEqual(initialState[1], subsDict[initialSvs[1]], msg="vx was added when no lambdas")
 
-        lambdas = prob.CreateCoVector(prob.StateVariables, "lmd", prob.TimeInitialSymbol)
+        lambdas = prob.CreateCostateVariables(prob.StateVariables, "lmd", prob.TimeInitialSymbol)
         initialState = [1.2, 1.3, 1.4, 1.5]
         prob.AddInitialValuesToDictionary(subsDict, initialState, lambdas)
         self.assertEqual(4, len(subsDict), msg="4 items in subs dict")
@@ -163,7 +163,7 @@ class testSymbolicOptimizerProblem(unittest.TestCase) :
 
     def testEvaluateHamiltonianAndItsFirstTwoDerivatives(self) :
         problem = ContinuousThrustCircularOrbitTransferProblem()
-        lambdas = Problem.CreateCoVector(problem.StateVariables, 'l', problem.TimeSymbol)
+        lambdas = Problem.CreateCostateVariables(problem.StateVariables, 'l', problem.TimeSymbol)
         problem._costateElements.extend([ProblemVariable(x, None) for x in lambdas])
         problem.StateVariableDynamics.extend([0.0,0.0,0.0,0.0])
         a = sy.Symbol('a')

@@ -85,7 +85,7 @@ class HowManyImpulses(SymbolicProblem) :
         self.ControlVariables.append(throttle)
         self._unIntegratedPathCost = throttle* thrust/c
         self._terminalCost = 0
-        self.StateVariables.extend(SymbolicProblem.CreateCoVector(self.StateVariables, None, t))
+        self.StateVariables.extend(SymbolicProblem.CreateCostateVariables(self.StateVariables, None, t))
         #self.StateVariableDynamics[self.CostateSymbols[0]] = 
         #self.Hamiltonian = self.CreateHamiltonian(self.CostateSymbols)
 

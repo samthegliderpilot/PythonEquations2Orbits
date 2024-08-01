@@ -51,6 +51,7 @@
 		"docstrings",
 		"dtype",
 		"epsfcn",
+		"evalf",
 		"Evaluatable",
 		"framealpha",
 		"glpk",

@@ -255,11 +255,11 @@ aSy = sy.Function('a', commutative=True)(x, t)
 uSy = sy.Matrix([["u1", "u2", "u3"]]).transpose()
 g2Sy = makeMatrixOfSymbols('G_{2}', 5, 3)
 display(g2Sy)
-xDotSy = SymbolicProblem.CreateCoVector(x, r'\dot{x}', t)
+xDotSy = SymbolicProblem.CreateCostateVariables(x, r'\dot{x}', t)
 xDot = g1Sy+ aSy*g2Sy*uSy
 jh.printMarkdown("Filling in our Hamiltonian, we get the following expression for our optimal thrust direction:")
 #lambdas = sy.Matrix([[r'\lambda_{1}',r'\lambda_{2}',r'\lambda_{3}',r'\lambda_{4}',r'\lambda_{5}']]).transpose()
-lambdas = SymbolicProblem.CreateCoVector(x, r'\lambda', t)
+lambdas = SymbolicProblem.CreateCostateVariables(x, r'\lambda', t)
 #lambdasSymbol = sy.Symbol(r'\lambda^T', commutative=False)
 hamiltonin = lambdas.transpose()*xDot
 # print(hamiltonin)

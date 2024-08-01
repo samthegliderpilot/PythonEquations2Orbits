@@ -73,17 +73,17 @@ problem.TimeSymbol = t
 
 tau = sy.Symbol(r'\tau')
 tau0 = sy.Symbol(r'\tau_0')
-tauf = sy.Symbol(r'\tau_f')
-problem = problem.ScaleTime(tau, tau0, tauf, tau*tf)
+tauF = sy.Symbol(r'\tau_f')
+problem = problem.ScaleTime(tau, tau0, tauF, tau*tf)
 
 
 ######## Indirect specific solving
-lambdas = Problem.CreateCoVector(pr_y, None, tau)
+lambdas = Problem.CreateCostateVariables(pr_y, None, tau)
 hamiltonian = problem.CreateHamiltonian(lambdas)
 showEquation("H", hamiltonian)
 lambdasEom = Problem.CreateLambdaDotEquationsStatic(hamiltonian, tau, problem.StateVariables, lambdas)
 for i in range(0, len(pr_y)):
-    problem.AddCostateVariable(ProblemVariable(lambdas[i], lambdasEom[i]))
+    problem.AddCostateElement(ProblemVariable(lambdas[i], lambdasEom[i]))
 
 controlExpressions = problem.CreateControlExpressionsFromHamiltonian(hamiltonian, problem.ControlVariables)
 i=0
@@ -101,17 +101,17 @@ for eom in problem.EquationsOfMotionAsEquations:
 for bc in problem.BoundaryConditions:
     display(sy.Eq(0, bc))
 
-## pick xversality
-lambdas_f = SafeSubs(lambdas, {tau:tauf})
+## pick transversality
+lambdas_f = SafeSubs(lambdas, {tau:tauF})
 lambdas_0 = SafeSubs(lambdas, {tau:tau0})
-xversality = problem.TransversalityConditionInTheDifferentialForm(hamiltonian, sy.Symbol('dt_f'), lambdas_f)
-for i in range(0, len(xversality)):
-    problem.BoundaryConditions.append(xversality[i])
+transversality = problem.TransversalityConditionInTheDifferentialForm(hamiltonian, sy.Symbol('dt_f'), lambdas_f)
+for i in range(0, len(transversality)):
+    problem.BoundaryConditions.append(transversality[i])
 
 ###### Indirect Problem is fully setup, time to start doing numerical things.....
 #%%
 initialGuess = [0,0,0,0,  0.0, 0.1, 0.0, -0.1]
-tArray = np.linspace(0.0, 1.0, 400)
+tArray :Iterable[float ]= np.linspace(0.0, 1.0, 400)
 
 numerical = OdeLambdifyHelperWithBoundaryConditions.CreateFromProblem(problem)
 numerical.ApplySubstitutionDictionaryToExpressions()
@@ -133,7 +133,7 @@ def solve_ivp_wrapper(t, y, args):
 stateForBoundaryConditions = numerical.CreateDefaultStateForBoundaryConditions()
 bcCallback = numerical.CreateCallbackForBoundaryConditionsWithFullState(stateForBoundaryConditions)
 problemEvaluator = BlackBoxSingleShootingFunctionsFromLambdifiedFunctions(solve_ivp_wrapper, bcCallback[1], integrationVariables, problem.BoundaryConditions, [problem.TimeFinalSymbol])
-everything = problemEvaluator.EvaluateProblem(tArray, initialGuess, (3600,))
+everything = problemEvaluator.EvaluateProblem(tArray, initialGuess, [3600.0])
 print(everything.BoundaryConditionValues)
 print(everything.StateHistory)
 
@@ -145,7 +145,7 @@ print(theAnswer)
 print(theAnswer.SolverResult)
 #%%
 
-anAns = theAnswer.EvaluatedAnswer.RawIntegratorOutput
+anAns : Any = theAnswer.EvaluatedAnswer.RawIntegratorOutput
 tfReal = theAnswer.SolverResult[0][-1]
 # fSolveInitialGuess = initialGuess[4:]
 # fSolveInitialGuess.append(480)
@@ -173,7 +173,7 @@ i=0
 
 plotAThing("XY Path", "path", anAns.y[0], anAns.y[0])
 
-print(fsolveAns)
+
 
 
 

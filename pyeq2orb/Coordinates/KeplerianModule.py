@@ -1,8 +1,8 @@
 from __future__ import annotations
-from .CartesianModule import Cartesian, MotionCartesian
+from .CartesianModule import Cartesian, MotionCartesian #type:ignore
 import sympy as sy
 import math as math
-from .RotationMatrix import RotAboutXValladoConvention, RotAboutY, RotAboutX, RotAboutZ, RotAboutZValladoConvention
+from .RotationMatrix import RotAboutXValladoConvention, RotAboutY, RotAboutX, RotAboutZ, RotAboutZValladoConvention #type:ignore
 from typing import Optional, List, Union
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
 
@@ -22,15 +22,15 @@ def EccentricAnomalyFromMeanAnomaly(meanAnomaly : float, eccentricity : float, t
         return meanAnomaly
     ma = meanAnomaly % (2*math.pi)
     if ma > math.pi:
-        eccAnom = ma - eccentricity
+        eccentricAnomaly = ma - eccentricity
     else :
-        eccAnom = ma + eccentricity
+        eccentricAnomaly = ma + eccentricity
     
     lastGuess = ma*2 # just something large enough to not trigger on the first iteration
-    while abs(lastGuess - eccAnom) > tolerance:
-        lastGuess = eccAnom
-        eccAnom = lastGuess + (ma-lastGuess+eccentricity*math.sin(lastGuess))/(1-eccentricity*math.cos(lastGuess))
-    return eccAnom
+    while abs(lastGuess - eccentricAnomaly) > tolerance:
+        lastGuess = eccentricAnomaly
+        eccentricAnomaly = lastGuess + (ma-lastGuess+eccentricity*math.sin(lastGuess))/(1-eccentricity*math.cos(lastGuess))
+    return eccentricAnomaly
 
 def TrueAnomalyFromEccentricAnomaly(eccentricAnomaly: SymbolOrNumber, eccentricity: SymbolOrNumber) ->SymbolOrNumber:
     if eccentricAnomaly % math.pi == 0:
@@ -42,7 +42,7 @@ def TrueAnomalyFromEccentricAnomaly(eccentricAnomaly: SymbolOrNumber, eccentrici
         ta = sy.atan2(sinEa, cosEa)
     elif eccentricity == 1.0 :
         raise NotImplementedError()
-    elif eccentricity > 0:
+    elif float(eccentricity) > 0.0:
         sinTa = -1*sy.sinh(eccentricAnomaly) * sy.sqrt((eccentricity**2)-1)/(1-eccentricity*sy.cosh(eccentricAnomaly))
         cosTa = (sy.cosh(eccentricAnomaly) - eccentricity)/(1-eccentricity*sy.cosh(eccentricAnomaly))
         ta = sy.atanh(cosTa/sinTa)        

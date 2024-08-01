@@ -40,7 +40,7 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
         baseProblem = ContinuousThrustCircularOrbitTransferProblem()
         initialStateValues = baseProblem.CreateVariablesAtTime0(baseProblem.StateVariables)
         problem = baseProblem #type: Problem
-        lambdas = Problem.CreateCoVector(problem.StateVariables, r'\lambda', problem.TimeSymbol)
+        lambdas = Problem.CreateCostateVariables(problem.StateVariables, r'\lambda', problem.TimeSymbol)
         baseProblem.CostateSymbols.extend(lambdas)
         if scale :
             newSvs = Problem.CreateBarVariables(problem.StateVariables, problem.TimeSymbol) 
@@ -182,7 +182,7 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
 
     def testDifferentialTransversalityCondition(self) :
         problem = ContinuousThrustCircularOrbitTransferProblem()
-        lambdas = Problem.CreateCoVector(problem.StateVariables, 'L', problem.TimeFinalSymbol)
+        lambdas = Problem.CreateCostateVariables(problem.StateVariables, 'L', problem.TimeFinalSymbol)
         hamiltonian = problem.CreateHamiltonian(lambdas)
         xversality = problem.TransversalityConditionInTheDifferentialForm(hamiltonian, 0.0, lambdas) # not allowing final time to vary
 

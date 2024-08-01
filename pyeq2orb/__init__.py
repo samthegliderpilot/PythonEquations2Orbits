@@ -1,2 +1,2 @@
 from typing import Dict, Optional
-from .Symbolics.SymbolicUtilities import SafeSubs, MakeMatrixOfSymbols 
+from pyeq2orb.Symbolics.SymbolicUtilities import SafeSubs, MakeMatrixOfSymbols 

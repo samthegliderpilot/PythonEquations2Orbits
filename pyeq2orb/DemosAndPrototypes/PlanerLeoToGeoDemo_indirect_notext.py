@@ -105,7 +105,7 @@ for bc in problem.BoundaryConditions :
 # this next block does most of the problem, pretty standard optimal control actions
 
 orgSvCount = len(problem.StateVariables)
-costateSymbols = problem.CreateCoVector(problem.StateVariables, r'\lambda', problem.TimeSymbol) # preemptively making the costate values
+costateSymbols = problem.CreateCostateVariables(problem.StateVariables, r'\lambda', problem.TimeSymbol) # preemptively making the costate values
 hamiltonian = problem.CreateHamiltonian(costateSymbols)
 jh.showEquation("H", hamiltonian)
 lambdaDotExpressions = problem.CreateLambdaDotCondition(hamiltonian)

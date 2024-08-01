@@ -5,7 +5,7 @@ from pyeq2orb.NumericalOptimizerProblem import NumericalOptimizerProblemBase
 import sympy as sy
 from IPython.display import display
 from abc import ABC, abstractmethod
-from typing import Dict, List, Tuple, Any, Optional, Callable, cast
+from typing import Dict, List, Tuple, Any, Optional, Callable, cast, Iterable
 import pyeq2orb.Numerical.ScipyCallbackCreators as ScipyCallbackCreators
 import numpy as np
 from scipy.integrate import solve_ivp #type: ignore
@@ -211,7 +211,7 @@ class EverythingProblem(ABC):
     @property
     @abstractmethod
     def StateVariables(self) ->List[sy.Symbol]:
-        """A list of the state variable symbols (normal state variables, costates, path constraints... doesn't matter, all 
+        """A list of the state variable symbols (normal state variables, co-states, path constraints... doesn't matter, all 
         variables getting propagated through time).
 
         Returns:
@@ -241,13 +241,13 @@ class EverythingProblem(ABC):
         pass
 
     @abstractmethod
-    def EvaluateProblem(self, time : List[float], initialState : List[float], *args : float) ->IEverythingAnswer:
+    def EvaluateProblem(self, time : List[float], initialState : List[float], args : List[float]) ->IEverythingAnswer:
         """Evaluates this problem returning an IEverythingAnswer.
 
         Args:
             time (Iterable[float]): The points in time to evaluate.
             initialState (List[float]): The initial state to propagate from.
-            parameters (Tuple[float, ...]): Any additional arguments to be passed to both the propagation 
+            parameters (List[float]): Any additional arguments to be passed to both the propagation 
             of the trajectory AND the boundary conditions.
 
         Returns:
@@ -263,14 +263,14 @@ class SingleShootingFunctions(EverythingProblem, ABC):
         pass
 
     @abstractmethod
-    def IntegrateDifferentialEquations(self, time : List[float], y0 : List[float], *args :float) -> IIntegrationAnswer:
+    def IntegrateDifferentialEquations(self, time : Iterable[float], y0 : List[float], *args  : List[float]) -> IIntegrationAnswer:
         """Performs the full integration of the problem.  This function will wrap your call to solve_ivp or ode_solve or 
         whatever integration scheme you want.
 
         Args:
             time (List[float]): The times to evaluate the problem at.
             y0 (List[float]): _description_
-            args (Tuple[float, ...]): _description_
+            args (List[float]): _description_
 
         Returns:
             IIntegrationAnswer: _description_
@@ -278,25 +278,25 @@ class SingleShootingFunctions(EverythingProblem, ABC):
         pass
 
     @abstractmethod
-    def BoundaryConditionEvaluation(self, integrationAnswer: IIntegrationAnswer, *args : float) -> List[float]:
+    def BoundaryConditionEvaluation(self, integrationAnswer: IIntegrationAnswer, args : List[float]) -> List[float]:
         pass
     
-    def EvaluateProblem(self, time : List[float], initialState : List[float], *args : float) -> IEverythingAnswer:
-        ivpAns = self.IntegrateDifferentialEquations(time, initialState, *args)
-        bcAns = self.BoundaryConditionEvaluation(ivpAns, *args)
+    def EvaluateProblem(self, time : Iterable[float], initialState : List[float], args : List[float]) -> IEverythingAnswer:
+        ivpAns = self.IntegrateDifferentialEquations(time, initialState, args)
+        bcAns = self.BoundaryConditionEvaluation(ivpAns, args)
         return SimpleEverythingAnswer(self, ivpAns.TimeHistory, ivpAns.StateHistory, bcAns, ivpAns.RawIntegratorOutput)
             
     @staticmethod
-    def CreateBoundaryConditionCallbackFromLambdifiedCallback(lambdifiedCallback) ->Callable[[IIntegrationAnswer, Optional[Tuple[float, ...]]], List[float]]:
-        def callback(integrationAnswer : IIntegrationAnswer, *args : float) -> List[float]:
-            bcStateForLambdfiedCallback = integrationAnswer.BuildBoundaryConditionStateFromIntegrationAnswer()
-            bcSolved = lambdifiedCallback(*bcStateForLambdfiedCallback, *args)
+    def CreateBoundaryConditionCallbackFromLambdifiedCallback(lambdifiedCallback) ->Callable[[IIntegrationAnswer, Optional[List[float]]], List[float]]:
+        def callback(integrationAnswer : IIntegrationAnswer, *args : Tuple[float, ...]) -> List[float]:
+            bcStateForLambdafiedCallback = integrationAnswer.BuildBoundaryConditionStateFromIntegrationAnswer()
+            bcSolved = lambdifiedCallback(*bcStateForLambdafiedCallback, *args)
             return bcSolved
         return callback #type: ignore
 
     @staticmethod
-    def CreateIntegrationCallbackFromLambdifiedCallback(lambdifiedCallback : Callable[[List[float], List[float], Tuple[float, ...]], Tuple[Dict[sy.Symbol, List[float]], Optional[Any]]], problem) -> Callable[[List[float], List[float], Tuple[float, ...]], IIntegrationAnswer]:
-        def fullCallback(t : List[float], x : List[float], *args : Tuple[float, ...]) -> IIntegrationAnswer:
+    def CreateIntegrationCallbackFromLambdifiedCallback(lambdifiedCallback : Callable[[List[float], List[float], List[float]], Tuple[Dict[sy.Symbol, List[float]], Optional[Any]]], problem) -> Callable[[List[float], List[float], List[float]], IIntegrationAnswer]:
+        def fullCallback(t : List[float], x : List[float], *args : List[float]) -> IIntegrationAnswer:
             (dictAns, integratorOutput) = lambdifiedCallback(t, x, *args)
             integrationAnswer = SimpleIntegrationAnswer(problem, t, dictAns, integratorOutput)
             return integrationAnswer
@@ -328,7 +328,7 @@ class BlackBoxSingleShootingFunctions(SingleShootingFunctions):
     def IntegrateDifferentialEquations(self, t, y, *args) -> IIntegrationAnswer:
         return self._integrationCallback(t, y, *args)
 
-    def BoundaryConditionEvaluation(self, integrationAnswer : IIntegrationAnswer, *args : float) -> List[float]:     
+    def BoundaryConditionEvaluation(self, integrationAnswer : IIntegrationAnswer, args  : List[float]) -> List[float]:     
         return self._boundaryConditionCallback(integrationAnswer, *args)
 
 class BlackBoxSingleShootingFunctionsFromLambdifiedFunctions(BlackBoxSingleShootingFunctions):
@@ -338,7 +338,7 @@ class BlackBoxSingleShootingFunctionsFromLambdifiedFunctions(BlackBoxSingleShoot
         super().__init__(realIvpCallback, realBcCallback, stateVariables, boundaryConditionExpressions, otherArgs)
 
 class solverAnswer:
-    def __init__(self, evaluatedAnswer : IEverythingAnswer, solvedControls : List[float], constraintValues: List[float], solverResult: Optional[Any] = None):
+    def __init__(self, evaluatedAnswer : IEverythingAnswer, solvedControls : List[float], constraintValues: List[float], solverResult: Any = None):
         self.EvaluatedAnswer =evaluatedAnswer
         self.SolvedControls = solvedControls
         self.ConstraintValues = constraintValues
@@ -371,17 +371,17 @@ class singleShootingSolver(ABC):
             self._indicesForConstraintsFromBoundaryConditions.append(thisConstraintIndex)
 
     @abstractmethod
-    def solve(self, initialGuessOfSolverControls : List[float], time, initialState : List[float], parameters : List[float], **solverKwargs) -> solverAnswer:
+    def solve(self, initialGuessOfSolverControls : List[float], time: Iterable[float], initialState : List[float], parameters : List[float], **solverKwargs) -> solverAnswer:
         pass
 
     def updateInitialStateWithSolverValues(self, solverGuess : List[float], mutableInitialState : List[float]):
         for k,v in self._indicesOfInitialStateToUpdate.items():
             mutableInitialState[v] = solverGuess[k]
 
-    def updateInitialParametersWithSolverValues(self, solverGuess : List[float], mutableArgs : List[float]) ->Tuple[float,...]:
+    def updateInitialParametersWithSolverValues(self, solverGuess : List[float], mutableArgs : List[float]) ->List[float]:
         for k,v in self._indicesOfProblemParametersToUpdate.items():
             mutableArgs[v] = solverGuess[k]
-        return tuple(mutableArgs)
+        return mutableArgs
 
     def createArgsForIntegrator(self, solverGuess:List[float], mutableIntegratorArgs : List[float]):
         for k,v in self._indicesOfProblemParametersToUpdate.items():
@@ -405,7 +405,7 @@ class fSolveSingleShootingSolver(singleShootingSolver):
     def __init__(self, evaluatableProblem:EverythingProblem, controlsForSolver, constraintsForSolver ):
         super().__init__(evaluatableProblem, controlsForSolver, constraintsForSolver)
 
-    def solve(self, initialGuessOfSolverControls : List[float], time, initialState : List[float], parameters: List[float], **kwargs) ->solverAnswer:
+    def solve(self, initialGuessOfSolverControls : List[float], time : Iterable[float], initialState : List[float], parameters: List[float], **kwargs) ->solverAnswer:
         # fsolve(bcCallback, fSolveInitialGuess, full_output=True,  factor=0.2,epsfcn=0.001 )
 
         def evaluateAnswer(fSolveValues, time, initialState) -> IEverythingAnswer:
@@ -417,10 +417,10 @@ class fSolveSingleShootingSolver(singleShootingSolver):
                 argsCopy = list(parameters)
                 finalArgs = self.updateInitialParametersWithSolverValues(fSolveValues, argsCopy)
             else:
-                finalArgs =tuple()
+                finalArgs =[]
             
 
-            everythingAns = self.EvaluatableProblem.EvaluateProblem(time, copiedInitialState, *finalArgs)
+            everythingAns = self.EvaluatableProblem.EvaluateProblem(time, copiedInitialState, finalArgs)
             return everythingAns   
 
         def fSolveCallback(fSolveGuess, *parametersForFSolve):

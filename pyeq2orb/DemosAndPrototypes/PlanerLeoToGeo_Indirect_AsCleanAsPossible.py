@@ -90,7 +90,7 @@ controlSymbols = [alpSy]
 
 
 # this is the code I need to write/refactor to be this simple/general
-costateVariables = SymbolicProblem.CreateCoVector(x) #type: Vector
+costateVariables = SymbolicProblem.CreateCostateVariables(x) #type: Vector
 hamiltonian = SymbolicProblem.CreateHamiltonianStatic(x[0:4], tSy, eoms[0:4], unintegratedPathCost, costateVariables) #type: sy.Expr
 optimalControl = SymbolicProblem.CreateControlExpressionsFromHamiltonian(hamiltonian, controlSymbols) # an expression for the control variables
 substitutionDictionary[alpSy] = optimalControl[alpSy] # loop

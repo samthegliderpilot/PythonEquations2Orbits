@@ -14,7 +14,7 @@ class IntegrationDirection(Enum) :
     Backward = -1
 
 class ProblemVariable():
-    def __init__(self, element : sy.Symbol, firstOrderDynamics : sy.Expr):
+    def __init__(self, element : sy.Symbol, firstOrderDynamics : Optional[sy.Expr]):
         self._element = element
         self._firstOrderDynamics = firstOrderDynamics
 
@@ -23,7 +23,7 @@ class ProblemVariable():
         return self._element
     
     @property
-    def FirstOrderDynamics(self) ->sy.Expr:
+    def FirstOrderDynamics(self) -> Optional[sy.Expr]:
         return self._firstOrderDynamics
 
     @FirstOrderDynamics.setter
@@ -62,7 +62,7 @@ class Problem(ABC) :
 
         self._substitutionDictionary = OrderedDict()
 
-        self._otherArgs : List[sy.Symbol] = []
+        self._otherArgs = []
 
 
     @staticmethod
@@ -256,12 +256,23 @@ class Problem(ABC) :
     def AddStateVariable(self, stateVariable: ProblemVariable):
         self._stateVariables.append(stateVariable)
 
-    def AddCostateVariable(self, costateVariable : ProblemVariable):
-        self._costateElements.append(costateVariable)
+    def AddCostateVariable(self, costateVariable : sy.Symbol):
+        self._costateElements.append(ProblemVariable(costateVariable, None))
+
+    def AddCostateVariables(self, costateVariable : List[sy.Symbol]):
+        for lmd in costateVariable:
+            self.AddCostateVariable(lmd)
 
     @property
     def CostateSymbols(self) ->List[sy.Symbol]:
         return [x.Element for x in self._costateElements]
+
+    @property
+    def CostateElements(self) ->List[sy.Symbol]:
+        return self._costateElements
+
+    def AddCostateElement(self, costateElement : ProblemVariable):
+        self._costateElements.append(costateElement)
 
     @property 
     def CostateDynamicsEquations(self) ->List[sy.Expr]:
@@ -596,7 +607,7 @@ class Problem(ABC) :
         return returnDict
 
     @staticmethod
-    def CreateCoVector(y, name : Optional[str] = None, t : Optional[sy.Symbol]=None) -> Vector:
+    def CreateCostateVariables(y, name : Optional[str] = None, t : Optional[sy.Symbol]=None) -> Vector:
         """Creates a co-vector for the entered y.
 
         Args:
@@ -621,13 +632,18 @@ class Problem(ABC) :
         if(isinstance(y, list) ) :
             coVector = []
             for i in range(0, len(y)):
-                coVector.append(Problem.CreateCoVector(y[i], name, t))
+                coVector.append(Problem.CreateCostateVariables(y[i], name, t))
             return coVector
 
         coVector = Vector.zeros(y.shape[0])
         for i in range(0, y.shape[0]):
-            coVector[i] = Problem.CreateCoVector(y[i], name, t)
+            coVector[i] = Problem.CreateCostateVariables(y[i], name, t)
         return coVector
+
+    @staticmethod
+    def CreateCostateElements(y, name : Optional[str] = None, t : Optional[sy.Symbol]=None) -> List[ProblemVariable]:
+        lambdas = Problem.CreateCostateVariables(y, name, t)
+        return [ProblemVariable(lmd, None) for lmd in lambdas]
 
     @staticmethod
     def CreateHamiltonianStatic(t, equationsOfMotionMatrix, unIntegratedPathCost, lambdas) -> sy.Expr:
@@ -773,6 +789,8 @@ class Problem(ABC) :
         Returns:
             sy.Expr: The Hamiltonian.
         """
+        if lambdas == None:
+            lambdas = self.CostateSymbols
         return Problem.CreateHamiltonianStatic(self.TimeSymbol, self.EquationsOfMotionInMatrixForm(), self.UnIntegratedPathCost, lambdas)
 
     def CreateHamiltonianControlExpressions(self, hamiltonian : sy.Expr) -> sy.Matrix:
@@ -844,10 +862,6 @@ class Problem(ABC) :
         x = self.StateVariablesInMatrixForm()
         return Problem.CreateLambdaDotConditionStatic(hamiltonian, x)
 
-    # @property
-    # def CostateSymbols(self) :
-    #     return self._costateSymbols
-
     def EvaluateHamiltonianAndItsFirstTwoDerivatives(self, solution : Dict[sy.Symbol, List[float]], tArray: Collection[float], hamiltonian : sy.Expr, controlSolved :Dict[sy.Expr, sy.Expr], moreSubs :Dict[sy.Symbol, float]) ->List[List[float]]:
         """Evaluates the Hamiltonian and its first 2 derivatives.  This is useful to 
         see if the related conditions are truly satisfied.
@@ -880,40 +894,11 @@ class Problem(ABC) :
         # for sv in self.CostateSymbols :
         #     solArray.append(np.array(solution[sv]))
         hamiltonianValues = hamiltonianExpression(tArray, *solArray)
-        dhduExp = sy.lambdify(stateForEom, dHdu.subs(controlSolved).subs(moreSubs).trigsimp(deep=True).subs(constantsSubsDict))
+        dHdUExp = sy.lambdify(stateForEom, dHdu.subs(controlSolved).subs(moreSubs).trigsimp(deep=True).subs(constantsSubsDict))
         
-        dhduValues = dhduExp(tArray, *solArray)       
-        if not hasattr(dhduValues, "__len__") or len(dhduValues) != len(hamiltonianValues) :
-            dhduValues = [dhduValues] * len(hamiltonianValues)
+        dHdUValues = dHdUExp(tArray, *solArray)       
+        if not hasattr(dHdUValues, "__len__") or len(dHdUValues) != len(hamiltonianValues) :
+            dHdUValues = [dHdUValues] * len(hamiltonianValues)
         d2hdu2Exp = sy.lambdify(stateForEom, d2Hdu2.subs(controlSolved).subs(moreSubs).trigsimp(deep=True).subs(constantsSubsDict))
         d2hdu2Values = d2hdu2Exp(tArray, *solArray)
-        return [hamiltonianValues, dhduValues, d2hdu2Values]
-
-    #def ScaleProblem(self, newStateVariableSymbols : List[sy.Symbol], valuesToDivideStateVariablesWith : Dict[sy.Symbol, SymbolOrNumber], timeScaleFactor : Optional[SymbolOrNumber] = None):
-    #    newProblem = ProblemBase()
-    #    #newProblem.CostateSymbols.extend(self.CostateSymbols)
-    #    newProblem._scaleProblem(self, newStateVariableSymbols, valuesToDivideStateVariablesWith, timeScaleFactor)
-    #    return newProblem
-
-#TODO: Refactor the other xversality to have a static version...
-    # def TransversalityConditionsByAugmentation(self, nus : List[sy.Symbol], lambdasFinal : Optional[List[sy.Expr]]=None) -> List[sy.Expr]:
-    #     """Creates the transversality conditions by augmenting the terminal constraints to the terminal cost. Note that 
-    #     this calls the wrapped problems TransversalityConditionsByAugmentation and then scales that expression.
-
-    #     Args:
-    #         nus (List[sy.Symbol]): The constant parameters to augment the constraints to the terminal cost with.
-    #         lambdasFinal (List[sy.Symbol]): The costate symbols at the final time.  If None it will use the problems
-    #         CostateSymbols at the final time, and if those are not set, then an exception will be raised.
-
-    #     Returns:
-    #         List[sy.Expr]: The list of transversality conditions, that ought to be treated like normal boundary conditions.
-    #     """
-    #     if lambdasFinal == None :
-    #         if self.CostateSymbols != None and len(self.CostateSymbols) > 0:
-    #             lambdasFinal = SafeSubs(self.CostateSymbols, {self.TimeSymbol: self.TimeFinalSymbol})
-    #         else :
-    #             raise Exception("No source of costate symbols.") 
-
-    #     finalConditions = self._wrappedProblem.TransversalityConditionsByAugmentation(nus, lambdasFinal)
-    #     return self.ScaleExpressions(finalConditions)
-    
+        return [hamiltonianValues, dHdUValues, d2hdu2Values]

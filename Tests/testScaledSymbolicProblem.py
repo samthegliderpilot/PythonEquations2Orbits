@@ -18,7 +18,7 @@ class testScaledSymbolicProblem(unittest.TestCase) :
         newSvs = [sy.Function('rs')(t), sy.Function('rs')(t), sy.Function('vs')(t), sy.Function('lons')(t)]
         subs = {orgProblem.StateVariables[0]: 4.0*newSvs[0], orgProblem.StateVariables[1]: 3.0*newSvs[1], orgProblem.StateVariables[2]: 5.0*newSvs[2], orgProblem.StateVariables[3]: 7.0*newSvs[3] }
         problem = orgProblem.ScaleStateVariables(newSvs, subs)
-        lambdas = Problem.CreateCoVector(problem.StateVariables, 'L', problem.TimeFinalSymbol)
+        lambdas = Problem.CreateCostateVariables(problem.StateVariables, 'L', problem.TimeFinalSymbol)
         r = problem.StateVariables[0].subs(problem.TimeSymbol, problem.TimeFinalSymbol)
         l_r = lambdas[0]
         l_v = lambdas[2]
@@ -35,7 +35,7 @@ class testScaledSymbolicProblem(unittest.TestCase) :
         newSvs = [sy.Function('rs')(t), sy.Function('rs')(t), sy.Function('vs')(t), sy.Function('lons')(t)]
         subs = {orgProblem.StateVariables[0]: 4.0*newSvs[0], orgProblem.StateVariables[1]: 3.0*newSvs[1], orgProblem.StateVariables[2]: 5.0*newSvs[2], orgProblem.StateVariables[3]: 7.0*newSvs[3] }
         problem = orgProblem.ScaleStateVariables(newSvs, subs)
-        lambdas = Problem.CreateCoVector(problem.StateVariables, 'l', problem.TimeFinalSymbol)
+        lambdas = Problem.CreateCostateVariables(problem.StateVariables, 'l', problem.TimeFinalSymbol)
         l_r = lambdas[0]
         l_u = lambdas[1]
         l_v = lambdas[2]

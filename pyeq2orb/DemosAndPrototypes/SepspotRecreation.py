@@ -191,11 +191,11 @@ def doItAll(tArray, includeJ2) ->blackBoxSingleShootingFunctions:
     g1Sy = MakeMatrixOfSymbols(r'g_{1}', n, 1, [t])
 
     display(mFullSymbol)
-    #xDotSy = SymbolicProblem.CreateCoVector(x, r'\dot{x}', t)
+    #xDotSy = SymbolicProblem.CreateCostateVariables(x, r'\dot{x}', t)
     #xDot = g1Sy+ aSy*mFullSymbol*uSy
     #jh.printMarkdown("Filling in our Hamiltonian, we get the following expression for our optimal thrust direction:")
     #lambdas = sy.Matrix([[r'\lambda_{1}',r'\lambda_{2}',r'\lambda_{3}',r'\lambda_{4}',r'\lambda_{5}']]).transpose()
-    lambdas = Problem.CreateCoVector(x, r'\lambda', problem.TimeSymbol)
+    lambdas = Problem.CreateCostateVariables(x, r'\lambda', problem.TimeSymbol)
     #lambdasSymbol = sy.Symbol(r'\lambda^T', commutative=False)
     hamiltonian = lambdas.transpose()*zDot
     # print(hamiltonian)
