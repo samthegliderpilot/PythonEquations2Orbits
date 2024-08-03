@@ -70,28 +70,6 @@ class ContinuousThrustCircularOrbitTransferProblem(Problem) :
         self._terminalCost = self._stateVariables[0].Element.subs(self._timeSymbol, self._timeFinalSymbol) # maximization problem
 
 
-
-
-        
-   
-    def AppendConstantsToSubsDict(self, existingDict : dict[sy.Expr, float], muVal : float, gVal : float, thrustVal : float, m0Val : float, ispVal : float) :
-        """Helper function to make the substitution dictionary that is often needed when lapidifying 
-        the symbolic equations.
-
-        Args:
-            existingDict (dict): The dictionary to add the values to.
-            muVal (float): The gravitational parameter for the CB
-            gVal (float): The value of gravity for fuel calculations (so use 1 Earth G)
-            thrustVal (float): The value of the thrust
-            m0Val (float): The initial mass of the spacecraft
-            ispVal (float): The isp of the engines
-        """
-        existingDict[self.Mu] = muVal
-        existingDict[self.Thrust] = thrustVal
-        existingDict[self.MassInitial] = m0Val
-        existingDict[self.Gravity] = gVal
-        existingDict[self.Isp] = ispVal
-
     @staticmethod
     def createSolveIvpSingleShootingCallbackForFSolve(problem : Problem, integrationStateVariableArray, nonLambdaEomStateInitialValues, timeArray, solveIvpCallback, boundaryConditionExpressions, fSolveParametersToAppendToEom, fSolveOnlyParameters) :
         """A function showing a potential way to solve the boundary conditions for this problem in a shooting method with fsolve.  

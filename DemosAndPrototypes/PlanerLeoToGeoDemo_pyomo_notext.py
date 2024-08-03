@@ -10,15 +10,12 @@ from collections import OrderedDict
 # to get pyomo to work on windows, must also install this library:
 # conda install -c conda-forge pynumero_libraries
 
-from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
-from pyeq2orb.ScaledSymbolicProblem import ScaledSymbolicProblem
 from pyeq2orb.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
 from pyeq2orb.Numerical import ScipyCallbackCreators
 import scipyPaperPrinter as jh
 import pyomo.environ as poenv
 import pyomo.dae as podae
 from matplotlib.figure import Figure
-from pyeq2orb.NumericalProblemFromSymbolic import NumericalProblemFromSymbolicProblem
 
 # constants
 g = 9.80665

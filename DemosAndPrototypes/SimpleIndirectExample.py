@@ -14,6 +14,9 @@ import pyeq2orb.Numerical.ScipyCallbackCreators as ScipyCallbackCreators
 from pyeq2orb.ProblemBase import Problem, ProblemVariable
 from pyeq2orb import SafeSubs
 from pyeq2orb.NumericalOptimizerProblem import NumericalOptimizerProblemBase
+from pyeq2orb.Graphics.Plotly2DModule import plot2DLines
+import pyeq2orb.Graphics.Primitives as prim
+
 
 t = sy.Symbol('t', real=True, positive=True)
 t0 = sy.Symbol('t_0', real=True, positive=True)
@@ -147,19 +150,6 @@ print(theAnswer.SolverResult)
 
 anAns : Any = theAnswer.EvaluatedAnswer.RawIntegratorOutput
 tfReal = theAnswer.SolverResult[0][-1]
-# fSolveInitialGuess = initialGuess[4:]
-# fSolveInitialGuess.append(480)
-# fsolveAns = fsolve(bcCallback, fSolveInitialGuess, full_output=True,  factor=0.2,epsfcn=0.001 )
-# print(fsolveAns)
-# finalInitialState = initialGuess[:4]
-# finalInitialState.extend(fsolveAns[0][:4])
-# tfReal = fsolveAns[0][-1]
-# anAns = solve_ivp(ivpCallback, [0,1], finalInitialState, dense_output=True, args=(fsolveAns[0][-1],), method='LSODA')
-# print(anAns)
-
-
-from pyeq2orb.Graphics.Plotly2DModule import plot2DLines
-import pyeq2orb.Graphics.Primitives as prim
 
 def plotAThing(title, label1, t1, dataset1):
     plot2DLines([prim.XAndYPlottableLineData(t1, dataset1, label1, '#0000ff', 2, 0)], title)

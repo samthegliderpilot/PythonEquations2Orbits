@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools >= 68.2.2",
+            "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tools.setuptools]
+packages=["pyeq2orb"]
+
+[project]
+dynamic = ["version"]
+name = "pyeq2orb"
+requires-python = ">= 3.10"
+authors = [
+  {name = "Sam Gibert", email = "brett.sam.gilbert@gmail.com"}
+]
+maintainers = [
+  {name = "Sam Gibert", email = "brett.sam.gilbert@gmail.com"}
+]
+description= "A library to assit with examples of optimal orbital maneuvers starting from symbolic equations."
+readme = "README.md"

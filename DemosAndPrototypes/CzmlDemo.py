@@ -1,4 +1,4 @@
-import __init__ #type: ignore
+#%%
 from pyeq2orb.Graphics import CzmlUtilities
 from datetime import datetime
 from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian

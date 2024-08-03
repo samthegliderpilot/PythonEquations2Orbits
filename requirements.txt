@@ -26,3 +26,5 @@ mypy
 vispy
 ipopt 
 glpk
+spiceypy
+czml3

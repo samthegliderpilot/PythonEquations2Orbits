@@ -1,5 +1,5 @@
 import pickle
-import dill
+import dill #type: ignore
 from typing import Dict, Any, cast
 from dataclasses import dataclass
 from os.path import isfile
@@ -19,7 +19,7 @@ class ExpressionCache:
         self.ReloadFile()
         return self
 
-    def __exit__(self,type, value, traceback):
+    def __exit__(self, type, value, traceback):
         self.SaveCache()
 
     def ReloadFile(self):

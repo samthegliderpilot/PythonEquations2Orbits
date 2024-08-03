@@ -3,6 +3,7 @@ from typing import List, cast, Optional, Tuple, Sequence, Iterator
 import numpy as np 
 from pyeq2orb.Coordinates.CartesianModule import Cartesian
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
+
 class EphemerisArrays :
     def __init__(self) :
         self._t = [] #type: List[float]

@@ -200,8 +200,8 @@ class KeplerianElements() :
 
         Returns:
             float or sy.Ex: The mean motion
-        """
-        return sy.sqrt(self.GravitationalParameter/(self.SemiMajorAxis**3))
+        """        
+        return sy.sqrt(self.GravitationalParameter/(sy.Abs(self.SemiMajorAxis)**3))
     
     @property
     def Parameter(self)->SymbolOrNumber :

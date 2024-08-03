@@ -1,4 +1,3 @@
-import __init__ #type: ignore
 import sympy as sy
 #from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem
 from pyeq2orb.Numerical import ScipyCallbackCreators
@@ -301,7 +300,7 @@ class OdeLambdifyHelper(LambdifyHelper):
 # make the content of a Problem, and lambdifying it
 class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
     
-    def __init__(self, time : sy.Symbol, t0: sy.Symbol, tf: sy.Symbol, stateVariables : List[sy.Symbol], dynamicExpressions : List[sy.Expr], symbolsToSolveForWithBcs : List[sy.Symbol], boundaryConditionEquations : List[sy.Expr], otherArgsList : List[sy.Symbol], substitutionDictionary : Dict) :
+    def __init__(self, time : sy.Symbol, t0: sy.Symbol, tf: sy.Symbol, stateVariables : List[sy.Symbol], dynamicExpressions : List[sy.Expr], boundaryConditionEquations : List[sy.Expr], otherArgsList : List[sy.Symbol], substitutionDictionary : Dict) :
         OdeLambdifyHelper.__init__(self, time, stateVariables, dynamicExpressions, otherArgsList, substitutionDictionary)
         self._t0 = t0 #type: sy.Symbol
         self._tf = tf #type: sy.Symbol
@@ -315,7 +314,7 @@ class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
         dynamics.extend(problem.StateVariableDynamics)
         dynamics.extend(problem.CostateDynamicsEquations)
         initialCostateVariables = SafeSubs(problem.CostateSymbols, {problem.TimeSymbol: problem.TimeInitialSymbol})
-        helper = OdeLambdifyHelperWithBoundaryConditions(problem.TimeSymbol, problem.TimeInitialSymbol, problem.TimeFinalSymbol, stateAndControl, dynamics, initialCostateVariables, problem.BoundaryConditions, otherArgs, problem.SubstitutionDictionary)
+        helper = OdeLambdifyHelperWithBoundaryConditions(problem.TimeSymbol, problem.TimeInitialSymbol, problem.TimeFinalSymbol, stateAndControl, dynamics, problem.BoundaryConditions, otherArgs, problem.SubstitutionDictionary)
 
         return helper
     @property

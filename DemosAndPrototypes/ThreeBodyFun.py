@@ -1,11 +1,9 @@
 #%%
-import __init__ #type: ignore
 import numpy as np
 from pandas import DataFrame #type: ignore
 from scipy.integrate import solve_ivp #type: ignore
 from pyeq2orb.Numerical.LambdifyHelpers import LambdifyHelper, OdeLambdifyHelper, OdeLambdifyHelperWithBoundaryConditions #type: ignore
 import sympy as sy
-from pyeq2orb import SymbolicOptimizerProblem
 from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
 from pyeq2orb.Graphics.Primitives import EphemerisArrays
 import math
@@ -43,7 +41,7 @@ vyEom = sy.Eq(sy.diff(vy, t), u.diff(y)-2*vx)
 vzEom = sy.Eq(sy.diff(vz, t), u.diff(z))
 
 subsDict = {mu: muVal}
-helper = OdeLambdifyHelper(t, [xEom, yEom, zEom, vxEom, vyEom, vzEom], [], subsDict)
+helper = OdeLambdifyHelper(t, [x,y,z,vx,vy,vz], [xEom.rhs, yEom.rhs, zEom.rhs, vxEom.rhs, vyEom.rhs, vzEom.rhs], [], subsDict)
 
 integratorCallback = helper.CreateSimpleCallbackForSolveIvp()
 tArray = np.linspace(0.0, 10.0, 1000)

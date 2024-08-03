@@ -30,4 +30,6 @@ dependencies:
   - idaes-pse
   - vispy
   - setuptools
+  - spiceypy
+  - czml3
 prefix: C:\Programs\miniforge3\envs\py310optfun

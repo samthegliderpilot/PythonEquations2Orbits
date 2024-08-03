@@ -29,7 +29,7 @@ class Cartesian(sy.Matrix) :
         """
         return self
 
-    def __init__(self, x, y, z) : # note that the __new__ function will take care of hte x,y,z
+    def __init__(self, x, y, z) : # note that the __new__ function will take care of the x,y,z
         super().__init__()
         """Initialize a new instance.  
 

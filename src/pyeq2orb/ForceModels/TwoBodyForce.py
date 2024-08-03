@@ -26,10 +26,9 @@ def CreateTwoBodyListForModifiedEquinoctialElements(eqElements : ModifiedEquinoc
         rows.append(sy.Eq(eqElements[i].diff(eqElements[i].args[0]), mat.row(i)[0]))
     return rows
 
-
-# def CreateCartesianOdeAsArray(mu):
-#     def twoBodyLambda(t, x):
-#         rSqr = x[0]**2+x[1]**2+x[2]**2
-#         muOverR2 = mu/(rSqr)
-#         return [x[3], x[4], x[5], x[0]*muOverR2, x[1]*muOverR2, x[2]*muOverR2]
-#     return twoBodyLambda
+def TwoBodyAccelerationDifferentialExpression(x, y, z, mu) -> sy.Matrix:
+    rSquared = x**2+y**2+z**2    
+    xdd = -1*mu*x/(sy.Pow(rSquared, 1.5))
+    ydd = -1*mu*y/(sy.Pow(rSquared, 1.5))
+    zdd = -1*mu*z/(sy.Pow(rSquared, 1.5))
+    return sy.Matrix([xdd, ydd, zdd])
