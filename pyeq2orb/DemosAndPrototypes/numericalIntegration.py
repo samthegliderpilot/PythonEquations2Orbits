@@ -2,7 +2,7 @@
 import __init__ #type: ignore
 from typing import List, Optional
 import sympy as sy
-from pyeq2orb.Numerical.OdeHelperModule import OdeHelper
+from pyeq2orb.DemosAndPrototypes.OdeDeSolveHelper import OdeDeSolveHelper
 
 import numpy as np 
 import numpy.typing as npt
@@ -63,7 +63,7 @@ gSy = sy.Symbol('g')
 
 initialValues = [0.0, 0.0, 10.0, 100.0]
 
-gravityOdeHelper = OdeHelper(t)
+gravityOdeHelper = OdeDeSolveHelper(t)
 gravityOdeHelper.setStateElement(x(t), vx(t), x(0))
 gravityOdeHelper.setStateElement(y(t), vy(t), y(0))
 gravityOdeHelper.setStateElement(vx(t), 0.0, vx(0))
@@ -72,7 +72,7 @@ gravityOdeHelper.setStateElement(vy(t), -1*gSy, vy(0))
 #gravityOdeHelper.lambdifyParameterSymbols.append(gSy)
 gravityOdeHelper.constants[gSy] = g
 
-print(gravityOdeHelper.makeStateForLambdifiedFunction())
+print(gravityOdeHelper._makeStateForLambdifiedFunction())
 
 callback = gravityOdeHelper.createLambdifiedCallback()
 deSolveAns = gravityOdeHelper.attemptDeSolve()

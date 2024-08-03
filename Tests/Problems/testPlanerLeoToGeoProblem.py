@@ -95,7 +95,7 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
         # this line sets the lambdas in the equations of motion and integration state
         #problem.StateVariableDynamics.update(zip(lambdas, lambdaDotExpressions))
         for i in range(0, len(lambdas)) :
-            problem.AddCostateVariable(ProblemVariable(lambdas[i], lambdaDotExpressions[i]))
+            problem.AddCostateElement(ProblemVariable(lambdas[i], lambdaDotExpressions[i]))
         problem.SubstitutionDictionary[problem.ControlVariables[0]]  =controlSolved
         SafeSubs(problem.StateVariableDynamics, {problem.ControlVariables[0]: controlSolved})
         # the trig simplification needs the deep=True for this problem to make the equations even cleaner

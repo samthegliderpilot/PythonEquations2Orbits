@@ -470,7 +470,7 @@ class Problem(ABC) :
         #TODO: See if this is valid
 
         for j in range(0, len(self.CostateSymbols)):
-            newProblem.AddCostateVariable(ProblemVariable(self.CostateSymbols[i],SafeSubs(self.CostateDynamicsEquations[i], dictOfOriginalSvsToNewSvs)*dNewSvWrtOldSv[j]))
+            newProblem.AddCostateElement(ProblemVariable(self.CostateSymbols[i],SafeSubs(self.CostateDynamicsEquations[i], dictOfOriginalSvsToNewSvs)*dNewSvWrtOldSv[j]))
 
 
 
@@ -544,7 +544,7 @@ class Problem(ABC) :
         #TODO: See if this is valid
 
         for j in range(0, len(self.CostateSymbols)):
-            newProblem.AddCostateVariable(ProblemVariable(SafeSubs(self.CostateSymbols[i], symbolSubs), SafeSubs(self.CostateDynamicsEquations[i], dictOfOriginalSvsToNewSvs)*dtDTau))
+            newProblem.AddCostateElement(ProblemVariable(SafeSubs(self.CostateSymbols[i], symbolSubs), SafeSubs(self.CostateDynamicsEquations[i], dictOfOriginalSvsToNewSvs)*dtDTau))
 
         newProblem._timeScaleFactor =self.TimeFinalSymbol #TODO: User needs to set this to some degree
         newProblem._otherArgs.append(self.TimeFinalSymbol)

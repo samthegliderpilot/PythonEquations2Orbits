@@ -256,7 +256,7 @@ def doItAll(tArray, includeJ2) ->blackBoxSingleShootingFunctions:
 
 
     for i in range(0, len(lambdas)):
-        problem.AddCostateVariable(ProblemVariable(lambdas[i], lmdDotArray[i]))
+        problem.AddCostateElement(ProblemVariable(lambdas[i], lmdDotArray[i]))
 
     for (k,v) in fullSubsDictionary.items():
         problem.SubstitutionDictionary[k] =v

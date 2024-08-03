@@ -1,6 +1,7 @@
 import unittest
+import math
 import sympy as sy
-from pyeq2orb.Numerical.LambdifyHelpers import LambdifyHelper
+from pyeq2orb.Numerical.LambdifyHelpers import LambdifyHelper, OdeLambdifyHelper
 
 class testLambdifyHelper(unittest.TestCase) :
     def testEmptyCreation(self) :
@@ -70,3 +71,91 @@ class testLambdifyHelper(unittest.TestCase) :
         answer = callback(7,8) 
         self.assertEqual(48, answer[0], msg="x dot val")
         self.assertEqual(130, answer[1], msg="u dot val")              
+
+
+class testOdeLambdifyHelper(unittest.TestCase):
+    def testCreation(self):
+        t = sy.Symbol('t')
+        g = sy.Symbol('g')
+        a = sy.Symbol('a')
+        b = sy.Symbol('b')
+        z = [sy.Function('x')(t), sy.Function('y')(t)]
+        zDot = [z[1], g + a]
+
+        otherArgs = [a]
+        subsDict = {b:5.0}
+        helper = OdeLambdifyHelper(t, z, zDot, otherArgs, subsDict)
+
+        assert helper.EquationsOfMotion == zDot
+        assert helper.ExpressionsToLambdify == zDot
+        assert helper.FunctionRedirectionDictionary == {}
+        assert helper.LambdifyArguments == [t, z, otherArgs]
+        assert helper.NonTimeLambdifyArguments == z
+        assert helper.SubstitutionDictionary == subsDict
+
+    def testMakingCallback(self):
+        t = sy.Symbol('t')
+        g = sy.Symbol('g')
+        a = sy.Symbol('a')
+        b = sy.Symbol('b')
+        c = sy.Symbol('c')
+        d = sy.Symbol('d')
+        z = [sy.Function('x')(t), sy.Function('y')(t)]
+        zDot = [z[1], a+b+c+d]
+
+        otherArgs = [a, b]
+        subsDict = {c:3.0, d:4.0}
+        helper = OdeLambdifyHelper(t, z, zDot, otherArgs, subsDict)
+
+        cb = helper.CreateSimpleCallbackForSolveIvp()        
+        oneStep = cb(1.0, [1.0, -1.0], 1.0, 2.0)
+        expected = [-1.0, 10.0]
+        assert oneStep[0] == expected[0]
+        assert oneStep[1] == expected[1]
+
+    def testMakingCallbackConstantEoms(self):
+        t = sy.Symbol('t')
+        g = sy.Symbol('g')
+        a = sy.Symbol('a')
+        b = sy.Symbol('b')
+        c = sy.Symbol('c')
+        d = sy.Symbol('d')
+        z = [sy.Function('x')(t), sy.Function('y')(t)]
+        zDot = [-1.0, 10.0]
+
+        otherArgs = [a, b]
+        subsDict = {c:3.0, d:4.0}
+        helper = OdeLambdifyHelper(t, z, zDot, otherArgs, subsDict)
+
+        cb = helper.CreateSimpleCallbackForSolveIvp()        
+        oneStep = cb(1.0, [1.0, -1.0], 1.0, 2.0)
+        expected = [-1.0, 10.0]
+        assert oneStep[0] == expected[0]
+        assert oneStep[1] == expected[1]
+
+    def testRedirection(self):
+        customSinCalled = False
+        def customSin(value):
+            nonlocal customSinCalled
+            customSinCalled = True
+            return math.sin(value)
+
+        t = sy.Symbol('t')
+        cs = sy.Function('sin_c')
+
+        z = [sy.Function('x')(t), sy.Function('y')(t)]
+        zDot = [cs(z[1]), sy.cos(z[0])]
+
+        otherArgs = []
+        subsDict = {}
+        helper = OdeLambdifyHelper(t, z, zDot, otherArgs, subsDict)
+        helper.FunctionRedirectionDictionary['sin_c'] = lambda v: customSin(v)
+
+        cb = helper.CreateSimpleCallbackForSolveIvp()        
+
+        oneStep = cb(1.0, [1.0, -1.0])
+        expected = [math.sin(-1.0), math.cos(1.0)]
+        assert oneStep[0] == expected[0]
+        assert oneStep[1] == expected[1]        
+        assert customSinCalled
+

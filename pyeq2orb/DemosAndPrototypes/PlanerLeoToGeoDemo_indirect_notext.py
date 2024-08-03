@@ -110,7 +110,7 @@ hamiltonian = problem.CreateHamiltonian(costateSymbols)
 jh.showEquation("H", hamiltonian)
 lambdaDotExpressions = problem.CreateLambdaDotCondition(hamiltonian)
 for i in range(0, 4):
-    problem.AddCostateVariable(ProblemVariable(costateSymbols[i], lambdaDotExpressions[i]))
+    problem.AddCostateElement(ProblemVariable(costateSymbols[i], lambdaDotExpressions[i]))
     jh.showEquation(costateSymbols[i].diff(problem.TimeSymbol), lambdaDotExpressions[i, 0])    
 
 

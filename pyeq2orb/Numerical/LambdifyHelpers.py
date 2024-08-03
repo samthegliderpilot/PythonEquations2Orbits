@@ -40,7 +40,7 @@ class LambdifyHelper :
         if substitutionDictionary == None:
             substitutionDictionary = {}
 
-        self._functionRedirectionArray={} #type: Dict[str, Callable]
+        self._functionRedirectionDict={} #type: Dict[str, Callable]
 
         self._lambdifyArguments = lambdifyArguments
         self._expressionsToGetLambdified = expressionsToLambdify
@@ -76,8 +76,8 @@ class LambdifyHelper :
         return self._expressionsToGetLambdified
 
     @property 
-    def FunctionRedirectionArray(self) -> Dict[str, Callable]:
-        return self._functionRedirectionArray
+    def FunctionRedirectionDictionary(self) -> Dict[str, Callable]:
+        return self._functionRedirectionDict
 
     @property 
     def SubstitutionDictionary(self) -> Dict :
@@ -155,7 +155,7 @@ class OdeLambdifyHelper(LambdifyHelper):
             otherArgsList = []
 
         self._otherArgs = otherArgsList
-        LambdifyHelper.__init__(self, [time, self._nonTimeStateVariables], self._firstOrderStateDynamics, substitutionDictionary)
+        LambdifyHelper.__init__(self, [time, self._nonTimeStateVariables, self._otherArgs], self._firstOrderStateDynamics, substitutionDictionary)
 
     @property
     def Time(self) -> sy.Symbol:
@@ -184,9 +184,7 @@ class OdeLambdifyHelper(LambdifyHelper):
 
         Returns:
             Callable: A callback to use in scipy.ode.solveivp functions (and odeint if you put time first).
-        """
-        # if odeState == None :
-        #     odeState = self.CreateDefaultState()
+        """        
         equationsOfMotion = self.ExpressionsToLambdify
         eomList = []
         for thisEom in equationsOfMotion :
@@ -195,19 +193,14 @@ class OdeLambdifyHelper(LambdifyHelper):
                 thisEom = SafeSubs(thisEom, self.SubstitutionDictionary).doit(deep=True)  
                 thisEom = SafeSubs(thisEom, self.SubstitutionDictionary).doit(deep=True)  
             eomList.append(thisEom)   
-        # for thisEom in equationsOfMotion :
-        #     # eom's could be constant equations.  Check, add if it doesn't have subs
-        #     if(hasattr(thisEom, "subs")) :
-        #         thisEom = SafeSubs(thisEom, self.SubstitutionDictionary).doit(deep=True)  
-        odeArgs = []
-        odeArgs.extend(self.LambdifyArguments)
-        if odeArgs[0] != self.Time :   
-            odeArgs = [self.Time, cast(Union[sy.Symbol, List[sy.Symbol]], List(odeArgs))]
-        if self.OtherArguments != None and len(self.OtherArguments) >0 :
-            odeArgs.append(self.OtherArguments)
+        odeArgs = self.BuildLambdafyingState()
         
-        eomCallback = sy.lambdify(odeArgs, eomList, modules=['numpy'], cse=True, dummify=True)
-        #TODO: This cant call lambdify directly, it must call base class
+        modules : List[Any]= ['numpy']
+        if self.FunctionRedirectionDictionary != None and len(self.FunctionRedirectionDictionary) > 0:
+            modules = [self.FunctionRedirectionDictionary, 'numpy']
+
+        eomCallback = sy.lambdify(odeArgs, eomList, modules=modules, cse=True, dummify=True)
+        #TODO: This shouldn't call lambdify directly, it should call base class?
 
         # don't need the next wrapper if there are no other args
         if self.OtherArguments == None or len(self.OtherArguments) == 0 :            
@@ -218,38 +211,40 @@ class OdeLambdifyHelper(LambdifyHelper):
             return eomCallback(t, y, args)
         return callbackFunc        
 
-    def CreateListOfStateVariableCallbacksTimeFirst(self) ->List[Callable]:
-        # if odeState == None :
-        #     odeState = self.CreateDefaultState()
+    def CreateListOfEomCallbacks(self) ->List[Callable]:
         equationsOfMotion = self.ExpressionsToLambdify
-        eomList = []
-        odeArgs = self.LambdifyArguments
-        if odeArgs[0] != self.Time :   
-            odeArgs = [self.Time, cast(Union[sy.Symbol, List[sy.Symbol]], odeArgs)]
-        if self.OtherArguments != None and len(self.OtherArguments) >0 :
-            odeArgs.append(self.OtherArguments)        
+        eomStagingList = []
         for thisEom in equationsOfMotion :
             # eom's could be constant equations.  Check, add if it doesn't have subs
             if(hasattr(thisEom, "subs")) :
                 thisEom = SafeSubs(thisEom, self.SubstitutionDictionary).doit(deep=True)  
-            #eomList.append(thisEom)   
-        # for thisEom in equationsOfMotion :
-        #     # eom's could be constant equations.  Check, add if it doesn't have subs
-        #     if(hasattr(thisEom, "subs")) :
-        #         thisEom = SafeSubs(thisEom, self.SubstitutionDictionary).doit(deep=True)  
-            modules = ['scipy']
-            if self.FunctionRedirectionArray != None and len(self.FunctionRedirectionArray) >0 : 
-                moduels = self.FunctionRedirectionArray
+                thisEom = SafeSubs(thisEom, self.SubstitutionDictionary).doit(deep=True)  
+            eomStagingList.append(thisEom)   
+        odeArgs = self.BuildLambdafyingState()
+        
+        modules = ['scipy']
+        if self.FunctionRedirectionDictionary != None and len(self.FunctionRedirectionDictionary) >0 : 
+            moduels = self.FunctionRedirectionDictionary
+        
+        eomList=[]
+        for thisEom in eomStagingList :
             eomCallback = sy.lambdify(odeArgs, thisEom, modules=moduels, cse=True)
-        # don't need the next wrapper if there are no other args
+
             if not (self.OtherArguments == None or len(self.OtherArguments) == 0) :            
-                # if there are other arguments, handle that
                 def callbackFunc(t, y, *args) :
                     return eomCallback(t, y,args)
                 eomCallback = callbackFunc
+
             eomList.append(eomCallback)
         return eomList        
 
+    def BuildLambdafyingState(self) :
+        state = []
+        state.append(self.Time)
+        state.append(self.NonTimeLambdifyArguments)
+        if self.OtherArguments != None and len(self.OtherArguments) > 0:
+            state.append(self.OtherArguments)
+        return state
 
     def CreateSimpleCallbackForOdeint(self) -> Callable : 
         """Creates a lambdified expression of the (assumed) equations of motion in ExpressionsToLambdify.
@@ -278,7 +273,6 @@ class OdeLambdifyHelper(LambdifyHelper):
     def AddStateVariable(self, stateVariable : sy.Symbol, firstOrderStateVariableDynamic : sy.Expr):
         self.NonTimeLambdifyArguments.append(stateVariable)
         self.ExpressionsToLambdify.append(firstOrderStateVariableDynamic)
-        #self._firstOrderStateDynamics.append(firstOrderStateVariableDynamic)
 
     def AddStateVariables(self, stateVariables : List[sy.Symbol], stateVariableDynamics : List[sy.Expr]) :
         for i in range(0, len(stateVariables)) :
