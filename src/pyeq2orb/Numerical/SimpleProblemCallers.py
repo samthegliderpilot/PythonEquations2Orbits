@@ -86,7 +86,7 @@ class IIntegrationAnswer(ABC):
         return bcState
 
     def StateVariableHistoryByIndex(self, i:int) -> List[float]:
-        return self.StateHistory[self.OriginalProblem.StateVariables[i]]
+        return self.StateHistory[self.OriginalProblem.StateSymbols[i]]
 
 class IEverythingAnswer(IIntegrationAnswer):
     """The base interface for answers from a propagation problem with potential boundary conditions."""
@@ -210,7 +210,7 @@ class EverythingProblem(ABC):
 
     @property
     @abstractmethod
-    def StateVariables(self) ->List[sy.Symbol]:
+    def StateSymbols(self) ->List[sy.Symbol]:
         """A list of the state variable symbols (normal state variables, co-states, path constraints... doesn't matter, all 
         variables getting propagated through time).
 
@@ -263,7 +263,7 @@ class SingleShootingFunctions(EverythingProblem, ABC):
         pass
 
     @abstractmethod
-    def IntegrateDifferentialEquations(self, time : Iterable[float], y0 : List[float], *args  : List[float]) -> IIntegrationAnswer:
+    def IntegrateDifferentialEquations(self, time : Iterable[float], y0 : List[float], args  : List[float]) -> IIntegrationAnswer:
         """Performs the full integration of the problem.  This function will wrap your call to solve_ivp or ode_solve or 
         whatever integration scheme you want.
 
@@ -296,7 +296,7 @@ class SingleShootingFunctions(EverythingProblem, ABC):
 
     @staticmethod
     def CreateIntegrationCallbackFromLambdifiedCallback(lambdifiedCallback : Callable[[List[float], List[float], List[float]], Tuple[Dict[sy.Symbol, List[float]], Optional[Any]]], problem) -> Callable[[List[float], List[float], List[float]], IIntegrationAnswer]:
-        def fullCallback(t : List[float], x : List[float], *args : List[float]) -> IIntegrationAnswer:
+        def fullCallback(t : List[float], x : List[float], args : List[float]) -> IIntegrationAnswer:
             (dictAns, integratorOutput) = lambdifiedCallback(t, x, *args)
             integrationAnswer = SimpleIntegrationAnswer(problem, t, dictAns, integratorOutput)
             return integrationAnswer
@@ -314,7 +314,7 @@ class BlackBoxSingleShootingFunctions(SingleShootingFunctions):
         self._otherArguments = cast(List[sy.Symbol], otherArgs)
 
     @property
-    def StateVariables(self) ->List[sy.Symbol]:
+    def StateSymbols(self) ->List[sy.Symbol]:
         return self._stateVariables
 
     @property
@@ -325,8 +325,8 @@ class BlackBoxSingleShootingFunctions(SingleShootingFunctions):
     def OtherArgumentSymbols(self) ->List[sy.Symbol]:
         return self._otherArguments
 
-    def IntegrateDifferentialEquations(self, t, y, *args) -> IIntegrationAnswer:
-        return self._integrationCallback(t, y, *args)
+    def IntegrateDifferentialEquations(self, t, y, args) -> IIntegrationAnswer:
+        return self._integrationCallback(t, y, args)
 
     def BoundaryConditionEvaluation(self, integrationAnswer : IIntegrationAnswer, args  : List[float]) -> List[float]:     
         return self._boundaryConditionCallback(integrationAnswer, *args)
@@ -358,8 +358,8 @@ class singleShootingSolver(ABC):
         i = -1
         for control in controlsForSolver:
             i = i+1
-            if control in evaluatableProblem.StateVariables:
-                thisControlIndex = evaluatableProblem.StateVariables.index(control)
+            if control in evaluatableProblem.StateSymbols:
+                thisControlIndex = evaluatableProblem.StateSymbols.index(control)
                 self._indicesOfInitialStateToUpdate[i] = thisControlIndex
                 continue
             thisControlIndex = evaluatableProblem.OtherArgumentSymbols.index(control)
@@ -415,9 +415,9 @@ class fSolveSingleShootingSolver(singleShootingSolver):
             
             if not(parameters == None or len(parameters) == 0):
                 argsCopy = list(parameters)
-                finalArgs = self.updateInitialParametersWithSolverValues(fSolveValues, argsCopy)
+                finalArgs : Tuple[float, ...]= tuple(self.updateInitialParametersWithSolverValues(fSolveValues, argsCopy))
             else:
-                finalArgs =[]
+                finalArgs =tuple()
             
 
             everythingAns = self.EvaluatableProblem.EvaluateProblem(time, copiedInitialState, finalArgs)

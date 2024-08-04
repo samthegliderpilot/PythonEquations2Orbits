@@ -66,20 +66,20 @@ class Problem(ABC) :
 
 
     @staticmethod
-    def CreateBarVariables(orgVariables : List[sy.Symbol], timeSymbol :sy.Symbol) ->List[sy.Symbol] :
-        """A helper function to make a 
+    def CreateBarVariables(originalVariables : List[sy.Symbol], timeSymbol :sy.Symbol) ->List[sy.Symbol] :
+        """A helper function to make a set of elements that
 
         Args:
-            orgVariables (List[sy.Expr]): _description_
+            originalVariables (List[sy.Expr]): _description_
             timeSymbol (sy.Expr): _description_
 
         Returns:
             _type_: _description_
         """
         baredVariables = [] #type : List[sy.Expr]
-        for var in orgVariables :
-            name = var.__getattribute__('name')            
-            baredVariables.append(sy.Function(r'\bar{' + name+ '}')(timeSymbol))
+        for var in originalVariables :
+            name = var.__getattribute__('name')                        
+            baredVariables.append(sy.Function(r'\bar{' + name+ '}')(timeSymbol), **var.assumptions0)
         return baredVariables
 
     @property
@@ -94,7 +94,7 @@ class Problem(ABC) :
         return self._substitutionDictionary
 
     @property
-    def StateVariables(self) -> List[sy.Symbol]:
+    def StateSymbols(self) -> List[sy.Symbol]:
         """Gets the state variables for this problem.  These should be in terms of TimeSymbol. 
         This must be implemented by the derived type.
 
@@ -104,7 +104,7 @@ class Problem(ABC) :
         return [x.Element for x in self._stateVariables]
     
     @property
-    def ControlVariables(self) -> List[sy.Symbol]:
+    def ControlSymbols(self) -> List[sy.Symbol]:
         """Gets a list of the control variables.  These should be in terms of TimeSymbol. 
         This must be implemented by the derived type.
 
@@ -256,22 +256,22 @@ class Problem(ABC) :
     def AddStateVariable(self, stateVariable: ProblemVariable):
         self._stateVariables.append(stateVariable)
 
-    def AddCostateVariable(self, costateVariable : sy.Symbol):
+    def AddCostateSymbol(self, costateVariable : sy.Symbol):
         self._costateElements.append(ProblemVariable(costateVariable, None))
 
-    def AddCostateVariables(self, costateVariable : List[sy.Symbol]):
+    def AddCostateSymbols(self, costateVariable : List[sy.Symbol]):
         for lmd in costateVariable:
-            self.AddCostateVariable(lmd)
+            self.AddCostateSymbol(lmd)
 
     @property
     def CostateSymbols(self) ->List[sy.Symbol]:
         return [x.Element for x in self._costateElements]
 
     @property
-    def CostateElements(self) ->List[sy.Symbol]:
+    def CostateVariables(self) ->List[sy.Symbol]:
         return self._costateElements
 
-    def AddCostateElement(self, costateElement : ProblemVariable):
+    def AddCostateVariable(self, costateElement : ProblemVariable):
         self._costateElements.append(costateElement)
 
     @property 
@@ -287,8 +287,8 @@ class Problem(ABC) :
             List[sy.Eq]: The equations of motion as symbolic equations,
         """
         equations = []
-        for i in range(0, len(self.StateVariables)):
-            equations.append(sy.Eq(self.StateVariables[i].diff(self.TimeSymbol), self.StateVariableDynamics[i]))
+        for i in range(0, len(self.StateSymbols)):
+            equations.append(sy.Eq(self.StateSymbols[i].diff(self.TimeSymbol), self.StateVariableDynamics[i]))
         return equations
 
     @property
@@ -302,8 +302,8 @@ class Problem(ABC) :
             List[sy.Expr]: The equations of motion in a list in the same order as the state variables.
         """
         tempArray = []
-        for i in range(0, len(self.StateVariables)) :
-            tempArray.append(sy.Eq(self.StateVariables[i].diff(self.TimeSymbol), self.StateVariableDynamics[i]))
+        for i in range(0, len(self.StateSymbols)) :
+            tempArray.append(sy.Eq(self.StateSymbols[i].diff(self.TimeSymbol), self.StateVariableDynamics[i]))
         return tempArray
 
     def CreateCostFunctionAsEquation(self, lhs : Optional[sy.Expr]=None) -> sy.Eq :
@@ -326,7 +326,7 @@ class Problem(ABC) :
             sy.Matrix: The equations of motion in matrix form.
         """
         tempArray = []
-        for i in range(0, len(self.StateVariables)) :
+        for i in range(0, len(self.StateSymbols)) :
             tempArray.append(self.StateVariableDynamics[i])
         return Vector.fromArray(tempArray)
 
@@ -336,7 +336,7 @@ class Problem(ABC) :
         Returns:
             sy.Matrix: The state variables in a sympy Matrix.
         """
-        return Vector.fromArray(self.StateVariables)
+        return Vector.fromArray(self.StateSymbols)
 
     def ControlVariablesInMatrixForm(self) -> sy.Matrix :
         """Takes the list of control variables and turns them into a sympy Matrix.
@@ -344,7 +344,7 @@ class Problem(ABC) :
         Returns:
             sy.Matrix: The control variables in a sympy Matrix.
         """
-        return Vector.fromArray(self.ControlVariables)        
+        return Vector.fromArray(self.ControlSymbols)        
 
     def AddInitialValuesToDictionary(self, subsDict : Dict, initialValuesArray : List, lambdas : Optional[List[sy.Expr]]=None):
         """Adds the initial values to the provided dictionary.
@@ -357,7 +357,7 @@ class Problem(ABC) :
             added to the passed in dictionary as well.  Defaults to None.
         """
         i = 0
-        for sv in self.StateVariables :
+        for sv in self.StateSymbols :
             subsDict[sv.subs(self.TimeSymbol, self.TimeInitialSymbol)] = initialValuesArray[i]
             i=i+1
         if lambdas == None :
@@ -415,7 +415,7 @@ class Problem(ABC) :
         bcSubsDict = {}
         descalingDict = {}
         simpleNewSvReplacement = {}
-        if len(newSvs) != len(self.StateVariables):
+        if len(newSvs) != len(self.StateSymbols):
             raise Exception("When scaling state variables, all state variables must be present (even if the scaling is just 1)")
 
         # the expression for scaling expressions is (scaling x to x1):
@@ -423,7 +423,7 @@ class Problem(ABC) :
         # So for the dynamics, substitute {x:x1} and then multiple by dx1/dt
         for i in range(0, len(newSvs)):            
             newSv = newSvs[i]
-            oldSv = self.StateVariables[i]
+            oldSv = self.StateSymbols[i]
             scaleExpEq = sy.Eq(oldSv, dictOfOriginalSvsToNewSvs[oldSv])
             newSvInTermsOfOld = sy.solve(scaleExpEq, newSv)[0].diff(oldSv) # this generally should be a simple expression and not too complicated #TODO: Do I need to specify both?
             descalingDict[newSv] = newSvInTermsOfOld
@@ -440,15 +440,15 @@ class Problem(ABC) :
         newProblem._substitutionDictionary = {}
         for (k,v) in self._substitutionDictionary.items() :
             newProblem._substitutionDictionary[k.subs(dictOfOriginalSvsToNewSvs)] = SafeSubs(v, dictOfOriginalSvsToNewSvs)
-        newProblem._controlVariables = self.ControlVariables
+        newProblem._controlVariables = self.ControlSymbols
         newProblem._scalingDict = dict(dictOfOriginalSvsToNewSvs) #make a copy since this problem is not the owner of the original
         newProblem._descaleDict = descalingDict
         for (k,v) in self._scalingDict:
             newProblem._scalingDict[k]=v
 
         # sv's and dynamics
-        for i in range(0, len(self.StateVariables)):
-            oldSv = self.StateVariables[i]
+        for i in range(0, len(self.StateSymbols)):
+            oldSv = self.StateSymbols[i]
             newSv = newSvs[i]
             newProblem.AddStateVariable(ProblemVariable(newSv, SafeSubs(self.StateVariableDynamics[i], dictOfOriginalSvsToNewSvs)*dNewSvWrtOldSv[i]))
 
@@ -460,8 +460,8 @@ class Problem(ABC) :
         newProblem._unIntegratedPathCost = SafeSubs(self.UnIntegratedPathCost, dictOfOriginalSvsToNewSvs)
         finalTimeSubsDict = {}
         timeToFinalTimeSubsDict = {newProblem.TimeSymbol: newProblem.TimeFinalSymbol}
-        for k in range(0, len(self.StateVariables)):
-            sv = self.StateVariables[k]
+        for k in range(0, len(self.StateSymbols)):
+            sv = self.StateSymbols[k]
             #finalTimeSubsDict[sv.subs(timeToFinalTimeSubsDict)] = SafeSubs(dictOfOriginalSvsToNewSvs[sv], timeToFinalTimeSubsDict)
             finalTimeSubsDict[sv.subs(timeToFinalTimeSubsDict)] = SafeSubs(simpleNewSvReplacement[sv], timeToFinalTimeSubsDict)
         newProblem._terminalCost = SafeSubs(self.TerminalCost, finalTimeSubsDict)
@@ -470,7 +470,7 @@ class Problem(ABC) :
         #TODO: See if this is valid
 
         for j in range(0, len(self.CostateSymbols)):
-            newProblem.AddCostateElement(ProblemVariable(self.CostateSymbols[i],SafeSubs(self.CostateDynamicsEquations[i], dictOfOriginalSvsToNewSvs)*dNewSvWrtOldSv[j]))
+            newProblem.AddCostateVariable(ProblemVariable(self.CostateSymbols[i],SafeSubs(self.CostateDynamicsEquations[i], dictOfOriginalSvsToNewSvs)*dNewSvWrtOldSv[j]))
 
 
 
@@ -497,7 +497,7 @@ class Problem(ABC) :
         newProblem._descaleDict={}
         for k in self._descaleDict.keys():
             newProblem._descaleDict[SafeSubs(k, symbolSubs)] = SafeSubs(self._descaleDict[k], symbolSubs)
-        #newProblem._controlVariables = self.ControlVariables # need to do control variables separately below
+        #newProblem._controlVariables = self.ControlSymbols # need to do control variables separately below
         newProblem._scalingDict = dict(dictOfOriginalSvsToNewSvs) #make a copy since this problem is not the owner of the original
         for (k,v) in self._scalingDict.items():
             newProblem._scalingDict[k]=v
@@ -505,7 +505,7 @@ class Problem(ABC) :
         bcSubsDict = {}
         # sv's and dynamics
         newSvs = []
-        for sv in self.StateVariables:
+        for sv in self.StateSymbols:
             newSv = SafeSubs(sv, symbolSubs)
             newSvs.append(newSv)
             dictOfOriginalSvsToNewSvs[sv] = newSv
@@ -513,13 +513,13 @@ class Problem(ABC) :
 
         # control exp
         badControlExpFix = {}
-        for cv in self.ControlVariables:
+        for cv in self.ControlSymbols:
             goodCv = SafeSubs(cv, symbolSubs)
-            newProblem.ControlVariables.append(goodCv)
+            newProblem.ControlSymbols.append(goodCv)
             badControlExpFix[SafeSubs(cv, dictOfOriginalSvsToNewSvs)] = goodCv
 
-        for i in range(0, len(self.StateVariables)):
-            oldSv = self.StateVariables[i]
+        for i in range(0, len(self.StateSymbols)):
+            oldSv = self.StateSymbols[i]
             dynamics = SafeSubs(self.StateVariableDynamics[i], dictOfOriginalSvsToNewSvs)*dtDTau
             fixedDynamics = SafeSubs(dynamics, badControlExpFix)
             newProblem.AddStateVariable(ProblemVariable(newSvs[i], fixedDynamics))
@@ -533,7 +533,7 @@ class Problem(ABC) :
         dictOfFinalSymbols = {}
         simpleNewTimeFinalSubsDict = {self.TimeSymbol: newFinalTimeSymbol}
         oldTimeToTimeFinalSubsDict = {self.TimeSymbol: self.TimeFinalSymbol}
-        for sv in self.StateVariables:
+        for sv in self.StateSymbols:
             dictOfFinalSymbols[sv.subs(oldTimeToTimeFinalSubsDict)] = sv.subs(simpleNewTimeFinalSubsDict)
 
         #newProblem._terminalCost = SafeSubs(self.TerminalCost, dictOfOriginalSvsToNewSvs)
@@ -544,7 +544,7 @@ class Problem(ABC) :
         #TODO: See if this is valid
 
         for j in range(0, len(self.CostateSymbols)):
-            newProblem.AddCostateElement(ProblemVariable(SafeSubs(self.CostateSymbols[i], symbolSubs), SafeSubs(self.CostateDynamicsEquations[i], dictOfOriginalSvsToNewSvs)*dtDTau))
+            newProblem.AddCostateVariable(ProblemVariable(SafeSubs(self.CostateSymbols[i], symbolSubs), SafeSubs(self.CostateDynamicsEquations[i], dictOfOriginalSvsToNewSvs)*dtDTau))
 
         newProblem._timeScaleFactor =self.TimeFinalSymbol #TODO: User needs to set this to some degree
         newProblem._otherArgs.append(self.TimeFinalSymbol)
@@ -566,7 +566,7 @@ class Problem(ABC) :
         # counter=0
         # for sv in self._unscaledStateVariables :
         #     oldSv = sv
-        #     sv = self.StateVariables[counter]
+        #     sv = self.StateSymbols[counter]
         #     simpleSubsDict[oldSv] = sv*self._scalingDict[oldSv]
         #     simpleSubsDict[oldSv.subs(self._unscaledTimeSymbol, self._unscaledTimeFinalSymbol)] = sv.subs(self.TimeSymbol, self.TimeFinalSymbol)*self._scalingDict[oldSv]
         #     counter=counter+1
@@ -596,8 +596,8 @@ class Problem(ABC) :
             scalingFactors[k] = factor
         for key, value in resultsDictionary.items() :
             sv = key
-            if sv in self.StateVariables and counter < len(self.StateVariables):
-                originalSv = self.StateVariables[self.StateVariables.index(sv)]
+            if sv in self.StateSymbols and counter < len(self.StateSymbols):
+                originalSv = self.StateSymbols[self.StateSymbols.index(sv)]
                 convertedArray = np.array(value, copy=True)/scalingFactors[sv]# SafeSubs(self._descaleDict[originalSv], self.SubstitutionDictionary) #TODO: This is probably a problem
                 returnDict[originalSv] = convertedArray
                 counter = counter+1
@@ -824,7 +824,7 @@ class Problem(ABC) :
         termFunc = self.TerminalCost.subs(self.TimeSymbol, self.TimeFinalSymbol) + (Vector.fromArray(nus).transpose()*Vector.fromArray(self.BoundaryConditions))[0,0]
         finalConditions = []
         i=0
-        for x in self.StateVariables :
+        for x in self.StateSymbols :
             if i >= len(lambdasFinal) :
                 break
             xf = x.subs(self.TimeSymbol, self.TimeFinalSymbol)
@@ -838,7 +838,7 @@ class Problem(ABC) :
         problemToWorkWith = self
         # if self._wrappedProblem != None :
         #     problemToWorkWith = self._wrappedProblem                
-        finalSvs = SafeSubs(problemToWorkWith.StateVariables, {problemToWorkWith.TimeSymbol: problemToWorkWith.TimeFinalSymbol})
+        finalSvs = SafeSubs(problemToWorkWith.StateSymbols, {problemToWorkWith.TimeSymbol: problemToWorkWith.TimeFinalSymbol})
         for lmd in lambdasFinal :
             if lmd in finalSvs :
                 finalSvs.remove(lmd)
@@ -877,17 +877,17 @@ class Problem(ABC) :
             List[List[float]]: The values of the Hamiltonian, its first derivative and second derivative for the entered solution.
         """
 
-        stateForEom = [self.TimeSymbol, *self.StateVariables, *self.CostateSymbols]
+        stateForEom = [self.TimeSymbol, *self.StateSymbols, *self.CostateSymbols]
 
         constantsSubsDict = self.SubstitutionDictionary
 
         dHdu = self.CreateHamiltonianControlExpressions(hamiltonian).doit()[0]
-        d2Hdu2 = sy.diff(hamiltonian, self.ControlVariables[0], 2)
+        d2Hdu2 = sy.diff(hamiltonian, self.ControlSymbols[0], 2)
         #d2Hdu2 =  self.CreateHamiltonianControlExpressions(dHdu).doit()[0] # another way to calculate it, but doesn't seem to be as good
         toEval = hamiltonian.subs(controlSolved).subs(moreSubs).trigsimp(deep=True).subs(constantsSubsDict)
         hamiltonianExpression = sy.lambdify(stateForEom, toEval)
         solArray = []
-        for sv in self.StateVariables :
+        for sv in self.StateSymbols :
             solArray.append(np.array(solution[sv]))
         for sv in self.CostateSymbols :
             solArray.append(np.array(solution[sv]))            

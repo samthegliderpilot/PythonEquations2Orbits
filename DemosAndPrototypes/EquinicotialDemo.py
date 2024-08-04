@@ -77,12 +77,12 @@ class HowManyImpulses(Problem) :
             self.AddStateVariable(ProblemVariable(elements[i], stateDynamics[i]))
         self.AddStateVariable(ProblemVariable(m,-1*thrust*throttle/(isp*g)))
         
-        self.ControlVariables.append(azi)
-        self.ControlVariables.append(elv)
-        self.ControlVariables.append(throttle)
+        self.ControlSymbols.append(azi)
+        self.ControlSymbols.append(elv)
+        self.ControlSymbols.append(throttle)
         self._unIntegratedPathCost = throttle* thrust/c
         self._terminalCost = 0
-        self.StateVariables.extend(Problem.CreateCostateVariables(self.StateVariables, None, t))
+        self.StateSymbols.extend(Problem.CreateCostateVariables(self.StateSymbols, None, t))
         #self.StateVariableDynamics[self.CostateSymbols[0]] = 
         #self.Hamiltonian = self.CreateHamiltonian(self.CostateSymbols)
 
@@ -134,7 +134,7 @@ class HowManyImpulses(Problem) :
         return self._mu
 
     def AddFinalConditions(self, pF, fF, gF, hF, kF, lF) :
-        elementsAtF = self.CreateVariablesAtTimeFinal(self.StateVariables)
+        elementsAtF = self.CreateVariablesAtTimeFinal(self.StateSymbols)
         self.BoundaryConditions.append(elementsAtF[0] - pF)
         self.BoundaryConditions.append(elementsAtF[1] - fF)
         self.BoundaryConditions.append(elementsAtF[2] - gF)
@@ -222,7 +222,7 @@ h0 = initialElements.InclinationSinTermK
 lon0 = initialElements.TrueLongitude
 print("making base base problem")
 baseProblem = HowManyImpulses()
-newSvs = Problem.CreateBarVariables(baseProblem.StateVariables, baseProblem.TimeSymbol)
+newSvs = Problem.CreateBarVariables(baseProblem.StateSymbols, baseProblem.TimeSymbol)
 baseProblem.SubstitutionDictionary[baseProblem.Mu] = cast(float, initialElements.GravitationalParameter)
 baseProblem.SubstitutionDictionary[baseProblem.Isp] = isp
 baseProblem.SubstitutionDictionary[baseProblem.Mass] = m0Val
@@ -231,7 +231,7 @@ baseProblem.SubstitutionDictionary[AuSy] = Au
 baseProblem.SubstitutionDictionary[gSy] = g
 
 integrationSymbols = []
-integrationSymbols.extend(baseProblem.StateVariables)
+integrationSymbols.extend(baseProblem.StateSymbols)
 
 arguments = [baseProblem.Azimuth, baseProblem.Elevation, baseProblem.Throttle, baseProblem.TimeFinalSymbol]
 #arguments = [baseProblem.Ux, baseProblem.Uy, baseProblem.Uz, baseProblem.Throttle, baseProblem.TimeFinalSymbol]
@@ -242,11 +242,11 @@ lambdifyFunctionMap = {'sqrt': poenv.sqrt, 'sin': poenv.sin, 'cos':poenv.cos} #T
 
 trivialScalingDic = {} # type: Dict[sy.Symbol, SymbolOrNumber]
 i=0
-for sv in baseProblem.StateVariables :
+for sv in baseProblem.StateSymbols :
     trivialScalingDic[sv]=newSvs[i]
     i=i+1
-trivialScalingDic[baseProblem.StateVariables[0]] = newSvs[0]*(Au/10.0)
-#trivialScalingDic[baseProblem.StateVariables[5]] = 1.0
+trivialScalingDic[baseProblem.StateSymbols[0]] = newSvs[0]*(Au/10.0)
+#trivialScalingDic[baseProblem.StateSymbols[5]] = 1.0
 print("making scaled problem")
 
 for eom in baseProblem.EquationsOfMotionAsEquations:
@@ -254,7 +254,7 @@ for eom in baseProblem.EquationsOfMotionAsEquations:
 baseProblem.flattenEquationsOfMotion()
 
 scaledProblem = baseProblem.ScaleStateVariables(newSvs, trivialScalingDic)
-#scaledProblem = baseProblem.ScaleProblem(baseProblem.StateVariables, trivialScalingDic, baseProblem.TimeFinalSymbol)
+#scaledProblem = baseProblem.ScaleProblem(baseProblem.StateSymbols, trivialScalingDic, baseProblem.TimeFinalSymbol)
 
 asNumericalProblem = OdeLambdifyHelperWithBoundaryConditions.CreateFromProblem(scaledProblem)
 for (k,v) in lambdifyFunctionMap.items() :
@@ -265,32 +265,32 @@ print("scaled and numerical problems made")
 
 def getInertialThrustVectorFromDataDict(problem : Problem, dataDict, muValue) -> List[Cartesian] :
     cartesians = []
-    az = dataDict[problem.ControlVariables[0]]
-    el = dataDict[problem.ControlVariables[1]]
-    mag = dataDict[problem.ControlVariables[2]]
+    az = dataDict[problem.ControlSymbols[0]]
+    el = dataDict[problem.ControlSymbols[1]]
+    mag = dataDict[problem.ControlSymbols[2]]
     for i in range(0, len(az)) :
         x = mag[i] * math.cos(az[i])*math.cos(el[i])
         y = mag[i] * math.sin(az[i])*math.cos(el[i])
         z = mag[i] * math.sin(el[i])      
-        equiElements = ModifiedEquinoctialElements(dataDict[problem.StateVariables[0]][i], dataDict[problem.StateVariables[1]][i], dataDict[problem.StateVariables[2]][i], dataDict[problem.StateVariables[3]][i], dataDict[problem.StateVariables[4]][i], dataDict[problem.StateVariables[5]][i], muValue)      
+        equiElements = ModifiedEquinoctialElements(dataDict[problem.StateSymbols[0]][i], dataDict[problem.StateSymbols[1]][i], dataDict[problem.StateSymbols[2]][i], dataDict[problem.StateSymbols[3]][i], dataDict[problem.StateSymbols[4]][i], dataDict[problem.StateSymbols[5]][i], muValue)      
         ricToInertial = orb.CreateComplicatedRicToInertialMatrix(equiElements.ToMotionCartesian())
         cartesians.append(ricToInertial*Cartesian(x,y,z))
     return cartesians
 
 def convertIvpResultsToDataDict(problem : Problem, ivpResults) -> dict :
     converted = OrderedDict()
-    for i in range(0, len(problem.StateVariables)) :
-        converted[problem.StateVariables[i]] = ivpResults.y[i]
+    for i in range(0, len(problem.StateSymbols)) :
+        converted[problem.StateSymbols[i]] = ivpResults.y[i]
     return converted
 
 def addFixedAzElMagToDataDict(problem : Problem, dataDict, initialAz, initialEl, initialMag):
-    dataDict[problem.ControlVariables[0]] = []
-    dataDict[problem.ControlVariables[1]] = []
-    dataDict[problem.ControlVariables[2]] = []
-    for i in range(0, len(dataDict[problem.StateVariables[0]])) :
-        dataDict[problem.ControlVariables[0]].append(initialAz)
-        dataDict[problem.ControlVariables[1]].append(initialEl)
-        dataDict[problem.ControlVariables[2]].append(initialMag)
+    dataDict[problem.ControlSymbols[0]] = []
+    dataDict[problem.ControlSymbols[1]] = []
+    dataDict[problem.ControlSymbols[2]] = []
+    for i in range(0, len(dataDict[problem.StateSymbols[0]])) :
+        dataDict[problem.ControlSymbols[0]].append(initialAz)
+        dataDict[problem.ControlSymbols[1]].append(initialEl)
+        dataDict[problem.ControlSymbols[2]].append(initialMag)
 
 def createScattersForThrustVectors(ephemeris : prim.EphemerisArrays, inertialThrustVectors : List[Cartesian], color : str, scale : float) -> List[px.scatter_3d] :
     scats = []
@@ -336,15 +336,15 @@ problemForOneOffPropagation = baseProblem
 #%%
 from pyeq2orb.Numerical.LambdifyHelpers import OdeLambdifyHelper
 
-odeHelper = OdeLambdifyHelper(problemForOneOffPropagation.TimeSymbol, problemForOneOffPropagation.StateVariables, problemForOneOffPropagation.StateVariableDynamics, [problemForOneOffPropagation.Azimuth, problemForOneOffPropagation.Elevation, problemForOneOffPropagation.Throttle, problemForOneOffPropagation.TimeFinalSymbol], problemForOneOffPropagation.SubstitutionDictionary)
-initialStateSymbols = SafeSubs(problemForOneOffPropagation.StateVariables, {problemForOneOffPropagation.TimeSymbol: problemForOneOffPropagation.TimeInitialSymbol})
-# odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[0], problemForOneOffPropagation.StateVariableDynamics[0], initialStateSymbols[0])
-# odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[1], problemForOneOffPropagation.StateVariableDynamics[1], initialStateSymbols[1])
-# odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[2], problemForOneOffPropagation.StateVariableDynamics[2], initialStateSymbols[2])
-# odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[3], problemForOneOffPropagation.StateVariableDynamics[3], initialStateSymbols[3])
-# odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[4], problemForOneOffPropagation.StateVariableDynamics[4], initialStateSymbols[4])
-# odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[5], problemForOneOffPropagation.StateVariableDynamics[5], initialStateSymbols[5])
-# odeHelper.setStateElement(problemForOneOffPropagation.StateVariables[6], problemForOneOffPropagation.StateVariableDynamics[6], initialStateSymbols[6])
+odeHelper = OdeLambdifyHelper(problemForOneOffPropagation.TimeSymbol, problemForOneOffPropagation.StateSymbols, problemForOneOffPropagation.StateVariableDynamics, [problemForOneOffPropagation.Azimuth, problemForOneOffPropagation.Elevation, problemForOneOffPropagation.Throttle, problemForOneOffPropagation.TimeFinalSymbol], problemForOneOffPropagation.SubstitutionDictionary)
+initialStateSymbols = SafeSubs(problemForOneOffPropagation.StateSymbols, {problemForOneOffPropagation.TimeSymbol: problemForOneOffPropagation.TimeInitialSymbol})
+# odeHelper.setStateElement(problemForOneOffPropagation.StateSymbols[0], problemForOneOffPropagation.StateVariableDynamics[0], initialStateSymbols[0])
+# odeHelper.setStateElement(problemForOneOffPropagation.StateSymbols[1], problemForOneOffPropagation.StateVariableDynamics[1], initialStateSymbols[1])
+# odeHelper.setStateElement(problemForOneOffPropagation.StateSymbols[2], problemForOneOffPropagation.StateVariableDynamics[2], initialStateSymbols[2])
+# odeHelper.setStateElement(problemForOneOffPropagation.StateSymbols[3], problemForOneOffPropagation.StateVariableDynamics[3], initialStateSymbols[3])
+# odeHelper.setStateElement(problemForOneOffPropagation.StateSymbols[4], problemForOneOffPropagation.StateVariableDynamics[4], initialStateSymbols[4])
+# odeHelper.setStateElement(problemForOneOffPropagation.StateSymbols[5], problemForOneOffPropagation.StateVariableDynamics[5], initialStateSymbols[5])
+# odeHelper.setStateElement(problemForOneOffPropagation.StateSymbols[6], problemForOneOffPropagation.StateVariableDynamics[6], initialStateSymbols[6])
 # odeHelper.lambdifyParameterSymbols.append(baseProblem.Azimuth)
 # odeHelper.lambdifyParameterSymbols.append(baseProblem.Elevation)
 # odeHelper.lambdifyParameterSymbols.append(baseProblem.Throttle)
@@ -375,8 +375,8 @@ print("making pyomo model")
 
 model = poenv.ConcreteModel()
 model.t = podae.ContinuousSet(initialize=np.linspace(0.0, 1.0, n), domain=poenv.NonNegativeReals)
-smaLow = 126.10e9/trivialScalingDic[baseProblem.StateVariables[0]] # little less than earth
-smaHigh = 327.0e9/trivialScalingDic[baseProblem.StateVariables[0]] # little more than mars
+smaLow = 126.10e9/trivialScalingDic[baseProblem.StateSymbols[0]] # little less than earth
+smaHigh = 327.0e9/trivialScalingDic[baseProblem.StateSymbols[0]] # little more than mars
 
 # some day, if I want to, using the add_component and a healthy amount of wrapping methods, we could
 # fully automate the creation of a pyomo model from the symbolic problem statement.  But I would 
@@ -422,7 +422,7 @@ class PyomoHelperFunctions :
     
 
 pyomoHelper = PyomoHelperFunctions(model, model.t)
-perRad = pyomoHelper.addStateElementToPyomo("perRad", smaLow, smaHigh, float(per0/trivialScalingDic[baseProblem.StateVariables[0]]))
+perRad = pyomoHelper.addStateElementToPyomo("perRad", smaLow, smaHigh, float(per0/trivialScalingDic[baseProblem.StateSymbols[0]]))
 fVar = pyomoHelper.addStateElementToPyomo("f", -0.7, 0.7, float(f0))
 gVar = pyomoHelper.addStateElementToPyomo("g", -0.7, 0.7, float(g0))
 hVar = pyomoHelper.addStateElementToPyomo("h", -0.7, 0.7, float(h0))
@@ -473,7 +473,7 @@ model.kEom = poenv.Constraint(model.t, rule =lambda m, t2: m.kDot[t2] == mapPyom
 model.lonEom = poenv.Constraint(model.t, rule =lambda m, t2: m.lonDot[t2] == mapPyomoStateToProblemState(m, t2, listOfEomCallback[5]))
 model.massEom = poenv.Constraint(model.t, rule =lambda m, t2: m.mDot[t2] == mapPyomoStateToProblemState(m, t2, listOfEomCallback[6]))
 
-model.bc1 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[0](mod1, 1.0) - float(finalElements.SemiParameter/trivialScalingDic[baseProblem.StateVariables[0]]))
+model.bc1 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[0](mod1, 1.0) - float(finalElements.SemiParameter/trivialScalingDic[baseProblem.StateSymbols[0]]))
 model.bc2 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[1](mod1, 1.0) - float(finalElements.EccentricityCosTermF))
 model.bc3 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[2](mod1, 1.0) - float(finalElements.EccentricitySinTermG))
 model.bc4 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[3](mod1, 1.0) - float(finalElements.InclinationCosTermH))
@@ -538,13 +538,13 @@ def extractPyomoSolution(model, stateSymbols):
 
     return [tSpace, ansAsDict]
 
-stateSymbols = [*baseProblem.StateVariables, *baseProblem.ControlVariables, baseProblem.Throttle]
+stateSymbols = [*baseProblem.StateSymbols, *baseProblem.ControlSymbols, baseProblem.Throttle]
 [time, dictSolution] = extractPyomoSolution(model, stateSymbols)
 time = time*tfVal
 dictSolution = scaledProblem.DescaleResults(dictSolution)
 equiElements = []
 for i in range(0, len(time)):    
-    temp = ModifiedEquinoctialElements(dictSolution[stateSymbols[0]][i]*trivialScalingDic[baseProblem.StateVariables[0]], dictSolution[stateSymbols[1]][i], dictSolution[stateSymbols[2]][i], dictSolution[stateSymbols[3]][i], dictSolution[stateSymbols[4]][i], dictSolution[stateSymbols[5]][i], muVal)
+    temp = ModifiedEquinoctialElements(dictSolution[stateSymbols[0]][i]*trivialScalingDic[baseProblem.StateSymbols[0]], dictSolution[stateSymbols[1]][i], dictSolution[stateSymbols[2]][i], dictSolution[stateSymbols[3]][i], dictSolution[stateSymbols[4]][i], dictSolution[stateSymbols[5]][i], muVal)
     #realEqui = scaleEquinoctialElements(temp, 1.0, 1.0)
     equiElements.append(temp)
 
@@ -555,7 +555,7 @@ simOtherValues[stateSymbols[6]] = []
 # simOtherValues[stateSymbols[8]] = []
 # simOtherValues[stateSymbols[9]] = []
 for i in range(0, len(tSim)) :
-    temp = ModifiedEquinoctialElements(profiles[i][0]*trivialScalingDic[baseProblem.StateVariables[0]], profiles[i][1], profiles[i][2], profiles[i][3], profiles[i][4], profiles[i][5], muVal)
+    temp = ModifiedEquinoctialElements(profiles[i][0]*trivialScalingDic[baseProblem.StateSymbols[0]], profiles[i][1], profiles[i][2], profiles[i][3], profiles[i][4], profiles[i][5], muVal)
     simOtherValues[stateSymbols[6]].append(profiles[i][6])
     # simOtherValues[stateSymbols[7]].append(profiles[i][7])
     # simOtherValues[stateSymbols[8]].append(profiles[i][8])

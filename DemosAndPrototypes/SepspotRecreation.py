@@ -155,7 +155,7 @@ def doItAll(tArray, includeJ2) ->blackBoxSingleShootingFunctions:
     problem = problem.ScaleTime(tau, sy.Symbol('tt_0'), sy.Symbol('tt_f'), tau*problem.TimeFinalSymbol)
 
     zDot = problem.EquationsOfMotionInMatrixForm()
-    x = sy.Matrix(problem.StateVariables)
+    x = sy.Matrix(problem.StateSymbols)
     B = SafeSubs(B, {t: tau})
     def recurseArgs(someFunction, argsICareAbout, existingArgs) : 
         recursed = False
@@ -262,7 +262,7 @@ def doItAll(tArray, includeJ2) ->blackBoxSingleShootingFunctions:
         problem.SubstitutionDictionary[k] =v
 
     scaleDict = {} #type: Dict[sy.Symbol, SymbolOrNumber]
-    for sv in problem.StateVariables :
+    for sv in problem.StateSymbols :
         scaleDict[sv] = 1.0
 
     
@@ -305,8 +305,8 @@ def doItAll(tArray, includeJ2) ->blackBoxSingleShootingFunctions:
 
     lambdaStarts= SafeSubs(lambdas, {problem.TimeSymbol: problem.TimeInitialSymbol})
     lambdaEnds = SafeSubs(lambdas, {problem.TimeSymbol: problem.TimeFinalSymbol})
-    initialState = SafeSubs(problem.StateVariables, {problem.TimeSymbol: problem.TimeInitialSymbol})
-    finalState = SafeSubs(problem.StateVariables, {problem.TimeSymbol: problem.TimeFinalSymbol})
+    initialState = SafeSubs(problem.StateSymbols, {problem.TimeSymbol: problem.TimeInitialSymbol})
+    finalState = SafeSubs(problem.StateSymbols, {problem.TimeSymbol: problem.TimeFinalSymbol})
 
     #all at t_0
     #[lon, lmdA, lmdF, lmdG, lmdP, lmdQ, lmdLmd, tf]

@@ -38,19 +38,19 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
         else:
             nus = [sy.Symbol('B_{u_f}'), sy.Symbol('B_{v_f}')]
         baseProblem = ContinuousThrustCircularOrbitTransferProblem()
-        initialStateValues = baseProblem.CreateVariablesAtTime0(baseProblem.StateVariables)
+        initialStateValues = baseProblem.CreateVariablesAtTime0(baseProblem.StateSymbols)
         problem = baseProblem #type: Problem
-        lambdas = Problem.CreateCostateVariables(problem.StateVariables, r'\lambda', problem.TimeSymbol)
+        lambdas = Problem.CreateCostateVariables(problem.StateSymbols, r'\lambda', problem.TimeSymbol)
         baseProblem.CostateSymbols.extend(lambdas)
         if scale :
-            newSvs = Problem.CreateBarVariables(problem.StateVariables, problem.TimeSymbol) 
+            newSvs = Problem.CreateBarVariables(problem.StateSymbols, problem.TimeSymbol) 
             scaleTimeFactor = None
             if scaleTime :
                 scaleTimeFactor = problem.TimeFinalSymbol
-            problem = baseProblem.ScaleStateVariables(newSvs, {problem.StateVariables[0]: newSvs[0]*initialStateValues[0], 
-                                                                problem.StateVariables[1]: newSvs[1]*initialStateValues[2], 
-                                                                problem.StateVariables[2]: newSvs[2]* initialStateValues[2], 
-                                                                problem.StateVariables[3]: newSvs[3]})    
+            problem = baseProblem.ScaleStateVariables(newSvs, {problem.StateSymbols[0]: newSvs[0]*initialStateValues[0], 
+                                                                problem.StateSymbols[1]: newSvs[1]*initialStateValues[2], 
+                                                                problem.StateSymbols[2]: newSvs[2]* initialStateValues[2], 
+                                                                problem.StateSymbols[3]: newSvs[3]})    
             if scaleTime :
                 tau = sy.Symbol('\tau', real=True)
                 problem = problem.ScaleTime(tau, sy.Symbol('\tau_0', real=True), sy.Symbol('\tau_f', real=True), tau*problem.TimeFinalSymbol)   
@@ -80,24 +80,24 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
             v0=v0/v0
             lon0=lon0/1.0
             # add the scaled initial values (at tau_0).  We should NOT need to add these at t_0
-            initialScaledStateValues = problem.CreateVariablesAtTime0(problem.StateVariables)
+            initialScaledStateValues = problem.CreateVariablesAtTime0(problem.StateSymbols)
             constantsSubsDict.update(zip(initialScaledStateValues, [r0, u0, v0, 1.0])) 
             
         # this next block does most of the problem, pretty standard optimal control actions
         #problem.Lambdas = 
         
         hamiltonian = Problem.CreateHamiltonianStatic(problem.TimeSymbol, sy.Matrix([problem.StateVariableDynamics]).transpose(), 0, lambdas)
-        lambdaDotExpressions = Problem.CreateLambdaDotConditionStatic(hamiltonian, sy.Matrix([problem.StateVariables]).transpose())
-        dHdu = Problem.CreateHamiltonianControlExpressionsStatic(hamiltonian, sy.Matrix([problem.ControlVariables]).transpose())[0]
-        controlSolved = sy.solve(dHdu, problem.ControlVariables[0])[0] # something that may be different for other problems is when there are multiple control variables
+        lambdaDotExpressions = Problem.CreateLambdaDotConditionStatic(hamiltonian, sy.Matrix([problem.StateSymbols]).transpose())
+        dHdu = Problem.CreateHamiltonianControlExpressionsStatic(hamiltonian, sy.Matrix([problem.ControlSymbols]).transpose())[0]
+        controlSolved = sy.solve(dHdu, problem.ControlSymbols[0])[0] # something that may be different for other problems is when there are multiple control variables
 
         # you are in control of the order of integration variables and what EOM's get evaluated, start updating the problem
         # this line sets the lambdas in the equations of motion and integration state
         #problem.StateVariableDynamics.update(zip(lambdas, lambdaDotExpressions))
         for i in range(0, len(lambdas)) :
-            problem.AddCostateElement(ProblemVariable(lambdas[i], lambdaDotExpressions[i]))
-        problem.SubstitutionDictionary[problem.ControlVariables[0]]  =controlSolved
-        SafeSubs(problem.StateVariableDynamics, {problem.ControlVariables[0]: controlSolved})
+            problem.AddCostateVariable(ProblemVariable(lambdas[i], lambdaDotExpressions[i]))
+        problem.SubstitutionDictionary[problem.ControlSymbols[0]]  =controlSolved
+        SafeSubs(problem.StateVariableDynamics, {problem.ControlSymbols[0]: controlSolved})
         # the trig simplification needs the deep=True for this problem to make the equations even cleaner
         for i in range(0, len(problem.StateVariableDynamics)) :
             problem._stateVariables[i].FirstOrderDynamics = problem._stateVariables[i].FirstOrderDynamics.trigsimp(deep=True).simplify() # some simplification to make numerical code more stable later, and that is why this code forces us to do things somewhat manually.  There are often special things like this that we ought to do that you can't really automate.
@@ -120,7 +120,7 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
 
         # lambda_lon is always 0, so do that cleanup
         del problem.StateVariableDynamics[-1]
-        del problem.StateVariables[-1]
+        del problem.StateSymbols[-1]
         problem.BoundaryConditions.remove(transversalityCondition[-1])
         problem._costateElements.pop()
         lmdTheta = lambdas.pop()
@@ -138,7 +138,7 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
         if len(nus) > 0 :
             otherArgs.extend(nus)
         
-        allSvs = problem.StateVariables
+        allSvs = problem.StateSymbols
         allSvs.extend(problem.CostateSymbols)
 
         allDynamics = problem.StateVariableDynamics
@@ -155,8 +155,8 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
             argsForOde = [] #type: List[float]
             if scaleTime :
                 argsForOde.append(tfOrg)
-            argsForOde.append(initialFSolveStateGuess[1])
-            argsForOde.append(initialFSolveStateGuess[2])  
+            # argsForOde.append(initialFSolveStateGuess[1])
+            # argsForOde.append(initialFSolveStateGuess[2])  
             testSolution = solve_ivp(odeIntEomCallback, [tArray[0], tArray[-1]], [r0, u0, v0, lon0, *initialFSolveStateGuess[0:3]], args=tuple(argsForOde), t_eval=tArray, dense_output=True, method="LSODA")  
             #testSolution = odeint(odeIntEomCallback, [r0, u0, v0, lon0, *initialFSolveStateGuess[0:3]], tArray, args=tuple(argsForOde))
             finalValues = ScipyCallbackCreators.GetFinalStateFromIntegratorResults(testSolution)
@@ -169,9 +169,9 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
 
     def testInitialization(self) :
         problem = ContinuousThrustCircularOrbitTransferProblem()
-        self.assertEqual(problem.StateVariables[0].subs(problem.TimeSymbol, problem.TimeFinalSymbol), problem.TerminalCost, msg="terminal cost")
-        self.assertEqual(4, len(problem.StateVariables), msg="count of state variables")
-        self.assertEqual(1, len(problem.ControlVariables), msg="count of control variables")
+        self.assertEqual(problem.StateSymbols[0].subs(problem.TimeSymbol, problem.TimeFinalSymbol), problem.TerminalCost, msg="terminal cost")
+        self.assertEqual(4, len(problem.StateSymbols), msg="count of state variables")
+        self.assertEqual(1, len(problem.ControlSymbols), msg="count of control variables")
         self.assertEqual(0, problem.UnIntegratedPathCost, msg="unintegrated path cost")
         self.assertEqual("t" , problem.TimeSymbol.name, msg="time symbol")
         self.assertEqual("t_f" , problem.TimeFinalSymbol.name, msg="time final symbol")
@@ -182,11 +182,11 @@ class testPlanerLeoToGeoProblem(unittest.TestCase) :
 
     def testDifferentialTransversalityCondition(self) :
         problem = ContinuousThrustCircularOrbitTransferProblem()
-        lambdas = Problem.CreateCostateVariables(problem.StateVariables, 'L', problem.TimeFinalSymbol)
+        lambdas = Problem.CreateCostateVariables(problem.StateSymbols, 'L', problem.TimeFinalSymbol)
         hamiltonian = problem.CreateHamiltonian(lambdas)
         xversality = problem.TransversalityConditionInTheDifferentialForm(hamiltonian, 0.0, lambdas) # not allowing final time to vary
 
-        zeroedOutCondition =(xversality[0]-(sy.sqrt(problem.Mu)*lambdas[2]/(2*problem.StateVariables[0].subs(problem.TimeSymbol, problem.TimeFinalSymbol)**(3/2)) - lambdas[0] + 1)).expand().simplify()
+        zeroedOutCondition =(xversality[0]-(sy.sqrt(problem.Mu)*lambdas[2]/(2*problem.StateSymbols[0].subs(problem.TimeSymbol, problem.TimeFinalSymbol)**(3/2)) - lambdas[0] + 1)).expand().simplify()
         self.assertTrue((zeroedOutCondition).is_zero, msg="first xvers cond")
         self.assertTrue((xversality[1]+lambdas[-1]).is_zero, msg="lmd theta condition")
 

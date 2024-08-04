@@ -16,10 +16,10 @@ class testScaledSymbolicProblem(unittest.TestCase) :
         mu = orgProblem.Mu
         t = orgProblem.TimeSymbol
         newSvs = [sy.Function('rs')(t), sy.Function('rs')(t), sy.Function('vs')(t), sy.Function('lons')(t)]
-        subs = {orgProblem.StateVariables[0]: 4.0*newSvs[0], orgProblem.StateVariables[1]: 3.0*newSvs[1], orgProblem.StateVariables[2]: 5.0*newSvs[2], orgProblem.StateVariables[3]: 7.0*newSvs[3] }
+        subs = {orgProblem.StateSymbols[0]: 4.0*newSvs[0], orgProblem.StateSymbols[1]: 3.0*newSvs[1], orgProblem.StateSymbols[2]: 5.0*newSvs[2], orgProblem.StateSymbols[3]: 7.0*newSvs[3] }
         problem = orgProblem.ScaleStateVariables(newSvs, subs)
-        lambdas = Problem.CreateCostateVariables(problem.StateVariables, 'L', problem.TimeFinalSymbol)
-        r = problem.StateVariables[0].subs(problem.TimeSymbol, problem.TimeFinalSymbol)
+        lambdas = Problem.CreateCostateVariables(problem.StateSymbols, 'L', problem.TimeFinalSymbol)
+        r = problem.StateSymbols[0].subs(problem.TimeSymbol, problem.TimeFinalSymbol)
         l_r = lambdas[0]
         l_v = lambdas[2]
         hamiltonian = problem.CreateHamiltonian(lambdas)
@@ -33,15 +33,15 @@ class testScaledSymbolicProblem(unittest.TestCase) :
         orgProblem = ContinuousThrustCircularOrbitTransferProblem()
         t = sy.Symbol('t')
         newSvs = [sy.Function('rs')(t), sy.Function('rs')(t), sy.Function('vs')(t), sy.Function('lons')(t)]
-        subs = {orgProblem.StateVariables[0]: 4.0*newSvs[0], orgProblem.StateVariables[1]: 3.0*newSvs[1], orgProblem.StateVariables[2]: 5.0*newSvs[2], orgProblem.StateVariables[3]: 7.0*newSvs[3] }
+        subs = {orgProblem.StateSymbols[0]: 4.0*newSvs[0], orgProblem.StateSymbols[1]: 3.0*newSvs[1], orgProblem.StateSymbols[2]: 5.0*newSvs[2], orgProblem.StateSymbols[3]: 7.0*newSvs[3] }
         problem = orgProblem.ScaleStateVariables(newSvs, subs)
-        lambdas = Problem.CreateCostateVariables(problem.StateVariables, 'l', problem.TimeFinalSymbol)
+        lambdas = Problem.CreateCostateVariables(problem.StateSymbols, 'l', problem.TimeFinalSymbol)
         l_r = lambdas[0]
         l_u = lambdas[1]
         l_v = lambdas[2]
         l_theta = lambdas[3]
         mu = orgProblem.Mu
-        r = problem.StateVariables[0].subs(problem.TimeSymbol, problem.TimeFinalSymbol)
+        r = problem.StateSymbols[0].subs(problem.TimeSymbol, problem.TimeFinalSymbol)
         b1=sy.Symbol('b1')
         b2=sy.Symbol('b2')
         aug = [b1,b2 ]
@@ -128,9 +128,9 @@ class testScaledSymbolicProblem(unittest.TestCase) :
 
         values = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(problem.IntegrationSymbols,  odeAns)
         descaled = problem.DescaleResults(values)
-        self.assertAlmostEqual(descaled[problem.WrappedProblem.StateVariables[0]][-1], 42162080.85814935, delta=50, msg="radius check descaled")
-        self.assertAlmostEqual(descaled[problem.WrappedProblem.StateVariables[1]][-1], 0.000, 2, msg="u check descaled")
-        self.assertAlmostEqual(descaled[problem.WrappedProblem.StateVariables[2]][-1], 3074.735, 1, msg="v check descaled")    
+        self.assertAlmostEqual(descaled[problem.WrappedProblem.StateSymbols[0]][-1], 42162080.85814935, delta=50, msg="radius check descaled")
+        self.assertAlmostEqual(descaled[problem.WrappedProblem.StateSymbols[1]][-1], 0.000, 2, msg="u check descaled")
+        self.assertAlmostEqual(descaled[problem.WrappedProblem.StateSymbols[2]][-1], 3074.735, 1, msg="v check descaled")    
 
 
     def testScalingStateVariables(self):
@@ -166,7 +166,7 @@ class testScaledSymbolicProblem(unittest.TestCase) :
         prob.AddStateVariable(ProblemVariable(v, vDot))
         prob.AddStateVariable(ProblemVariable(l, lDot))
 
-        prob.ControlVariables.append(angle)
+        prob.ControlSymbols.append(angle)
 
         prob.TerminalCost = r.subs(t, prob.TimeFinalSymbol)
 
@@ -241,7 +241,7 @@ class testScaledSymbolicProblem(unittest.TestCase) :
         prob.AddStateVariable(ProblemVariable(v, vDot))
         prob.AddStateVariable(ProblemVariable(l, lDot))
 
-        prob.ControlVariables.append(angle)
+        prob.ControlSymbols.append(angle)
 
         prob.TerminalCost = r.subs(t, prob.TimeFinalSymbol)
 
@@ -327,7 +327,7 @@ class testScaledSymbolicProblem(unittest.TestCase) :
         prob.AddStateVariable(ProblemVariable(v, vDot))
         prob.AddStateVariable(ProblemVariable(l, lDot))
 
-        prob.ControlVariables.append(angle)
+        prob.ControlSymbols.append(angle)
         
         tf = prob.TimeFinalSymbol
 

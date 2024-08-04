@@ -9,8 +9,8 @@ class OdeDeSolveHelper :
     lambdifyStateGroupedAllOption = "group"
     lambdifyStateGroupedAllButParametersOption = "groupFlattenParamerts"
 
-    lambdifyStateOrderOptionTimeFirst = "Time,StateVariables,MissingInitialValues,Parameters"
-    lambdifyStateOrderOptionTimeMiddle = "StateVariables,Time,MissingInitialValues,Parameters"
+    lambdifyStateOrderOptionTimeFirst = "Time,StateSymbols,MissingInitialValues,Parameters"
+    lambdifyStateOrderOptionTimeMiddle = "StateSymbols,Time,MissingInitialValues,Parameters"
     def __init__(self, t) :
         self.equationsOfMotion = []
         self.initialSymbols = []

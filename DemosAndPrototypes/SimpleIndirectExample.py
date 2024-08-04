@@ -67,7 +67,7 @@ for (k,v) in pr_subsDict.items():
 for i in range(0, len(pr_y)):
     problem.AddStateVariable(ProblemVariable(pr_y[i], pr_eom[i]))
 
-problem.ControlVariables.append(pr_controls[0])
+problem.ControlSymbols.append(pr_controls[0])
 
 problem.BoundaryConditions.extend(pr_bcs)
 problem.TimeFinalSymbol = tf
@@ -84,11 +84,11 @@ problem = problem.ScaleTime(tau, tau0, tauF, tau*tf)
 lambdas = Problem.CreateCostateVariables(pr_y, None, tau)
 hamiltonian = problem.CreateHamiltonian(lambdas)
 showEquation("H", hamiltonian)
-lambdasEom = Problem.CreateLambdaDotEquationsStatic(hamiltonian, tau, problem.StateVariables, lambdas)
+lambdasEom = Problem.CreateLambdaDotEquationsStatic(hamiltonian, tau, problem.StateSymbols, lambdas)
 for i in range(0, len(pr_y)):
     problem.AddCostateElement(ProblemVariable(lambdas[i], lambdasEom[i]))
 
-controlExpressions = problem.CreateControlExpressionsFromHamiltonian(hamiltonian, problem.ControlVariables)
+controlExpressions = problem.CreateControlExpressionsFromHamiltonian(hamiltonian, problem.ControlSymbols)
 i=0
 for (k,v) in controlExpressions.items(): #type: ignore
     problem.SubstitutionDictionary[k] = v #type: ignore
@@ -121,7 +121,7 @@ numerical.ApplySubstitutionDictionaryToExpressions()
 ivpCallback = numerical.CreateSimpleCallbackForSolveIvp()
 
 integrationVariables = []
-integrationVariables.extend(problem.StateVariables)
+integrationVariables.extend(problem.StateSymbols)
 integrationVariables.extend(problem.CostateSymbols)
 
 def solve_ivp_wrapper(t, y, args):

@@ -54,19 +54,19 @@ nus = [sy.Symbol('B_{u_f}'), sy.Symbol('B_{v_f}')]
 #nus = []
 
 baseProblem = ContinuousThrustCircularOrbitTransferProblem()
-initialStateValues = baseProblem.CreateVariablesAtTime0(baseProblem.StateVariables)
+initialStateValues = baseProblem.CreateVariablesAtTime0(baseProblem.StateSymbols)
 problem = baseProblem
 
 if scale :
-    newSvs = ScaledSymbolicProblem.CreateBarVariables(problem.StateVariables, problem.TimeSymbol) 
-    problem = ScaledSymbolicProblem(baseProblem, newSvs, {problem.StateVariables[0]: initialStateValues[0], 
-                                                          problem.StateVariables[1]: initialStateValues[2], 
-                                                          problem.StateVariables[2]: initialStateValues[2], 
-                                                          problem.StateVariables[3]: 1.0} , scaleTime)
-rs = problem.StateVariables[0]
-us = problem.StateVariables[1]
-vs = problem.StateVariables[2]
-longitudes = problem.StateVariables[3]
+    newSvs = ScaledSymbolicProblem.CreateBarVariables(problem.StateSymbols, problem.TimeSymbol) 
+    problem = ScaledSymbolicProblem(baseProblem, newSvs, {problem.StateSymbols[0]: initialStateValues[0], 
+                                                          problem.StateSymbols[1]: initialStateValues[2], 
+                                                          problem.StateSymbols[2]: initialStateValues[2], 
+                                                          problem.StateSymbols[3]: 1.0} , scaleTime)
+rs = problem.StateSymbols[0]
+us = problem.StateSymbols[1]
+vs = problem.StateSymbols[2]
+longitudes = problem.StateSymbols[3]
 # make the time array
 tArray = np.linspace(0.0, tfOrg, 1200)
 if scaleTime:
@@ -94,7 +94,7 @@ if scale :
     v0=v0/v0
     lon0=lon0/1.0
     # add the scaled initial values (at tau_0).  We should NOT need to add these at t_0
-    initialScaledStateValues = problem.CreateVariablesAtTime0(problem.StateVariables)
+    initialScaledStateValues = problem.CreateVariablesAtTime0(problem.StateSymbols)
     constantsSubsDict.update(zip(initialScaledStateValues, [r0, u0, v0, lon0])) 
     
 lambdifyFunctionMap = {'sqrt': poenv.sqrt, 'sin': poenv.sin, 'cos':poenv.cos} #TODO: MORE!!!!
@@ -193,19 +193,19 @@ def plotPyomoSolution(model, stateSymbols):
 
     return [tSpace, ansAsDict]
 
-[tArray, solutionDictionary] = plotPyomoSolution(model, problem.StateVariables)
+[tArray, solutionDictionary] = plotPyomoSolution(model, problem.StateSymbols)
 unscaledResults = problem.DescaleResults(solutionDictionary)
 baseProblem.PlotSolution(tArray, unscaledResults, "Test")
 
 print("Tf = " + str(model.Tf.value/86400))
-jh.showEquation("r_f", unscaledResults[baseProblem.StateVariables[0]][-1]) 
-jh.showEquation("u_f", unscaledResults[baseProblem.StateVariables[1]][-1]) 
-jh.showEquation("v_f", unscaledResults[baseProblem.StateVariables[2]][-1])     
+jh.showEquation("r_f", unscaledResults[baseProblem.StateSymbols[0]][-1]) 
+jh.showEquation("u_f", unscaledResults[baseProblem.StateSymbols[1]][-1]) 
+jh.showEquation("v_f", unscaledResults[baseProblem.StateSymbols[2]][-1])     
 
 xyz = np.zeros((len(tArray), 3))
-for i in range(0, len(unscaledResults[baseProblem.StateVariables[0]])) :
-    r = unscaledResults[baseProblem.StateVariables[0]][i]
-    theta = unscaledResults[baseProblem.StateVariables[3]][i]
+for i in range(0, len(unscaledResults[baseProblem.StateSymbols[0]])) :
+    r = unscaledResults[baseProblem.StateSymbols[0]][i]
+    theta = unscaledResults[baseProblem.StateSymbols[3]][i]
     x = r*math.cos(theta)
     y = r*math.sin(theta)
     xyz[i,0] = x

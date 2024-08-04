@@ -308,7 +308,7 @@ class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
 
     @staticmethod
     def CreateFromProblem(problem : Problem) :
-        stateAndControl = [*problem.StateVariables, *problem.CostateSymbols]
+        stateAndControl = [*problem.StateSymbols, *problem.CostateSymbols]
         otherArgs : List[sy.Symbol] = problem.OtherArguments
         dynamics = []
         dynamics.extend(problem.StateVariableDynamics)
