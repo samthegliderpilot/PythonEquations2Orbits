@@ -11,16 +11,16 @@ import numpy as np
 import sympy as sy
 import math #type:ignore
 from scipy.optimize import fsolve #type:ignore
-from pyeq2orb.ProblemBase import ProblemVariable, Problem
-from pyeq2orb.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
-from pyeq2orb.Numerical import ScipyCallbackCreators
-from pyeq2orb.Numerical.LambdifyHelpers import LambdifyHelper, OdeLambdifyHelperWithBoundaryConditions
-from pyeq2orb.Utilities.SolutionDictionaryFunctions import GetValueFromStateDictionaryAtIndex
-from pyeq2orb import SafeSubs
+from pyeq2orb.ProblemBase import ProblemVariable, Problem #type:ignore
+from pyeq2orb.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem #type:ignore
+from pyeq2orb.Numerical import ScipyCallbackCreators #type:ignore
+from pyeq2orb.Numerical.LambdifyHelpers import LambdifyHelper, OdeLambdifyHelperWithBoundaryConditions #type:ignore
+from pyeq2orb.Utilities.SolutionDictionaryFunctions import GetValueFromStateDictionaryAtIndex #type:ignore
+from pyeq2orb import SafeSubs #type:ignore
 import scipyPaperPrinter as jh #type:ignore
 from datetime import datetime
 from typing import List
-from pyeq2orb.Numerical.SimpleProblemCallers import SimpleIntegrationAnswer,SingleShootingFunctions
+from pyeq2orb.Numerical.SimpleProblemCallers import SimpleIntegrationAnswer,SingleShootingFunctions  #type:ignore
 from pyeq2orb.Numerical.SimpleProblemCallers import BlackBoxSingleShootingFunctions, fSolveSingleShootingSolver, BlackBoxSingleShootingFunctionsFromLambdifiedFunctions
 
 print(str(datetime.now()))
@@ -36,6 +36,8 @@ r0 = 6678000.0
 u0 = 0.0
 v0 = sy.sqrt(mu/r0) # circular
 lon0 = 0.0
+
+r0_org = r0
 # I know from many previous runs that this is the time needed to go from LEO to GEO.
 # However, below works well wrapped in another fsolve to control the final time for a desired radius.
 tfVal  = 3600*3.97152*24 
@@ -43,7 +45,7 @@ tfOrg = tfVal
 
 # these are options to switch to try different things
 scaleElements = True
-scaleTime = scaleElements and False
+scaleTime = scaleElements and True
 
 # make the time array
 tArray = np.linspace(0.0, tfOrg, 1200)
@@ -142,7 +144,8 @@ jh.printMarkdown('The transversality conditions')
 for xvers in transversalityCondition :
     jh.showEquation(0, xvers, [problem.TimeInitialSymbol])
 
-
+if scaleTime : # add BC if we are working with the final time (not all solvers need this, but when the same number of BC's and variables are required by the solver [like fsolve does] then...)
+    problem.BoundaryConditions.append(stateAtTf[0]/r0_org-42162.0/r0_org)
 
 problem.BoundaryConditions.extend(transversalityCondition)
 
@@ -176,11 +179,10 @@ def solve_ivp_wrapper(t, y, *args):
     anAnsDict = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(integrationVariables, anAns)
     return (anAnsDict, anAns)
 
-boundaryConditionState = numerical.CreateDefaultStateForBoundaryConditions()
-bcCallback = numerical.CreateCallbackForBoundaryConditionsWithFullState(boundaryConditionState)
-betterFSolveCallback = SingleShootingFunctions.CreateBoundaryConditionCallbackFromLambdifiedCallback(bcCallback[1])
+bcCallback = numerical.CreateCallbackForBoundaryConditionsWithFullState()
+betterFSolveCallback = SingleShootingFunctions.CreateBoundaryConditionCallbackFromLambdifiedCallback(bcCallback)
 initialStateValues = [r0, u0, v0, lon0, *initialFSolveStateGuess]
-problemEvaluator = BlackBoxSingleShootingFunctionsFromLambdifiedFunctions(solve_ivp_wrapper, bcCallback[1], integrationVariables, problem.BoundaryConditions, problem.OtherArguments)
+problemEvaluator = BlackBoxSingleShootingFunctionsFromLambdifiedFunctions(solve_ivp_wrapper, bcCallback, integrationVariables, problem.BoundaryConditions, problem.OtherArguments)
 fSolveInputSymbols = problem.CostateSymbols[:3]
 if scaleTime:
     fSolveInputSymbols.append(originalProblem.TimeFinalSymbol)
@@ -192,14 +194,10 @@ if scaleTime:
     initialSolverGuess.append(tfOrg)
     argsArray.append(tfOrg)
 
-ans = solver.solve(initialSolverGuess, tArray, initialStateValues, argsArray, full_output=True, factor=0.2,epsfcn=0.001)
+ans = solver.solve(initialSolverGuess, tArray, initialStateValues, argsArray, full_output=True, factor=0.1,epsfcn=0.01)
 print(ans.SolverResult)
-#%%
 
-
-
-
-solution = ans.EvaluatedAnswer.RawIntegratorOutput# solve_ivp(odeIntEomCallback, [tArray[0], tArray[-1]], [r0, u0, v0, lon0, *fSolveSol[0][0:3]], args=tuple(fSolveSol[0][3:len(fSolveSol[0])]), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
+solution = ans.EvaluatedAnswer.RawIntegratorOutput
 solutionDictionary = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(integrationVariables, solution)
 unscaledResults = solutionDictionary
 unscaledTArray = tArray

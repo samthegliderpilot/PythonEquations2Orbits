@@ -192,7 +192,7 @@ class OdeLambdifyHelper(LambdifyHelper):
                 thisEom = SafeSubs(thisEom, self.SubstitutionDictionary).doit(deep=True)  
                 thisEom = SafeSubs(thisEom, self.SubstitutionDictionary).doit(deep=True)  
             eomList.append(thisEom)   
-        odeArgs = self.BuildLambdafyingState()
+        odeArgs = self.BuildLambdifyingState()
         
         modules : List[Any]= ['numpy']
         if self.FunctionRedirectionDictionary != None and len(self.FunctionRedirectionDictionary) > 0:
@@ -219,7 +219,7 @@ class OdeLambdifyHelper(LambdifyHelper):
                 thisEom = SafeSubs(thisEom, self.SubstitutionDictionary).doit(deep=True)  
                 thisEom = SafeSubs(thisEom, self.SubstitutionDictionary).doit(deep=True)  
             eomStagingList.append(thisEom)   
-        odeArgs = self.BuildLambdafyingState()
+        odeArgs = self.BuildLambdifyingState()
         
         modules = ['scipy']
         if self.FunctionRedirectionDictionary != None and len(self.FunctionRedirectionDictionary) >0 : 
@@ -237,7 +237,7 @@ class OdeLambdifyHelper(LambdifyHelper):
             eomList.append(eomCallback)
         return eomList        
 
-    def BuildLambdafyingState(self) :
+    def BuildLambdifyingState(self) :
         state = []
         state.append(self.Time)
         state.append(self.NonTimeLambdifyArguments)
@@ -337,9 +337,11 @@ class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
     def BoundaryConditionExpressions(self) -> List[sy.Expr] :
         return self._boundaryConditions # must equal 0
     
-    def CreateCallbackForBoundaryConditionsWithFullState(self, stateForBoundaryConditions) ->tuple[List[sy.Expr], Callable[..., float]]: 
+    def CreateCallbackForBoundaryConditionsWithFullState(self, stateForBoundaryConditions = None) ->Callable[..., float]: 
+        if stateForBoundaryConditions == None:
+            stateForBoundaryConditions = self.CreateDefaultStateForBoundaryConditions()
         boundaryConditionEvaluationCallbacks = LambdifyHelper.CreateLambdifiedExpressions(stateForBoundaryConditions, self.BoundaryConditionExpressions, self.SubstitutionDictionary)    
-        return (stateForBoundaryConditions,boundaryConditionEvaluationCallbacks)
+        return boundaryConditionEvaluationCallbacks
     
     def CreateDefaultStateForBoundaryConditions(self)->List[SymbolOrNumber]:
         stateForBoundaryConditions : List[SymbolOrNumber] = []

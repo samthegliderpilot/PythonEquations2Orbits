@@ -76,7 +76,7 @@ class Problem(ABC) :
         Returns:
             _type_: _description_
         """
-        baredVariables = [] #type : List[sy.Expr]
+        baredVariables :List[sy.Symbol] = [] 
         for var in originalVariables :
             name = var.__getattribute__('name')                        
             baredVariables.append(sy.Function(r'\bar{' + name+ '}')(timeSymbol), **var.assumptions0)

@@ -86,7 +86,7 @@ hamiltonian = problem.CreateHamiltonian(lambdas)
 showEquation("H", hamiltonian)
 lambdasEom = Problem.CreateLambdaDotEquationsStatic(hamiltonian, tau, problem.StateSymbols, lambdas)
 for i in range(0, len(pr_y)):
-    problem.AddCostateElement(ProblemVariable(lambdas[i], lambdasEom[i]))
+    problem.AddCostateVariable(ProblemVariable(lambdas[i], lambdasEom[i]))
 
 controlExpressions = problem.CreateControlExpressionsFromHamiltonian(hamiltonian, problem.ControlSymbols)
 i=0
@@ -135,11 +135,7 @@ def solve_ivp_wrapper(t, y, args):
 
 stateForBoundaryConditions = numerical.CreateDefaultStateForBoundaryConditions()
 bcCallback = numerical.CreateCallbackForBoundaryConditionsWithFullState(stateForBoundaryConditions)
-problemEvaluator = BlackBoxSingleShootingFunctionsFromLambdifiedFunctions(solve_ivp_wrapper, bcCallback[1], integrationVariables, problem.BoundaryConditions, [problem.TimeFinalSymbol])
-everything = problemEvaluator.EvaluateProblem(tArray, initialGuess, [3600.0])
-print(everything.BoundaryConditionValues)
-print(everything.StateHistory)
-
+problemEvaluator = BlackBoxSingleShootingFunctionsFromLambdifiedFunctions(solve_ivp_wrapper, bcCallback, integrationVariables, problem.BoundaryConditions, [problem.TimeFinalSymbol])
 
 fSolveSolver = fSolveSingleShootingSolver(problemEvaluator, [*problem.CostateSymbols[1:], problem.TimeFinalSymbol], problem.BoundaryConditions)
 tfEst = 250.0
@@ -162,10 +158,3 @@ for title in titles:
 i=0
 
 plotAThing("XY Path", "path", anAns.y[0], anAns.y[0])
-
-
-
-
-
-
-# %%
