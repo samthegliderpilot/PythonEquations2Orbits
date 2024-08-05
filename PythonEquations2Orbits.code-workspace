@@ -21,18 +21,7 @@
 			"!.gitignore",
 			"!.requirements.txt"
 		],
-    "python.testing.pytestArgs": [
-        "Tests"
-    ],
-    "python.testing.unittestEnabled": true,
-    "python.testing.pytestEnabled": false,
-    "python.testing.unittestArgs": [
-        "-v",
-        "-s",
-        "./Tests",
-        "-p",
-        "test*.py"
-    ],
+
     "cSpell.words": [
 		"AIAA",
 		"alphahull",
@@ -58,6 +47,7 @@
 		"GPOPS",
 		"hoverinfo",
 		"initcon",
+		"interp",
 		"iplot",
 		"ipopt",
 		"Ipynb",
