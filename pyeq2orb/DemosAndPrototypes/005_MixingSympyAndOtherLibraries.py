@@ -50,20 +50,22 @@ z = sy.Function('z')(t)
 xDot = x.diff(t)
 yDot = y.diff(t)
 zDot = z.diff(t)
+satVec = sy.Matrix([x,y,z])
 
 muEarth = sy.Symbol(r'\mu_e')
 muMoon = sy.Symbol(r'\mu_l')
 
 rEarth2 = x*x+y*y+z*z
 
-moonLoc = sy.MatrixSymbol('xyz_l', 1, 3)
 moonX = sy.Function('x_l')(t)#moonLoc[0]
 moonY = sy.Function('y_l')(t)#moonLoc[1]
 moonZ = sy.Function('z_l')(t)#moonLoc[2]
-xRelativeToMoon = moonX-x
-yRelativeToMoon = moonY-y
-zRelativeToMoon = moonZ-z
+moonVec = sy.Matrix([moonX, moonY, moonZ]) # will be column
+relToMoon = moonVec - satVec
+
 rSatToMoon2 = xRelativeToMoon**2+yRelativeToMoon**2+zRelativeToMoon**2
+
+
 
 eom = [xDot, yDot, zDot, muEarth*x/rEarth2 + muMoon*moonX/rSatToMoon2, muEarth*y/rEarth2*moonY/rSatToMoon2, muEarth*z/rEarth2*moonZ/rSatToMoon2]
 #jh.showEquation("Z", eom)
