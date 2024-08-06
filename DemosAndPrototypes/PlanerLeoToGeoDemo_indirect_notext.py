@@ -31,6 +31,7 @@ thrust = 20.0
 isp = 6000.0
 m0 = 1500.0
 
+
 # initial values
 r0 = 6678000.0
 u0 = 0.0
@@ -38,6 +39,9 @@ v0 = sy.sqrt(mu/r0) # circular
 lon0 = 0.0
 
 r0_org = r0
+u0_org = u0
+v0_org = v0
+lon0_org = lon0
 # I know from many previous runs that this is the time needed to go from LEO to GEO.
 # However, below works well wrapped in another fsolve to control the final time for a desired radius.
 tfVal  = 3600*3.97152*24 
@@ -158,8 +162,62 @@ constantsSubsDict[lmdTheta]=0
 constantsSubsDict[lmdTheta.subs(problem.TimeSymbol, problem.TimeFinalSymbol)]=0
 constantsSubsDict[lmdTheta.subs(problem.TimeSymbol, problem.TimeInitialSymbol)]=0
 
-
 initialFSolveStateGuess = ContinuousThrustCircularOrbitTransferProblem.CreateInitialLambdaGuessForLeoToGeo(problem, controlSolved, costateSymbols)
+
+
+
+#%%
+
+class differentialEquations:
+    def __init__(self, r0, u0, v0, lon0, thrust, m0, mDot, lmdLon):
+        self.r0 = r0
+        self.u0 = u0
+        self.v0 = v0
+        self.lon0 = lon0
+        self.thrust = thrust
+        self.m0 = m0
+        self.mDot = mDot
+        self.lmdLon = lmdLon
+
+
+    def scaledDifferentialEquationCallback(self, t, y, *args):
+        
+        r = y[0]
+        u = y[1]
+        v = y[2]
+        l = y[3]
+        lmdR = y[4]
+        lmdU = y[5]
+        lmdV = y[6]
+        if len(y) == 8:
+            lmdLon = y[7]
+        else:
+            lmdLon = self.lmdLon
+        tf = args[0]
+
+        lmdUV = math.sqrt(lmdU**2+lmdV**2)
+        thrust = self.thrust * tf/self.v0
+        m0 = self.m0
+        mDot = self.mDot
+        
+
+        eta = self.v0*tf/self.r0
+
+        drdt = u*eta
+        dudt = ((v**2/r - 1/(r**2))*eta)+(thrust/(m0 - abs(mDot)*t*tf))*(lmdU/(lmdUV))
+        dvdt = -1*u*v*eta/r + (thrust/(m0 - abs(mDot)*t*tf))*(lmdV/(lmdUV))
+        dlondt = v*eta/r
+        dlmdRdt = lmdU*((v**2)/(r**2) - (2/(r**3))*eta) - lmdV*u*v*eta/(r**2) + lmdLon*eta*(v/(r**2))
+        dlmdUdt = -1*lmdR*eta + lmdV*v/r
+        dlmdVdt = -1*lmdU*2*v*eta/r + lmdV*u*eta/r - lmdLon*eta/r
+
+        dydt = [drdt, dudt, dvdt, dlondt, dlmdRdt, dlmdUdt, dlmdVdt]
+
+        if len(y) == 8:
+            dlmdLon = 0
+            dydt.append(dlmdLon)
+        
+        return dydt
 
 #%%
 numerical = OdeLambdifyHelperWithBoundaryConditions.CreateFromProblem(problem)
@@ -197,11 +255,32 @@ if scaleTime:
 ans = solver.solve(initialSolverGuess, tArray, initialStateValues, argsArray, full_output=True, factor=0.1,epsfcn=0.01)
 print(ans.SolverResult)
 
+
+
+#%%
+
 solution = ans.EvaluatedAnswer.RawIntegratorOutput
 solutionDictionary = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(integrationVariables, solution)
 unscaledResults = solutionDictionary
 unscaledTArray = tArray
 unscaledResults = problem.DescaleResults(solutionDictionary)
+
+
+# and validation
+mDot = -1*thrust/(isp*g)
+handWrittenDiffeq = differentialEquations(r0_org, u0_org, v0_org, lon0_org, thrust, m0, mDot, 0.0)
+initialStateForValidation = []
+for i in range(0, len(initialStateValues)):
+    initialStateForValidation.append(ans.EvaluatedAnswer.RawIntegratorOutput.y[i][0])
+
+handWrittenCallback = lambda t, y, args: handWrittenDiffeq.scaledDifferentialEquationCallback(t, y, args)
+validationAnswer = solve_ivp(handWrittenCallback, [tArray[0], tArray[-1]], initialStateForValidation, t_eval=tArray, dense_output=True, args=[tfOrg], method='LSODA')
+validationSolutionDictionary = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(integrationVariables, validationAnswer)
+unscaledValidationResults = validationSolutionDictionary
+unscaledValidationResults = problem.DescaleResults(unscaledValidationResults)
+
+
+
 if scaleTime:
     unscaledTArray=tfOrg*tArray
 
@@ -214,6 +293,10 @@ if scaleElements:
 
 
 baseProblem.PlotSolution(tArray*tfOrg, unscaledResults, "Test")
+
+display('And the validation answer')
+
+baseProblem.PlotSolution(tArray*tfOrg, unscaledValidationResults, "test_validation")
 jh.showEquation(baseProblem.StateSymbols[0].subs(problem.TimeSymbol, problem.TimeFinalSymbol), unscaledResults[problem.StateSymbols[0]][-1], False)
 jh.showEquation(baseProblem.StateSymbols[1].subs(problem.TimeSymbol, problem.TimeFinalSymbol), unscaledResults[problem.StateSymbols[1]][-1], False)
 jh.showEquation(baseProblem.StateSymbols[2].subs(problem.TimeSymbol, problem.TimeFinalSymbol), unscaledResults[problem.StateSymbols[2]][-1], False)
@@ -230,4 +313,17 @@ plt.grid(alpha=0.5)
 plt.legend(framealpha=1, shadow=True)
 plt.show()   
 
-# %%
+#%%
+import matplotlib.pyplot as plot
+import pyeq2orb.Graphics.Primitives as prim
+from pyeq2orb.Graphics.Plotly2DModule import plot2DLines
+x = tArray
+lines = []
+color = iter(plt.rcParams['axes.prop_cycle'].by_key()['color'])
+for sv in problem.StateSymbols:
+    thisDiff = []
+    for j in range(0, len(tArray)):
+        thisDiff.append(float(unscaledResults[sv][j] - unscaledValidationResults[sv][j]))
+    lines.append(prim.XAndYPlottableLineData(tArray.tolist(), thisDiff, str(sv), next(color), 2))
+plot2DLines(lines, "absolute differences")
+

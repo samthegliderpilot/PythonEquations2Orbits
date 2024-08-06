@@ -7,7 +7,7 @@ from scipy.integrate import solve_ivp # type: ignore
 from pyeq2orb.Numerical import ScipyCallbackCreators # type: ignore
 from pyeq2orb import SafeSubs # type: ignore
 from pyeq2orb.ProblemBase import Problem, ProblemVariable # type: ignore
-from pyeq2orb.Utilities.utilitiesForTest import assertAlmostEquals #type: ignore
+from pyeq2orb.Utilities.utilitiesForTest import assertAlmostEquals, assertAlmostEqualsDelta #type: ignore
 
 def test_CreatingDifferentialTransversalityCondition() :
     orgProblem = ContinuousThrustCircularOrbitTransferProblem()
@@ -23,7 +23,7 @@ def test_CreatingDifferentialTransversalityCondition() :
     hamiltonian = problem.CreateHamiltonian(lambdas)
     transversality = problem.TransversalityConditionInTheDifferentialForm(hamiltonian, 0.0, SafeSubs(lambdas, {problem.TimeSymbol:problem.TimeFinalSymbol})) # not allowing final time to vary
 
-    zeroedOutCondition =(transversality[0]-(sy.sqrt(mu)*l_v/(2*(r*4.0)**(3/2)) - l_r + 1)).expand().simplify()
+    zeroedOutCondition =(transversality[0]-(sy.sqrt(mu)*l_v/(2*(r*4.0)**(sy.Fraction(3,2))) - l_r + 1)).expand().simplify()
     assert (zeroedOutCondition).is_zero, "first xvers cond"
     assert (transversality[1]+lambdas[-1]).is_zero, "lmd theta condition"
  
@@ -70,9 +70,9 @@ def testScaledStateRegression() :
     #     i=i+1
     odeAns = solve_ivp(odeSolveIvpCb, [tArray[0], tArray[-1]], [*z0, *knownAnswer], args=tuple(), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)  
     finalState = ScipyCallbackCreators.GetFinalStateFromIntegratorResults(odeAns)
-    assertAlmostEquals(finalState[0], 6.31357956984563, 1, msg="radius check")
-    assertAlmostEquals(finalState[1], 0.000, 2, msg="u check")
-    assertAlmostEquals(finalState[2], 0.397980812304531, 1, msg="v check")
+    assertAlmostEqualsDelta(finalState[0], 6.31357956984563, 0.01, msg="radius check")
+    assertAlmostEqualsDelta(finalState[1], 0.000, 0.001, msg="u check")
+    assertAlmostEqualsDelta(finalState[2], 0.397980812304531, 0.001, msg="v check")
 
 def testScaldStateWithAdjoinedTransversalityRegression() :
     from .Problems.test_PlanerLeoToGeoProblem import CreateEvaluatableCallbacks # including it here to avoid VS Code from finding TestPlanerLeoToGeo twice
