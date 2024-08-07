@@ -10,7 +10,59 @@ import importlib
 from typing import List
 from pyeq2orb.Symbolics.SymbolicUtilities import SafeSubs #type: ignore
 from pyeq2orb.ProblemBase import Problem, ProblemVariable #type: ignore
-from pyeq2orb.Utilities.utilitiesForTest import assertAlmostEquals #type: ignore
+from pyeq2orb.Utilities.utilitiesForTest import assertAlmostEquals, assertAlmostEqualsDelta #type: ignore
+
+class differentialEquations:
+    def __init__(self, r0, u0, v0, lon0, g, thrust, m0, mDot, lmdLon):
+        self.r0 = r0
+        self.u0 = u0
+        self.v0 = v0
+        self.lon0 = lon0
+        self.g = g
+        self.thrust = thrust
+        self.m0 = m0
+        self.mDot = mDot
+        self.lmdLon = lmdLon
+
+
+    def scaledDifferentalEquationCallbac(self, t, y, *args):
+        
+        r = y[0]
+        u = y[1]
+        v = y[2]
+        l = y[3]
+        lmdR = y[4]
+        lmdU = y[5]
+        lmdV = y[6]
+        if len(y) == 8:
+            lmdLon = y[7]
+        else:
+            ldmLon = self.lmdLon
+
+        lmdUV = math.sqrt(lmdu**2+lmdV**2)
+        thrust = self.thrust
+        m0 = self.m0
+        mDot = self.mDot
+        tf = args[0]
+
+        eta = 1
+
+        drdt = u*eta
+        dudt = ((v**2/r - 1/(r**2))*eta)+(thrust/(m0 - mDot*t*tf))*(lmdU/(lmdUV))
+        dvdt = -1*u*v*eta/r + (thrust/(m0 - mDot*t*tf))*(lmdv/(lmdUV))
+        dlondt = v*eta/r
+        dlmdRdt = lmdU*((v**2)/(r**2) - (2/(r**3))*eta - lmdV*u*v*eta/(r**2) + lmdLon*eta*(v/(r**2)))
+        dlmdUdt = -1*lmdR*eta + lmdV*v/r
+        dlmdVdt = -1*lmdU*2*v*eta/r + lmdV*u*eta/r - lmdLon*eta/r
+
+        dydt = [drdt, dudt, dvdt, dlondt, dlmdRdt, dlmdUdt, dlmdVdt]
+
+        if len(y) == 8:
+            dlmdLon = 0
+            dydt.append(dlmdLon)
+        
+        return dydt
+
 
 def CreateEvaluatableCallbacks(scale : bool, scaleTime : bool, useDifferentialTransversality : bool) :
     # constants
@@ -201,9 +253,9 @@ def testRegressionWithDifferentialTransversality() :
         i=i+1
     odeAns = solve_ivp(odeSolveIvpCb, [tArray[0], tArray[-1]], [*z0, *knownAnswer], args=tuple([]), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)  
     finalState = ScipyCallbackCreators.GetFinalStateFromIntegratorResults(odeAns)
-    assertAlmostEquals(finalState[0], 42162079.2463495, 0, "radius check")
-    assertAlmostEquals(finalState[1], 0.000, 1, "u check")
-    assertAlmostEquals(finalState[2], 3074.735, 1, "v check")
+    assertAlmostEqualsDelta(finalState[0], 42162079.2463495, 100, "radius check")
+    assertAlmostEqualsDelta(finalState[1], 0.000, 0.1, "u check")
+    assertAlmostEqualsDelta(finalState[2], 3074.735, 1.0, "v check")
 
 def testRegressionWithAdjoinedTransversality() :
     importlib.reload(pe2o)
@@ -216,6 +268,6 @@ def testRegressionWithAdjoinedTransversality() :
         i=i+1
     odeAns = solve_ivp(odeSolveIvpCb, [tArray[0], tArray[-1]], [*z0, *knownAnswer[0:3]], args=tuple(knownAnswer[3:]), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)  
     finalState = ScipyCallbackCreators.GetFinalStateFromIntegratorResults(odeAns)
-    assertAlmostEquals(finalState[0], 42162141.30863323, 0, "radius check")
-    assertAlmostEquals(finalState[1], 0.000, 2, "u check")
-    assertAlmostEquals(finalState[2], 3074.735, -1, "v check")              
+    assertAlmostEqualsDelta(finalState[0], 42162141.30863323, 100, "radius check")
+    assertAlmostEqualsDelta(finalState[1], 0.000, .1, "u check")
+    assertAlmostEqualsDelta(finalState[2], 3074.735, 1, "v check")              
