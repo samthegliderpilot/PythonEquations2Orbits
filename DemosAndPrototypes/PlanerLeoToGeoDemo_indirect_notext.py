@@ -101,11 +101,11 @@ stateAtTf = SafeSubs(problem.StateSymbols, {problem.TimeSymbol: problem.TimeFina
 
 jh.showEquation("J", baseProblem.CostFunction, False)
 
-for i in range(0, len(problem.StateVariableDynamics)) :
-    jh.showEquation(problem.StateSymbols[i].diff(problem.TimeSymbol), problem.StateVariableDynamics[i], [problem.TimeInitialSymbol])
+# for i in range(0, len(problem.StateVariableDynamics)) :
+#     jh.showEquation(problem.StateSymbols[i].diff(problem.TimeSymbol).simplify(), problem.StateVariableDynamics[i], [problem.TimeInitialSymbol])
 
-for bc in problem.BoundaryConditions :
-    jh.showEquation(0, bc, False)
+# for bc in problem.BoundaryConditions :
+#     jh.showEquation(0, bc, False)
 
 
 # this next block does most of the problem, pretty standard optimal control actions
@@ -134,6 +134,10 @@ for i in range(0, len(problem.StateVariableDynamics)):
     jh.showEquation(problem.StateSymbols[i].diff(problem.TimeSymbol), problem.StateVariableDynamics[i], [problem.TimeInitialSymbol])
 constantsSubsDict[problem.ControlSymbols[0]]  =controlSolved
 
+i=0
+for sv in problem.StateSymbols:
+    jh.showEquation(sv.diff(problem.TimeSymbol).simplify(), problem.EquationsOfMotionAsEquations[i].rhs.subs(problem.ControlSymbols[0], controlSolved).simplify(deep=True))
+    i=i+1
 # your choice of the nu vector here controls which transversality condition we use
 #nus = [sy.Symbol('B_{u_f}'), sy.Symbol('B_{v_f}')]
 nus = [] #type: List[sy.Symbol]
@@ -207,8 +211,8 @@ class differentialEquations:
         dudt = ((v**2/r - 1/(r**2))*eta)+(thrust/(m0 - abs(mDot)*t*tf))*(lmdU/(lmdUV))
         dvdt = -1*u*v*eta/r + (thrust/(m0 - abs(mDot)*t*tf))*(lmdV/(lmdUV))
         dlondt = v*eta/r
-        dlmdRdt = lmdU*((v**2)/(r**2) - (2/(r**3))*eta) - lmdV*u*v*eta/(r**2) + lmdLon*eta*(v/(r**2))
-        dlmdUdt = -1*lmdR*eta + lmdV*v/r
+        dlmdRdt = lmdU*(((v**2)/(r**2) - (2/(r**3)))*eta) - lmdV*u*v*eta/(r**2) + lmdLon*eta*(v/(r**2))
+        dlmdUdt = -1*lmdR*eta + lmdV*v*eta/r
         dlmdVdt = -1*lmdU*2*v*eta/r + lmdV*u*eta/r - lmdLon*eta/r
 
         dydt = [drdt, dudt, dvdt, dlondt, dlmdRdt, dlmdUdt, dlmdVdt]
@@ -252,7 +256,7 @@ if scaleTime:
     initialSolverGuess.append(tfOrg)
     argsArray.append(tfOrg)
 
-ans = solver.solve(initialSolverGuess, tArray, initialStateValues, argsArray, full_output=True, factor=0.1,epsfcn=0.01)
+ans = solver.solve(initialSolverGuess, tArray, initialStateValues, argsArray, full_output=True, factor=0.1,epsfcn=0.005)
 print(ans.SolverResult)
 
 
@@ -320,10 +324,19 @@ from pyeq2orb.Graphics.Plotly2DModule import plot2DLines
 x = tArray
 lines = []
 color = iter(plt.rcParams['axes.prop_cycle'].by_key()['color'])
-for sv in problem.StateSymbols:
+for sv in [*problem.StateSymbols, *problem.CostateSymbols]:
     thisDiff = []
     for j in range(0, len(tArray)):
         thisDiff.append(float(unscaledResults[sv][j] - unscaledValidationResults[sv][j]))
     lines.append(prim.XAndYPlottableLineData(tArray.tolist(), thisDiff, str(sv), next(color), 2))
 plot2DLines(lines, "absolute differences")
 
+
+# %%
+problemIvpStep = ivpCallback(0.0, initialStateForValidation, tfOrg)
+validationIvpStep = handWrittenCallback(10000.0, initialStateForValidation, tfOrg)
+print(problemIvpStep)
+print(validationIvpStep)
+print(np.array(problemIvpStep)-np.array(validationIvpStep))
+
+# %%
