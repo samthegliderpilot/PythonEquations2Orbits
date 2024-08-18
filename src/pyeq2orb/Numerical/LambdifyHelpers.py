@@ -189,8 +189,8 @@ class OdeLambdifyHelper(LambdifyHelper):
         for thisEom in equationsOfMotion :
             # eom's could be constant equations.  Check, add if it doesn't have subs
             if(hasattr(thisEom, "subs")) :
-                thisEom = SafeSubs(thisEom, self.SubstitutionDictionary).doit(deep=True)  
-                thisEom = SafeSubs(thisEom, self.SubstitutionDictionary).doit(deep=True)  
+                thisEom = SafeSubs(thisEom, self.SubstitutionDictionary).doit(deep=True)
+                thisEom = SafeSubs(thisEom, self.SubstitutionDictionary).doit(deep=True).trigsimp(deep=True)  
             eomList.append(thisEom)   
         odeArgs = self.BuildLambdifyingState()
         

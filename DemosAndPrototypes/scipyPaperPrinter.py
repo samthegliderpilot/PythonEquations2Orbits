@@ -177,7 +177,7 @@ def showEquationNoFunctionsOf(lhsOrEquation, rhs=None, cleanEqu=True):
             display(sy.Eq(realLhs, realRhs))
 
 # I want to keep the overall interface of showEquation, but the cleaning is not sufficient
-def showEquation(lhsOrEquation : Union[sy.Eq, sy.Expr, str], rhs : Optional[sy.Expr] = None, argsToKeep : Optional[Union[Sequence[sy.Symbol], bool]] = [], dotNotationForTimeDerivatives : Optional[bool] = True, timeSymbol :Optional[sy.Symbol] = None) :
+def showEquation(lhsOrEquation : Union[sy.Eq, sy.Expr, str, int, float], rhs : Optional[sy.Expr] = None, argsToKeep : Optional[Union[Sequence[sy.Symbol], bool]] = [], dotNotationForTimeDerivatives : Optional[bool] = True, timeSymbol :Optional[sy.Symbol] = None) :
     if isinstance(argsToKeep, bool) :
         # this does not care about the dotNotationForTimeDerivatives or the time symbol
         showEquationOriginal(lhsOrEquation, rhs, argsToKeep)

@@ -120,7 +120,7 @@ class ContinuousThrustCircularOrbitTransferProblem(Problem) :
             solsLists.append(val)
         plt.title("Longitude (rad)")
         longitudeDegArray = [lonRad / (2*math.pi) for lonRad in solsLists[3]]
-        plt.plot(tUnscaled/86400, longitudeDegArray, label="longitude (deg)")
+        plt.plot(tUnscaled/86400, longitudeDegArray, label="longitude (rad)")
 
         plt.tight_layout()
         plt.grid(alpha=0.5)

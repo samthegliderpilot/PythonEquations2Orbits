@@ -60,8 +60,9 @@ if scaleTime:
 
 baseProblem = ContinuousThrustCircularOrbitTransferProblem()
 problem :Problem = baseProblem
-initialStateValues = baseProblem.CreateVariablesAtTime0(baseProblem.StateSymbols)
-
+initialStateSymbols =[sy.Symbol('r_0', real=True, constant=True, positive=True), sy.Symbol('u_0', real=True, constant=True), sy.Symbol('v_0', real=True, constant=True), sy.Symbol(r'\lambda_0', real=True, constant=True, positive=True)]# 
+initialStateValuesAtTime0 = baseProblem.CreateVariablesAtTime0(baseProblem.StateSymbols)
+#initialStateSymbols=initialStateValuesAtTime0
 # register constants (this dictionary gets shared around)
 constantsSubsDict = problem.SubstitutionDictionary
 constantsSubsDict[baseProblem.Isp] = isp
@@ -69,24 +70,24 @@ constantsSubsDict[baseProblem.MassInitial] = m0
 constantsSubsDict[baseProblem.Gravity] = g
 constantsSubsDict[baseProblem.Mu]= mu
 constantsSubsDict[baseProblem.Thrust] = thrust
-constantsSubsDict.update(zip(initialStateValues, [r0, u0, v0, lon0]))
-
+constantsSubsDict.update(zip(initialStateSymbols, [r0, u0, v0, lon0]))
+#constantsSubsDict.update(zip(initialStateValuesAtTime0, [r0, u0, v0, lon0]))
 
 if scaleElements :
     originalProblem = problem
     newSvs = Problem.CreateBarVariables(problem.StateSymbols, problem.TimeSymbol) 
-    problem = baseProblem.ScaleStateVariables(newSvs, {problem.StateSymbols[0]: newSvs[0] * initialStateValues[0], 
-                                                       problem.StateSymbols[1]: newSvs[1] * initialStateValues[2], 
-                                                       problem.StateSymbols[2]: newSvs[2] * initialStateValues[2], 
+    problem = baseProblem.ScaleStateVariables(newSvs, {problem.StateSymbols[0]: newSvs[0] * initialStateSymbols[0], 
+                                                       problem.StateSymbols[1]: newSvs[1] * initialStateSymbols[2], 
+                                                       problem.StateSymbols[2]: newSvs[2] * initialStateSymbols[2], 
                                                        problem.StateSymbols[3]: newSvs[3]}) #type: ignore
     if scaleTime :
-        tau = sy.Symbol('\tau', real=True)
-        problem = problem.ScaleTime(tau, sy.Symbol('\tau_0', real=True), sy.Symbol('\tau_f', real=True), tau*problem.TimeFinalSymbol)  
+        tau = sy.Symbol(r'\tau', real=True)
+        problem = problem.ScaleTime(tau, sy.Symbol(r'\tau_0', real=True), sy.Symbol(r'\tau_f', real=True), tau*problem.TimeFinalSymbol)  
         jh.t = problem._timeSymbol # needed for cleaner printed equations
 
     constantsSubsDict=problem.SubstitutionDictionary
     # and reset the real initial values using tau_0 instead of time
-    initialValuesAtTau0 = SafeSubs(initialStateValues, {baseProblem.TimeInitialSymbol: problem.TimeInitialSymbol})
+    initialValuesAtTau0 = SafeSubs(initialStateValuesAtTime0, {baseProblem.TimeInitialSymbol: problem.TimeInitialSymbol})
     constantsSubsDict.update(zip(initialValuesAtTau0, [r0, u0, v0, lon0]))
 
     r0= r0/r0
@@ -125,7 +126,10 @@ jh.showEquation('\\frac{\\partial{H}}{\\partial{u}}=0', dHdu)
 
 controlSolved = sy.solve(dHdu, problem.ControlSymbols[0])[0] # something that may be different for other problems is when there are multiple control variables
 jh.showEquation(problem.ControlSymbols[0], controlSolved)
-
+#%%
+eomWithControlSolved = problem.EquationsOfMotionAsEquations[1].rhs.subs(problem.ControlSymbols[0], controlSolved)
+jh.showEquation("a", eomWithControlSolved.trigsimp(deep=True).simplify())
+#%%
 # update ALL equations of motion with the new expression for the control variable
 controlSubsDict = {problem.ControlSymbols[0]: controlSolved}
 # the trig simplification needs the deep=True for this problem to make the equations even cleaner
@@ -148,8 +152,8 @@ jh.printMarkdown('The transversality conditions')
 for xvers in transversalityCondition :
     jh.showEquation(0, xvers, [problem.TimeInitialSymbol])
 
-if scaleTime : # add BC if we are working with the final time (not all solvers need this, but when the same number of BC's and variables are required by the solver [like fsolve does] then...)
-    problem.BoundaryConditions.append(stateAtTf[0]/r0_org-42162.0/r0_org)
+#if scaleTime : # add BC if we are working with the final time (not all solvers need this, but when the same number of BC's and variables are required by the solver [like fsolve does] then...)
+#    problem.BoundaryConditions.append(stateAtTf[0]/r0_org-42162.0/r0_org)
 
 problem.BoundaryConditions.extend(transversalityCondition)
 
@@ -163,7 +167,9 @@ constantsSubsDict[lmdTheta.subs(problem.TimeSymbol, problem.TimeFinalSymbol)]=0
 constantsSubsDict[lmdTheta.subs(problem.TimeSymbol, problem.TimeInitialSymbol)]=0
 
 initialFSolveStateGuess = ContinuousThrustCircularOrbitTransferProblem.CreateInitialLambdaGuessForLeoToGeo(problem, controlSolved, costateSymbols)
-
+#%%
+for bc in problem.BoundaryConditions:
+    jh.showEquation("0", bc)
 
 
 #%%
@@ -207,9 +213,10 @@ class differentialEquations:
         dudt = ((v**2/r - 1/(r**2))*eta)+(thrust/(m0 - abs(mDot)*t*tf))*(lmdU/(lmdUV))
         dvdt = -1*u*v*eta/r + (thrust/(m0 - abs(mDot)*t*tf))*(lmdV/(lmdUV))
         dlondt = v*eta/r
-        dlmdRdt = lmdU*((v**2)/(r**2) - (2/(r**3))*eta) - lmdV*u*v*eta/(r**2) + lmdLon*eta*(v/(r**2))
-        dlmdUdt = -1*lmdR*eta + lmdV*v/r
-        dlmdVdt = -1*lmdU*2*v*eta/r + lmdV*u*eta/r - lmdLon*eta/r
+
+        dlmdRdt = lmdU*eta*((v**2)/(r**2) - (2/(r**3))) - lmdV*u*v*eta/(r**2) + lmdLon*eta*(v/(r**2))
+        dlmdUdt = -1*lmdR*eta + lmdV*v*eta/r
+        dlmdVdt = -2*lmdU*v*eta/r + lmdV*u*eta/r - lmdLon*eta/r
 
         dydt = [drdt, dudt, dvdt, dlondt, dlmdRdt, dlmdUdt, dlmdVdt]
 
@@ -242,17 +249,18 @@ betterFSolveCallback = SingleShootingFunctions.CreateBoundaryConditionCallbackFr
 initialStateValues = [r0, u0, v0, lon0, *initialFSolveStateGuess]
 problemEvaluator = BlackBoxSingleShootingFunctionsFromLambdifiedFunctions(solve_ivp_wrapper, bcCallback, integrationVariables, problem.BoundaryConditions, problem.OtherArguments)
 fSolveInputSymbols = problem.CostateSymbols[:3]
-if scaleTime:
-    fSolveInputSymbols.append(originalProblem.TimeFinalSymbol)
-solver = fSolveSingleShootingSolver(problemEvaluator, fSolveInputSymbols, problem.BoundaryConditions)
-initialSolverGuess = initialStateValues[4:]
+#if scaleTime:
+#    fSolveInputSymbols.append(originalProblem.TimeFinalSymbol)
+solver = fSolveSingleShootingSolver(problemEvaluator, fSolveInputSymbols, problem.BoundaryConditions[:-1])
+#initialSolverGuess =  [0.0011569091762708, 0.00010000000130634948, 1.0]
+initialSolverGuess = ContinuousThrustCircularOrbitTransferProblem.CreateInitialLambdaGuessForLeoToGeo(problem, controlSolved, costateSymbols)
 argsArray = None
 if scaleTime:
     argsArray = []
-    initialSolverGuess.append(tfOrg)
+    #initialSolverGuess.append(tfOrg)
     argsArray.append(tfOrg)
 
-ans = solver.solve(initialSolverGuess, tArray, initialStateValues, argsArray, full_output=True, factor=0.1,epsfcn=0.01)
+ans = solver.solve(initialSolverGuess, tArray, initialStateValues, argsArray, full_output=True, epsfcn=0.000001)
 print(ans.SolverResult)
 
 
@@ -297,12 +305,12 @@ baseProblem.PlotSolution(tArray*tfOrg, unscaledResults, "Test")
 display('And the validation answer')
 
 baseProblem.PlotSolution(tArray*tfOrg, unscaledValidationResults, "test_validation")
-jh.showEquation(baseProblem.StateSymbols[0].subs(problem.TimeSymbol, problem.TimeFinalSymbol), unscaledResults[problem.StateSymbols[0]][-1], False)
-jh.showEquation(baseProblem.StateSymbols[1].subs(problem.TimeSymbol, problem.TimeFinalSymbol), unscaledResults[problem.StateSymbols[1]][-1], False)
-jh.showEquation(baseProblem.StateSymbols[2].subs(problem.TimeSymbol, problem.TimeFinalSymbol), unscaledResults[problem.StateSymbols[2]][-1], False)
-jh.showEquation(baseProblem.StateSymbols[3].subs(problem.TimeSymbol, problem.TimeFinalSymbol), (unscaledResults[problem.StateSymbols[3]][-1]%(2*math.pi))*180.0/(2*math.pi), False)
+jh.showEquation(baseProblem.StateSymbols[0].subs(problem.TimeSymbol, problem.TimeFinalSymbol), unscaledValidationResults[problem.StateSymbols[0]][-1], False)
+jh.showEquation(baseProblem.StateSymbols[1].subs(problem.TimeSymbol, problem.TimeFinalSymbol), unscaledValidationResults[problem.StateSymbols[1]][-1], False)
+jh.showEquation(baseProblem.StateSymbols[2].subs(problem.TimeSymbol, problem.TimeFinalSymbol), unscaledValidationResults[problem.StateSymbols[2]][-1], False)
+jh.showEquation(baseProblem.StateSymbols[3].subs(problem.TimeSymbol, problem.TimeFinalSymbol), (unscaledValidationResults[problem.StateSymbols[3]][-1]%(2*math.pi))*180.0/(2*math.pi), False)
 
-[hamltVals, dhduValus, d2hdu2Valus] = problem.EvaluateHamiltonianAndItsFirstTwoDerivatives(solutionDictionary, tArray, hamiltonian, {problem.ControlSymbols[0]: controlSolved}, {baseProblem.TimeFinalSymbol: tfOrg})
+[hamltVals, dhduValus, d2hdu2Valus] = problem.EvaluateHamiltonianAndItsFirstTwoDerivatives(validationSolutionDictionary, tArray, hamiltonian, {problem.ControlSymbols[0]: controlSolved}, {baseProblem.TimeFinalSymbol: tfOrg})
 plt.title("Hamlitonion and its derivatives")
 plt.plot(tArray/86400, hamltVals, label="Hamiltonian")
 plt.plot(tArray/86400, dhduValus, label=r'$\frac{dH}{du}$')
@@ -326,4 +334,19 @@ for sv in problem.StateSymbols:
         thisDiff.append(float(unscaledResults[sv][j] - unscaledValidationResults[sv][j]))
     lines.append(prim.XAndYPlottableLineData(tArray.tolist(), thisDiff, str(sv), next(color), 2))
 plot2DLines(lines, "absolute differences")
+
+#%%
+#initialStateForValidation[1] = 0.2
+#initialStateForValidation[2] = 0.3
+# initialStateForValidation = [0.9999999999999999,
+#  0.0,
+#  1.0,
+#  0.0,
+#  0.9616468678186687,
+#  0.0030727456849731533,
+#  1.0386869783815316]
+print(initialStateForValidation)
+print(ivpCallback(0.0, initialStateForValidation, tfOrg))
+print(handWrittenCallback(0.0, initialStateForValidation, tfOrg))
+
 

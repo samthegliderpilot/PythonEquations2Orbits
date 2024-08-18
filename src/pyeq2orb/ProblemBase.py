@@ -525,6 +525,9 @@ class Problem(ABC) :
             newProblem.AddStateVariable(ProblemVariable(newSvs[i], fixedDynamics))
 
         # do the BC's (including transversality condition if already added)
+        # if the transversality conditions have not been done yet, they need to be done on the original bc's and 
+        # subs in after!
+        
         for bc in self.BoundaryConditions :
             newProblem._boundaryConditions.append(SafeSubs(bc,bcSubsDict))
 
