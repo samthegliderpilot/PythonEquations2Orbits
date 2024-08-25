@@ -54,7 +54,7 @@ nus = [sy.Symbol('B_{u_f}'), sy.Symbol('B_{v_f}')]
 #nus = []
 
 baseProblem = ContinuousThrustCircularOrbitTransferProblem()
-initialStateValues = baseProblem.CreateVariablesAtTime0(baseProblem.StateSymbols)
+initialStateValues = baseProblem.StateSymbolsInitial()
 problem = baseProblem
 
 if scale :
@@ -94,7 +94,7 @@ if scale :
     v0=v0/v0
     lon0=lon0/1.0
     # add the scaled initial values (at tau_0).  We should NOT need to add these at t_0
-    initialScaledStateValues = problem.CreateVariablesAtTime0(problem.StateSymbols)
+    initialScaledStateValues = problem.StateSymbolsInitial()
     constantsSubsDict.update(zip(initialScaledStateValues, [r0, u0, v0, lon0])) 
     
 lambdifyFunctionMap = {'sqrt': poenv.sqrt, 'sin': poenv.sin, 'cos':poenv.cos} #TODO: MORE!!!!

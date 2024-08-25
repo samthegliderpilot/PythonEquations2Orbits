@@ -89,7 +89,7 @@ def CreateEvaluatableCallbacks(scale : bool, scaleTime : bool, useDifferentialTr
     else:
         nus = [sy.Symbol('B_{u_f}'), sy.Symbol('B_{v_f}')]
     baseProblem = ContinuousThrustCircularOrbitTransferProblem()
-    initialStateValues = baseProblem.CreateVariablesAtTime0(baseProblem.StateSymbols)
+    initialStateValues = baseProblem.StateSymbolsInitial()
     problem = baseProblem #type: Problem
     lambdas = Problem.CreateCostateVariables(problem.StateSymbols, r'\lambda', problem.TimeSymbol)
     baseProblem.CostateSymbols.extend(lambdas)
@@ -131,7 +131,7 @@ def CreateEvaluatableCallbacks(scale : bool, scaleTime : bool, useDifferentialTr
         v0=v0/v0
         lon0=lon0/1.0
         # add the scaled initial values (at tau_0).  We should NOT need to add these at t_0
-        initialScaledStateValues = problem.CreateVariablesAtTime0(problem.StateSymbols)
+        initialScaledStateValues = problem.StateSymbolsInitial()
         constantsSubsDict.update(zip(initialScaledStateValues, [r0, u0, v0, 1.0])) 
         
     # this next block does most of the problem, pretty standard optimal control actions
@@ -151,7 +151,7 @@ def CreateEvaluatableCallbacks(scale : bool, scaleTime : bool, useDifferentialTr
     SafeSubs(problem.StateVariableDynamics, {problem.ControlSymbols[0]: controlSolved})
     # the trig simplification needs the deep=True for this problem to make the equations even cleaner
     for i in range(0, len(problem.StateVariableDynamics)) :
-        problem._stateVariables[i].FirstOrderDynamics = problem._stateVariables[i].FirstOrderDynamics.trigsimp(deep=True).simplify() # some simplification to make numerical code more stable later, and that is why this code forces us to do things somewhat manually.  There are often special things like this that we ought to do that you can't really automate.
+        problem._stateElements[i].FirstOrderDynamics = problem._stateElements[i].FirstOrderDynamics.trigsimp(deep=True).simplify() # some simplification to make numerical code more stable later, and that is why this code forces us to do things somewhat manually.  There are often special things like this that we ought to do that you can't really automate.
 
     ## Start with the boundary conditions
     if scaleTime : # add BC if we are working with the final time (kind of silly for this example, but we need an equal number of in's and out's for fsolve later)
@@ -220,7 +220,7 @@ def CreateEvaluatableCallbacks(scale : bool, scaleTime : bool, useDifferentialTr
 
 def testInitialization() :
     problem = ContinuousThrustCircularOrbitTransferProblem()
-    assert problem.StateSymbols[0].subs(problem.TimeSymbol, problem.TimeFinalSymbol)== problem.TerminalCost, "terminal cost"
+    assert problem.StateVariables[0].Element.subs(problem.TimeSymbol, problem.TimeFinalSymbol)== problem.TerminalCost, "terminal cost"
     assert 4== len(problem.StateSymbols), "count of state variables"
     assert 1== len(problem.ControlSymbols), "count of control variables"
     assert 0== problem.UnIntegratedPathCost, "unintegrated path cost"

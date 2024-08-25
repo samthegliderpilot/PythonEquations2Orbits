@@ -54,7 +54,7 @@ class ContinuousThrustCircularOrbitTransferProblem(Problem) :
         stateVariableDynamics.append(-vs*us/rs + thrust*sy.cos(control)/self.MassEquation)
         stateVariableDynamics.append(vs/rs)
 
-        self._stateVariables.extend([
+        self._stateElements.extend([
             ProblemVariable(rs, stateVariableDynamics[0]),
             ProblemVariable(us, stateVariableDynamics[1]),
             ProblemVariable(vs, stateVariableDynamics[2]),
@@ -62,12 +62,13 @@ class ContinuousThrustCircularOrbitTransferProblem(Problem) :
 
         self._controlVariables.extend([control])
 
+        finalSymbols = self.StateSymbolsFinal()
         self._boundaryConditions.extend([
-                self._stateVariables[1].Element.subs(self._timeSymbol, self._timeFinalSymbol),
-                self._stateVariables[2].Element.subs(self._timeSymbol, self._timeFinalSymbol)-sy.sqrt(mu/self._stateVariables[0].Element.subs(self._timeSymbol, self._timeFinalSymbol))
+                finalSymbols[1],
+                finalSymbols[2]-sy.sqrt(mu/finalSymbols[0])
         ])
 
-        self._terminalCost = self._stateVariables[0].Element.subs(self._timeSymbol, self._timeFinalSymbol) # maximization problem
+        self._terminalCost = finalSymbols[0] # maximization problem
 
 
     @staticmethod
@@ -176,11 +177,11 @@ class ContinuousThrustCircularOrbitTransferProblem(Problem) :
         # We want initial alpha to be 0 (or really close to it) per intuition
         # We can choose lmdv and solve for lmdu.  Start with lmdv to be 1
         # solve for lmdu with those assumptions      
-        lambdasAtT0 = problem.CreateVariablesAtTime0(lambdas)
+        lambdasAtT0 = problem.CostateSymbolsInitial()
         constantsForLmdGuesses = problem.SubstitutionDictionary.copy()
         constantsForLmdGuesses[lambdasAtT0[2]] = 1.0 
 
-        controlAtT0 = problem.CreateVariablesAtTime0(controlSolved)
+        controlAtT0 = controlSolved.subs(problem.TimeSymbol, problem.TimeInitialSymbol)
         sinOfControlAtT0 = sy.sin(controlAtT0).trigsimp(deep=True).expand().simplify()
         alphaEq = sinOfControlAtT0.subs(lambdasAtT0[2], constantsForLmdGuesses[lambdasAtT0[2]])
         ans1 = sy.solveset(sy.Eq(0.00,alphaEq), lambdasAtT0[1])
@@ -192,7 +193,7 @@ class ContinuousThrustCircularOrbitTransferProblem(Problem) :
         constantsForLmdGuesses[lambdasAtT0[1]] = float(ansForLambdaU)
 
         # if we assume that we always want to keep alpha small (0), we can solve dlmd_u/dt=0 for lmdr_0
-        lmdUDotAtT0 = problem.CreateVariablesAtTime0(problem._costateElements[1].FirstOrderDynamics)
+        lmdUDotAtT0 = problem.CostateDynamicsEquations[1].subs(problem.TimeSymbol, problem.TimeInitialSymbol)
         lmdUDotAtT0 = lmdUDotAtT0.subs(constantsForLmdGuesses)
         inter=sy.solve(sy.Eq(lmdUDotAtT0, 0), lambdasAtT0[0].subs(constantsForLmdGuesses))
         lambdaR0Value = float(inter[0].subs(constantsForLmdGuesses)) # we know there is just 1

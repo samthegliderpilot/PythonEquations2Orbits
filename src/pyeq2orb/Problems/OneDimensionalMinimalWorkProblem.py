@@ -20,7 +20,7 @@ class OneDWorkSymbolicProblem(Problem) :
         x = sy.Function('x')(self._timeSymbol)
         v = sy.Function('v')(self._timeSymbol)
         u = sy.Function('u')(self._timeSymbol)
-        self._stateVariables.extend([ProblemVariable(x,v), ProblemVariable(v, u)])
+        self._stateElements.extend([ProblemVariable(x,v), ProblemVariable(v, u)])
         self._controlVariables = [u]
         self._constantSymbols = []
         self._unIntegratedPathCost = self._controlVariables[0]**2

@@ -14,9 +14,21 @@ class IntegrationDirection(Enum) :
     Backward = -1
 
 class ProblemVariable():
-    def __init__(self, element : sy.Symbol, firstOrderDynamics : Optional[sy.Expr]):
+    def __init__(self, element : sy.Symbol, firstOrderDynamics : Optional[sy.Expr]):#, initialSymbol : sy.Symbol=None, finalSymbol : sy.Symbol = None):
         self._element = element
         self._firstOrderDynamics = firstOrderDynamics
+        # if initialSymbol == None or finalSymbol == None:
+        #     assumptions = {}
+        #     if hasattr(element, "_assumptions"):
+        #         assumptions = element._assumptions
+        #     else:
+        #         assumptions = element.assumptions0
+        #     if initialSymbol == None:
+        #         initialSymbol = sy.Symbol(element.name + "_{0}", **assumptions)#TODO: if there is already an _ in the name...
+        #     if finalSymbol == None :
+        #         finalSymbol = sy.Symbol(element.name + "_{F}", **assumptions)
+        # self._initialElement = initialSymbol
+        # self._finalElement = finalSymbol
 
     @property
     def Element(self) -> sy.Symbol:
@@ -30,16 +42,22 @@ class ProblemVariable():
     def FirstOrderDynamics(self, value:sy.Expr) :
         self._firstOrderDynamics = value
 
+    # @property
+    # def ElementInitialTime(self) -> sy.Symbol:
+    #     return self._initialElement
+
+    # @property
+    # def ElementFinalTime(self) -> sy.Symbol:
+    #     return self._finalElement
     # def subs(self, subsDict : Dict[sy.Expr, SymbolOrNumber]):
     #     return ProblemVariable(self.Element, SafeSubs(self.FirstOrderDynamics, subsDict))
-
 
 class Problem(ABC) :
     def __init__(self) :
         """Initialize a new instance. 
         """
-        self._stateVariables = [] 
-        self._costateElements = [] 
+        self._stateElements : List[ProblemVariable] = [] 
+        self._costateElements : List[ProblemVariable] = [] 
         self._controlVariables = [] 
 
         self._terminalCost = 0
@@ -93,16 +111,41 @@ class Problem(ABC) :
         """
         return self._substitutionDictionary
 
+    def StateSymbolsInitial(self) -> List[sy.Symbol]:
+        """Gets the initial state variables for this problem. 
+
+        Returns:
+            List[sy.Expr]: The list of initial state variable symbols
+        """
+        initialSymbols = []
+        for x in self._stateElements:
+            initialSymbols.append(x.Element.subs(self.TimeSymbol, self.TimeInitialSymbol))
+        return initialSymbols
+
+    def StateSymbolsFinal(self) -> List[sy.Symbol]:
+        """Gets the final state variables for this problem. 
+
+        Returns:
+            List[sy.Expr]: The list of final state variable symbols
+        """
+        finalSymbols = []
+        for x in self._stateElements:
+            finalSymbols.append(x.Element.subs(self.TimeSymbol, self.TimeFinalSymbol))
+        return finalSymbols
+
     @property
     def StateSymbols(self) -> List[sy.Symbol]:
         """Gets the state variables for this problem.  These should be in terms of TimeSymbol. 
-        This must be implemented by the derived type.
 
         Returns:
             List[sy.Expr]: The list of symbols in terms of TimeSymbol
         """
-        return [x.Element for x in self._stateVariables]
+        return [x.Element for x in self._stateElements]
     
+    @property
+    def StateVariables(self) -> List[sy.SateVariable]:
+        return self._stateElements
+
     @property
     def ControlSymbols(self) -> List[sy.Symbol]:
         """Gets a list of the control variables.  These should be in terms of TimeSymbol. 
@@ -168,7 +211,7 @@ class Problem(ABC) :
         Returns:
             List[sy.Expr]: The first order dynamics of the state variables in the same order of the state variables
         """
-        return [x.FirstOrderDynamics for x in self._stateVariables]
+        return [x.FirstOrderDynamics for x in self._stateElements]
     
     @property
     def BoundaryConditions(self) ->List[sy.Expr] :
@@ -254,7 +297,7 @@ class Problem(ABC) :
         self._integrationDirection = value
 
     def AddStateVariable(self, stateVariable: ProblemVariable):
-        self._stateVariables.append(stateVariable)
+        self._stateElements.append(stateVariable)
 
     def AddCostateSymbol(self, costateVariable : sy.Symbol):
         self._costateElements.append(ProblemVariable(costateVariable, None))
@@ -268,11 +311,34 @@ class Problem(ABC) :
         return [x.Element for x in self._costateElements]
 
     @property
-    def CostateVariables(self) ->List[sy.Symbol]:
+    def CostateVariables(self) ->List[ProblemVariable]:
         return self._costateElements
 
     def AddCostateVariable(self, costateElement : ProblemVariable):
         self._costateElements.append(costateElement)
+
+
+    def CostateSymbolsInitial(self) -> List[sy.Symbol]:
+        """Gets the initial costate variables for this problem. 
+
+        Returns:
+            List[sy.Expr]: The list of initial costate variable symbols
+        """
+        initialSymbols = []
+        for x in self._costateElements:
+            initialSymbols.append(x.Element.subs(self.TimeSymbol, self.TimeInitialSymbol))
+        return initialSymbols
+
+    def CostateSymbolsFinal(self) -> List[sy.Symbol]:
+        """Gets the final costate variables for this problem. 
+
+        Returns:
+            List[sy.Expr]: The list of final costate variable symbols
+        """
+        finalSymbols = []
+        for x in self._costateElements:
+            finalSymbols.append(x.Element.subs(self.TimeSymbol, self.TimeFinalSymbol))
+        return finalSymbols
 
     @property 
     def CostateDynamicsEquations(self) ->List[sy.Expr]:
@@ -367,19 +433,6 @@ class Problem(ABC) :
             subsDict[lm.subs(self.TimeSymbol, self.TimeInitialSymbol)] = initialValuesArray[i]
             i = i+1
 
-    def CreateVariablesAtTime0(self, thingWithSymbols):
-        """Substitutes the problems TimeSymbol and TimeFinalSymbol with the TimeInitialSymbol.
-        This is generally used to change state or control variables from being functions of TimeSymbol 
-        to functions of TimeInitialSymbol.
-
-        Args:
-            thingWithSymbols: Some set of expressions.
-
-        Returns:
-            same type as list of expressions: The expressions where the time variables has been set to the TimeInitialSymbol.
-        """
-        return SafeSubs(thingWithSymbols, {self.TimeSymbol: self.TimeInitialSymbol, self.TimeFinalSymbol:self.TimeInitialSymbol})
-
     def CreateVariablesAtTimeFinal(self, thingWithSymbols):
         """Substitutes the problems TimeSymbol and TimeInitialSymbol with the TimeFinalSymbol.
         This is generally used to change state or control variables from being functions of TimeSymbol 
@@ -470,7 +523,7 @@ class Problem(ABC) :
         #TODO: See if this is valid
 
         for j in range(0, len(self.CostateSymbols)):
-            newProblem.AddCostateVariable(ProblemVariable(self.CostateSymbols[i],SafeSubs(self.CostateDynamicsEquations[i], dictOfOriginalSvsToNewSvs)*dNewSvWrtOldSv[j]))
+            newProblem.AddCostateVariable(ProblemVariable(self.CostateSymbols[j],SafeSubs(self.CostateDynamicsEquations[j], dictOfOriginalSvsToNewSvs)*dNewSvWrtOldSv[j]))
 
 
 
@@ -511,6 +564,13 @@ class Problem(ABC) :
             dictOfOriginalSvsToNewSvs[sv] = newSv
             bcSubsDict[sv.subs(self.TimeSymbol, self.TimeFinalSymbol)] = newSv.subs(newTimeSymbol, newFinalTimeSymbol)
 
+        for sv in self.CostateSymbols:
+            newSv = SafeSubs(sv, symbolSubs)
+            newSvs.append(newSv)
+            dictOfOriginalSvsToNewSvs[sv] = newSv
+            bcSubsDict[sv.subs(self.TimeSymbol, self.TimeFinalSymbol)] = newSv.subs(newTimeSymbol, newFinalTimeSymbol)
+
+
         # control exp
         badControlExpFix = {}
         for cv in self.ControlSymbols:
@@ -546,35 +606,20 @@ class Problem(ABC) :
         # if there are costate variables, copy them (not sure if this is a good idea)
         #TODO: See if this is valid
 
-        for j in range(0, len(self.CostateSymbols)):
-            newProblem.AddCostateVariable(ProblemVariable(SafeSubs(self.CostateSymbols[i], symbolSubs), SafeSubs(self.CostateDynamicsEquations[i], dictOfOriginalSvsToNewSvs)*dtDTau))
+        toFixCostateSymbol = {}
+        # for j in range(0, len(self.CostateSymbols)):
+        #     toFixCostateSymbol[SafeSubs(self.CostateSymbols[j], {self.TimeSymbol: expressionForNewTime})] = SafeSubs(self.CostateSymbols[j], {self.TimeSymbol: newTimeSymbol})
 
+        for j in range(0, len(self.CostateSymbols)):
+            dynamicsForThisCostate = SafeSubs(self.CostateDynamicsEquations[j], dictOfOriginalSvsToNewSvs)*dtDTau
+            dynamicsForThisCostate=SafeSubs(dynamicsForThisCostate, toFixCostateSymbol)
+            newProblem.AddCostateVariable(ProblemVariable(SafeSubs(self.CostateSymbols[j], symbolSubs), dynamicsForThisCostate))
+
+        
         newProblem._timeScaleFactor =self.TimeFinalSymbol #TODO: User needs to set this to some degree
         newProblem._otherArgs.append(self.TimeFinalSymbol)
         
         return newProblem        
-
-
-    def ScaleExpressions(self, expressions : List[sy.Expr]) -> List[sy.Expr]:
-        """For some expression (or list of expressions), scale them by the scaling factors set up in this problem.
-        If the problem is not scaled, the original expressions will be returned.
-
-        Args:
-            expressions (List[sy.Expr]): The expressions to scale.
-
-        Returns:
-            List[sy.Expr]: The scaled expressions
-        """
-        # simpleSubsDict={} # for terminal cost
-        # counter=0
-        # for sv in self._unscaledStateVariables :
-        #     oldSv = sv
-        #     sv = self.StateSymbols[counter]
-        #     simpleSubsDict[oldSv] = sv*self._scalingDict[oldSv]
-        #     simpleSubsDict[oldSv.subs(self._unscaledTimeSymbol, self._unscaledTimeFinalSymbol)] = sv.subs(self.TimeSymbol, self.TimeFinalSymbol)*self._scalingDict[oldSv]
-        #     counter=counter+1
-
-        return SafeSubs(expressions, self._scalingDict)        
 
     def DescaleResults(self, resultsDictionary : Dict[sy.Symbol, List[float]]) -> Dict[sy.Symbol, List[float]] :
         """After evaluating the problem numerically, descale the results to be back in terms of the original units.
@@ -824,13 +869,13 @@ class Problem(ABC) :
             expressions should be solved such that they equal 0
         """
         lambdasFinal = cast(List[sy.Expr], lambdasFinal)
-        termFunc = self.TerminalCost.subs(self.TimeSymbol, self.TimeFinalSymbol) + (Vector.fromArray(nus).transpose()*Vector.fromArray(self.BoundaryConditions))[0,0]
+        termFunc = self.TerminalCost + (Vector.fromArray(nus).transpose()*Vector.fromArray(self.BoundaryConditions))[0,0]
         finalConditions = []
         i=0
-        for x in self.StateSymbols :
+        finalSymbols = self.StateSymbolsFinal()
+        for xf in  finalSymbols:
             if i >= len(lambdasFinal) :
                 break
-            xf = x.subs(self.TimeSymbol, self.TimeFinalSymbol)
             cond = termFunc.diff(xf)
             finalConditions.append(lambdasFinal[i]-cond)
             i=i+1
@@ -841,7 +886,7 @@ class Problem(ABC) :
         problemToWorkWith = self
         # if self._wrappedProblem != None :
         #     problemToWorkWith = self._wrappedProblem                
-        finalSvs = SafeSubs(problemToWorkWith.StateSymbols, {problemToWorkWith.TimeSymbol: problemToWorkWith.TimeFinalSymbol})
+        finalSvs = self.StateSymbolsFinal()
         for lmd in lambdasFinal :
             if lmd in finalSvs :
                 finalSvs.remove(lmd)

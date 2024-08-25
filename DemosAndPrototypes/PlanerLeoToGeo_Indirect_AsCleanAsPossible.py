@@ -99,9 +99,11 @@ costateBoundaryConditions = Problem.CreateLambdaDotConditionStatic(hamiltonian, 
 [transversalityCondition, extraEndSymbols] = Problem.TransversalityConditionInTheDifferentialForm(terminalCost, bcs, tfSy)
 #transversalityCondition = IndirectHelper.TransversalityConditionInTheDifferentialForm(terminalCost, bcs, tf) # the other transversality condition option
 
+initialSymbols = SafeSubs(x, {tSy: t0Sy})
+finalSymbols = SafeSubs(x, {tSy: tfSy})
 
 # and here is where a new script would start to do custom things
-helper = OdeLambdifyHelperWithBoundaryConditions(tSy, t0Sy, tfSy, eoms, [*bcs, *costateBoundaryConditions, *costRelatedBoundaryConditions, *transversalityCondition], [], substitutionDictionary)
+helper = OdeLambdifyHelperWithBoundaryConditions(tSy, t0Sy, tfSy, svs, initialSymbols, finalSymbols,  eoms, [*bcs, *costateBoundaryConditions, *costRelatedBoundaryConditions, *transversalityCondition], [], substitutionDictionary)
 helper.ScaleEquationsOfMotionAndBoundaryConditions(scaleDictionary, {tfSy, 1})
 
 scaledInitialValues = helper.ScaleState(initialValues)

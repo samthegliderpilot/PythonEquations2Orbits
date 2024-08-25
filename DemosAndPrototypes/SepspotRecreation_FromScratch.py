@@ -347,7 +347,7 @@ for i in range(0, 5) :
 print(lmdDotArray)
 #%%
 # now we try to integrate
-from pyeq2orb.Numerical.LambdifyHelpers import OdeLambdifyHelperWithBoundaryConditions
+from pyeq2orb.Numerical.LambdifyHelpers import OdeLambdifyHelperWithBoundaryConditions, OdeLambdifyHelper
 accelVal = 9.798e-4  #units are km, sec
 fullSubsDictionary[mu] = muVal
 fullSubsDictionary[acceleration] = accelVal
@@ -359,7 +359,7 @@ for i in range(0, len(lambdas)):
     eoms.append(sy.Eq(lambdas[i].diff(t), lmdDotArray[i]))
     display(eoms[-1])
 #%%    
-lmdHelper = OdeLambdifyHelperWithBoundaryConditions(t, sy.Symbol('t_0', real=True), sy.Symbol('t_f', real=True), eoms, [], [F], fullSubsDictionary)
+lmdHelper = OdeLambdifyHelperWithBoundaryConditions(t, sy.Symbol('t_0', real=True), sy.Symbol('t_f', real=True), [], eoms, [], [F], fullSubsDictionary)
 
 z0 = SafeSubs(z, {t: lmdHelper.t0})
 zF = SafeSubs(z, {t: lmdHelper.tf})

@@ -23,7 +23,7 @@ def test_CreatingDifferentialTransversalityCondition() :
     hamiltonian = problem.CreateHamiltonian(lambdas)
     transversality = problem.TransversalityConditionInTheDifferentialForm(hamiltonian, 0.0, SafeSubs(lambdas, {problem.TimeSymbol:problem.TimeFinalSymbol})) # not allowing final time to vary
 
-    zeroedOutCondition =(transversality[0]-(sy.sqrt(mu)*l_v/(2*(r*4.0)**(sy.Fraction(3,2))) - l_r + 1)).expand().simplify()
+    zeroedOutCondition =(transversality[0]-(sy.sqrt(mu)*l_v/(2*(r*4.0)**(sy.Rational(3,2))) - l_r + 1)).expand().simplify()
     assert (zeroedOutCondition).is_zero, "first xvers cond"
     assert (transversality[1]+lambdas[-1]).is_zero, "lmd theta condition"
  
