@@ -135,7 +135,7 @@ def testAddInitialValuesToDictionary() :
     initialState = [0.2, 0.3, 0.4, 0.5]
     prob.AddInitialValuesToDictionary(subsDict, initialState)
     assert 2== len(subsDict),"only 2 items in subs dict"
-    initialSvs = prob.CreateVariablesAtTime0(prob.StateSymbols)
+    initialSvs = prob.StateSymbolsInitial()
     assert initialState[0]== subsDict[initialSvs[0]],"x was added when no lambdas"
     assert initialState[1]== subsDict[initialSvs[1]],"vx was added when no lambdas"
 

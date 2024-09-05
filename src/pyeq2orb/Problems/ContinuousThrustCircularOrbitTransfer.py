@@ -14,6 +14,71 @@ from pyeq2orb.Symbolics.SymbolicUtilities import SafeSubs
 
 @inherit_docstrings
 class ContinuousThrustCircularOrbitTransferProblem(Problem) :
+
+    class scaledHandWrittenDifferentialEquations:
+        
+        def __init__(self, r0, u0, v0, lon0, thrust, m0, mDot, lmdLon, mu, scaleElements, scaleTime):
+            self.r0 = r0
+            self.u0 = u0
+            self.v0 = v0
+            self.lon0 = lon0
+            self.thrust = thrust
+            self.m0 = m0
+            self.mDot = mDot
+            self.lmdLon = lmdLon
+            self.mu = mu
+            self.scaleElements =scaleElements
+            self.scaleTime = scaleTime
+
+
+        def scaledDifferentialEquationCallback(self, t, y, *args):
+            
+            r = y[0]
+            u = y[1]
+            v = y[2]
+            l = y[3]
+            lmdR = y[4]
+            lmdU = y[5]
+            lmdV = y[6]
+            if len(y) == 8:
+                lmdLon = y[7]
+            else:
+                lmdLon = self.lmdLon
+            tf = args[0]
+            
+            thrust = self.thrust * tf/self.v0
+            eta = self.v0*tf/self.r0
+
+            if not self.scaleElements:
+                eta = 1
+            if not self.scaleTime:
+                tf = 1
+                thrust = self.thrust
+
+            lmdUV = math.sqrt(lmdU**2+lmdV**2)
+            
+            m0 = self.m0
+            mDot = self.mDot
+            mu = self.mu
+
+
+            drdt = u*eta
+            dudt = ((v**2/r - mu/(r**2))*eta)+(thrust/(m0 - abs(mDot)*t*tf))*(lmdU/(lmdUV))
+            dvdt = -1*u*v*eta/r + (thrust/(m0 - abs(mDot)*t*tf))*(lmdV/(lmdUV))
+            dlondt = v*eta/r
+
+            dlmdRdt = lmdU*eta*((v**2)/(r**2) - (2*mu/(r**3))) - lmdV*u*v*eta/(r**2) + lmdLon*eta*(v/(r**2))
+            dlmdUdt = -1*lmdR*eta + lmdV*v*eta/r
+            dlmdVdt = -2*lmdU*v*eta/r + lmdV*u*eta/r - lmdLon*eta/r
+
+            dydt = [drdt, dudt, dvdt, dlondt, dlmdRdt, dlmdUdt, dlmdVdt]
+
+            if len(y) == 8:
+                dlmdLon = 0
+                dydt.append(dlmdLon)
+            
+            return dydt    
+
     def __init__(self) :
         """Initializes a new instance.  The equations of motion will be set in the order [r, u, v, longitude].
         """
@@ -54,7 +119,7 @@ class ContinuousThrustCircularOrbitTransferProblem(Problem) :
         stateVariableDynamics.append(-vs*us/rs + thrust*sy.cos(control)/self.MassEquation)
         stateVariableDynamics.append(vs/rs)
 
-        self._stateVariables.extend([
+        self._stateElements.extend([
             ProblemVariable(rs, stateVariableDynamics[0]),
             ProblemVariable(us, stateVariableDynamics[1]),
             ProblemVariable(vs, stateVariableDynamics[2]),
@@ -62,12 +127,13 @@ class ContinuousThrustCircularOrbitTransferProblem(Problem) :
 
         self._controlVariables.extend([control])
 
+        finalSymbols = self.StateSymbolsFinal()
         self._boundaryConditions.extend([
-                self._stateVariables[1].Element.subs(self._timeSymbol, self._timeFinalSymbol),
-                self._stateVariables[2].Element.subs(self._timeSymbol, self._timeFinalSymbol)-sy.sqrt(mu/self._stateVariables[0].Element.subs(self._timeSymbol, self._timeFinalSymbol))
+                finalSymbols[1],
+                finalSymbols[2]-sy.sqrt(mu/finalSymbols[0])
         ])
 
-        self._terminalCost = self._stateVariables[0].Element.subs(self._timeSymbol, self._timeFinalSymbol) # maximization problem
+        self._terminalCost = finalSymbols[0] # maximization problem
 
 
     @staticmethod
@@ -120,7 +186,7 @@ class ContinuousThrustCircularOrbitTransferProblem(Problem) :
             solsLists.append(val)
         plt.title("Longitude (rad)")
         longitudeDegArray = [lonRad / (2*math.pi) for lonRad in solsLists[3]]
-        plt.plot(tUnscaled/86400, longitudeDegArray, label="longitude (deg)")
+        plt.plot(tUnscaled/86400, longitudeDegArray, label="longitude (rad)")
 
         plt.tight_layout()
         plt.grid(alpha=0.5)
@@ -176,11 +242,11 @@ class ContinuousThrustCircularOrbitTransferProblem(Problem) :
         # We want initial alpha to be 0 (or really close to it) per intuition
         # We can choose lmdv and solve for lmdu.  Start with lmdv to be 1
         # solve for lmdu with those assumptions      
-        lambdasAtT0 = problem.CreateVariablesAtTime0(lambdas)
+        lambdasAtT0 = problem.CostateSymbolsInitial()
         constantsForLmdGuesses = problem.SubstitutionDictionary.copy()
         constantsForLmdGuesses[lambdasAtT0[2]] = 1.0 
 
-        controlAtT0 = problem.CreateVariablesAtTime0(controlSolved)
+        controlAtT0 = controlSolved.subs(problem.TimeSymbol, problem.TimeInitialSymbol)
         sinOfControlAtT0 = sy.sin(controlAtT0).trigsimp(deep=True).expand().simplify()
         alphaEq = sinOfControlAtT0.subs(lambdasAtT0[2], constantsForLmdGuesses[lambdasAtT0[2]])
         ans1 = sy.solveset(sy.Eq(0.00,alphaEq), lambdasAtT0[1])
@@ -192,7 +258,7 @@ class ContinuousThrustCircularOrbitTransferProblem(Problem) :
         constantsForLmdGuesses[lambdasAtT0[1]] = float(ansForLambdaU)
 
         # if we assume that we always want to keep alpha small (0), we can solve dlmd_u/dt=0 for lmdr_0
-        lmdUDotAtT0 = problem.CreateVariablesAtTime0(problem._costateElements[1].FirstOrderDynamics)
+        lmdUDotAtT0 = problem.CostateDynamicsEquations[1].subs(problem.TimeSymbol, problem.TimeInitialSymbol)
         lmdUDotAtT0 = lmdUDotAtT0.subs(constantsForLmdGuesses)
         inter=sy.solve(sy.Eq(lmdUDotAtT0, 0), lambdasAtT0[0].subs(constantsForLmdGuesses))
         lambdaR0Value = float(inter[0].subs(constantsForLmdGuesses)) # we know there is just 1

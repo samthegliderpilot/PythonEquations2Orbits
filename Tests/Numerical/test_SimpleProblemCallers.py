@@ -5,7 +5,7 @@ import pyeq2orb.Numerical.ScipyCallbackCreators as scipyCreator #type: ignore
 from pyeq2orb.Numerical.SimpleProblemCallers import SimpleEverythingAnswer, SingleShootingFunctions, BlackBoxSingleShootingFunctions, SimpleIntegrationAnswer, IIntegrationAnswer, singleShootingSolver, fSolveSingleShootingSolver #type: ignore
 import pyeq2orb.Numerical.ScipyCallbackCreators as ScipyCallbackCreators #type: ignore
 import math
-from typing import Tuple, List, Callable, Optional
+from typing import Tuple, List, Callable, Optional, Dict, Iterable
 from types import MethodType
 
 #class testSimpleEverythingAnswer(unittest.TestCase) :
@@ -84,38 +84,73 @@ def runSimpleCase(passedInArgs):
             assert answer.StateHistory[stateSymbols[j]][i] == expectedDifeqAnswer.StateHistory[stateSymbols[j]][i]
         assert answer.TimeHistory[i] == expectedDifeqAnswer.TimeHistory[i]
 
-    
+class fakeSingleShooting(SingleShootingFunctions):
+    def __init__(self):
+        self._stateCount =2
+        self._argCount = 2
+        self._bcCount =2 
+
+    @property
+    def StateSymbols(self) ->List[sy.Symbol]:
+        alphabet = "abcdefghijklmnopqrstuvwxyz"
+        symbols = []
+        for i in range(0, self._stateCount) :
+            symbols.append(sy.Symbol(alphabet[i], real=True))
+        return symbols
 
 
-#class testFSolveSingleShootingSolver(unittest.TestCase):
+    @property
+    def OtherArgumentSymbols(self) -> List[sy.Symbol]:
+        alphabet = "abcdefghijklmnopqrstuvwxyz"
+        symbols = []
+        for i in range(0, self._stateCount) :
+            symbols.append(sy.Symbol(alphabet[i+5], real=True))
+        return symbols
+    @property
+    def BoundaryConditionExpressions(self) -> List[sy.Expr]: # this is a sympy expression, it must equal 0
+        alphabet = "abcdefghijklmnopqrstuvwxyz"
+        symbols = self.StateSymbols
+        argSymbols = self.OtherArgumentSymbols
+        exprs = []
+        for i in range(0, self._stateCount) :
+            exprs.append(symbols[i]-argSymbols[i])
+        return exprs
 
-def simpleOdeCallback(t:float, xState:List[float], args : List[float]) ->List[float]:
-    dx1 = xState[1] + args[0] + 0.0
-    dx2 = xState[0] + args[1] + 1.0
-    return [dx1, dx2]
 
-def boundaryConditionCallback(integrationAnswer : IIntegrationAnswer, *args : Tuple[float, ...]) ->List[float]:
-    desiredAnswer1 = integrationAnswer.StateVariableHistoryByIndex(0)[-1] - args[0]
-    desiredAnswer2 = integrationAnswer.StateVariableHistoryByIndex(1)[-1] - args[1]
-    return [desiredAnswer1, desiredAnswer2]
+    def evaluateFakeIntegrationHistory(self, time : Iterable[float], y0 : List[float], args  : List[float]) -> Dict[sy.Symbol, List[float]]:
+        alphabet = "abcdefghijklmnopqrstuvwxyz"
+        solution : Dict[sy.Symbol, List[float]]= {}
+        for i in range(0, len(y0)):
+            thisSymbol = sy.Symbol(alphabet[i], real=True)
+            solution[thisSymbol] = []
+            for t in time:
+                solution[thisSymbol].append(y0[i]+args[i])
+        return solution
+
+    def IntegrateDifferentialEquations(self, time : Iterable[float], y0 : List[float], args  : List[float]) -> IIntegrationAnswer:
+        results = self.evaluateFakeIntegrationHistory(time, y0, args)
+        answer = SimpleIntegrationAnswer(self, time, results, None)    
+        return answer
+
+    def BoundaryConditionEvaluation(self, integrationAnswer: IIntegrationAnswer, args : List[float]) -> List[float]:    
+        bcValues : List[float]= []
+        i=0
+        for key, values in integrationAnswer.StateHistory.items():
+            bcValues.append(values[-1]-10)
+            i=i+1
+        return bcValues
 
 def testBasics():
-    def solve_ivp_wrapper(t, y, *args):
-        realArgs = args
-        # if isinstance(args, list):
-        #     realArgs = *args
-        anAns = solve_ivp(simpleOdeCallback, [t[0], t[-1]], y, dense_output=True, t_eval=t, args=realArgs, method='LSODA')
-        anAnsDict = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(stateSymbols, anAns)
-        return SimpleIntegrationAnswer(basicProblem, t, anAnsDict)
 
     t = sy.Symbol('t')
     t0 = sy.Symbol('t_0')
     tf = sy.Symbol('t_f')
-    stateSymbols = [sy.Function('x')(t), sy.Function('y')(t)]
-    argSymbols = [sy.Symbol('a'), sy.Symbol('b')]
-    boundaryConditionExpressions  = [sy.Function('x')(tf) - argSymbols[0], sy.Function('y')(tf) - argSymbols[1], 30]
+
+    basicProblem = fakeSingleShooting()
     
-    basicProblem = BlackBoxSingleShootingFunctions(solve_ivp_wrapper, boundaryConditionCallback, stateSymbols, boundaryConditionExpressions, argSymbols)
+    stateSymbols = basicProblem.StateSymbols
+    argSymbols = basicProblem.OtherArgumentSymbols
+    boundaryConditionExpressions = basicProblem.BoundaryConditionExpressions
     solver = fSolveSingleShootingSolver(basicProblem, [stateSymbols[1], argSymbols[0]], boundaryConditionExpressions[:2])
     problemEvaluated = solver.EvaluatableProblem.EvaluateProblem([0.0, 5.0, 10.0], [30, 20], [15, 5])
     print(problemEvaluated)
@@ -140,13 +175,12 @@ def testBasics():
     assert solverAns[0] == 5.0
     assert solverAns[1] == 6.0
 
-    ans = solver.solve([2.0, 3.0], [0.0, 5.0, 10.0], [4.0, 5.0], [6.0, 7.0], full_output=True)
-    # def interceptFsolveRun(, solverFunc, solverState, **kwargs) :
-    #     print(solverState)
-    #     return "Solved"
+    ans = solver.solve([4.0, 5.0], [0.0, 5.0, 10.0], [4.0, 5.0], full_output=True)
+    assert 10.0 == ans.SolvedControls[0]
+    assert 6.0 == ans.SolvedControls[1]
+    assert 0.0 == ans.ConstraintValues[0]
+    assert 0.0 == ans.ConstraintValues[1]
 
-    # solver.fsolveRun = MethodType(interceptFsolveRun, solver)
-    solver.solve([2.0, 3.0], [0.0, 5.0, 10.0], [2.0, 3.0], [6.0, 7.0], full_output=True)
     
     
     

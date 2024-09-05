@@ -4,7 +4,7 @@ from pyeq2orb.Numerical import ScipyCallbackCreators
 
 import sympy as sy
 from typing import Optional, List, Dict, Callable, cast, Any, Union, Tuple
-from pyeq2orb.ProblemBase import Problem
+from pyeq2orb.ProblemBase import Problem, ProblemVariable
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
 from pyeq2orb.Symbolics.SymbolicUtilities import SafeSubs
 from copy import deepcopy
@@ -189,8 +189,8 @@ class OdeLambdifyHelper(LambdifyHelper):
         for thisEom in equationsOfMotion :
             # eom's could be constant equations.  Check, add if it doesn't have subs
             if(hasattr(thisEom, "subs")) :
-                thisEom = SafeSubs(thisEom, self.SubstitutionDictionary).doit(deep=True)  
-                thisEom = SafeSubs(thisEom, self.SubstitutionDictionary).doit(deep=True)  
+                thisEom = SafeSubs(thisEom, self.SubstitutionDictionary).doit(deep=True)
+                thisEom = SafeSubs(thisEom, self.SubstitutionDictionary).doit(deep=True).trigsimp(deep=True)  
             eomList.append(thisEom)   
         odeArgs = self.BuildLambdifyingState()
         
@@ -300,21 +300,33 @@ class OdeLambdifyHelper(LambdifyHelper):
 # make the content of a Problem, and lambdifying it
 class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
     
-    def __init__(self, time : sy.Symbol, t0: sy.Symbol, tf: sy.Symbol, stateVariables : List[sy.Symbol], dynamicExpressions : List[sy.Expr], boundaryConditionEquations : List[sy.Expr], otherArgsList : List[sy.Symbol], substitutionDictionary : Dict) :
-        OdeLambdifyHelper.__init__(self, time, stateVariables, dynamicExpressions, otherArgsList, substitutionDictionary)
+    def __init__(self, time : sy.Symbol, t0: sy.Symbol, tf: sy.Symbol, stateSymbols : List[sy.Symbol], initialStateSymbols : List[sy.Symbol], finalStateSymbols : List[sy.Symbol], dynamicExpressions : List[sy.Expr], boundaryConditionEquations : List[sy.Expr], otherArgsList : List[sy.Symbol], substitutionDictionary : Dict) :
+        svsOfT = stateSymbols
+        OdeLambdifyHelper.__init__(self, time, svsOfT, dynamicExpressions, otherArgsList, substitutionDictionary)
         self._t0 = t0 #type: sy.Symbol
         self._tf = tf #type: sy.Symbol
         self._boundaryConditions = boundaryConditionEquations
+        self._nonTimeLambdifyArgumentsInitial=initialStateSymbols
+        self._nonTimeLambdifyArgumentsFinal = finalStateSymbols
 
     @staticmethod
     def CreateFromProblem(problem : Problem) :
-        stateAndControl = [*problem.StateSymbols, *problem.CostateSymbols]
         otherArgs : List[sy.Symbol] = problem.OtherArguments
         dynamics = []
         dynamics.extend(problem.StateVariableDynamics)
         dynamics.extend(problem.CostateDynamicsEquations)
         initialCostateVariables = SafeSubs(problem.CostateSymbols, {problem.TimeSymbol: problem.TimeInitialSymbol})
-        helper = OdeLambdifyHelperWithBoundaryConditions(problem.TimeSymbol, problem.TimeInitialSymbol, problem.TimeFinalSymbol, stateAndControl, dynamics, problem.BoundaryConditions, otherArgs, problem.SubstitutionDictionary)
+
+        integrationStateSymbols = [*problem.StateSymbols]
+        integrationStateSymbols.extend(problem.CostateSymbols)
+
+        initialStateSymbols = [*problem.StateSymbolsInitial()]
+        initialStateSymbols.extend(problem.CostateSymbolsInitial())
+
+        finalStateSymbols = [*problem.StateSymbolsFinal()]
+        finalStateSymbols.extend(problem.CostateSymbolsFinal())
+
+        helper = OdeLambdifyHelperWithBoundaryConditions(problem.TimeSymbol, problem.TimeInitialSymbol, problem.TimeFinalSymbol, integrationStateSymbols, initialStateSymbols, finalStateSymbols, dynamics, problem.BoundaryConditions, otherArgs, problem.SubstitutionDictionary)
 
         return helper
     @property
@@ -334,6 +346,14 @@ class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
         self._tf = value
 
     @property
+    def NonTimeLambdifyArgumentsInitial(self) ->List[sy.Symbol]:
+        return self._nonTimeLambdifyArgumentsInitial
+
+    @property
+    def NonTimeLambdifyArgumentsFinal(self)->List[sy.Symbol]:
+        return self._nonTimeLambdifyArgumentsFinal
+
+    @property
     def BoundaryConditionExpressions(self) -> List[sy.Expr] :
         return self._boundaryConditions # must equal 0
     
@@ -346,9 +366,9 @@ class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
     def CreateDefaultStateForBoundaryConditions(self)->List[SymbolOrNumber]:
         stateForBoundaryConditions : List[SymbolOrNumber] = []
         stateForBoundaryConditions.append(self.t0)
-        stateForBoundaryConditions.extend(SafeSubs(self.NonTimeLambdifyArguments, {self.Time: self.t0}))
+        stateForBoundaryConditions.extend(self.NonTimeLambdifyArgumentsInitial)
         stateForBoundaryConditions.append(self.tf)
-        stateForBoundaryConditions.extend(SafeSubs(self.NonTimeLambdifyArguments, {self.Time: self.tf}))
+        stateForBoundaryConditions.extend(self.NonTimeLambdifyArgumentsFinal)
         if not( self.OtherArguments == None or len(self.OtherArguments) == 0):
             stateForBoundaryConditions.extend(self.OtherArguments)        
         return stateForBoundaryConditions

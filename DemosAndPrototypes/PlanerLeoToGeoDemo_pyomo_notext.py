@@ -16,7 +16,8 @@ import scipyPaperPrinter as jh
 import pyomo.environ as poenv
 import pyomo.dae as podae
 from matplotlib.figure import Figure
-
+from pyeq2orb.ProblemBase import Problem, ProblemVariable
+from pyeq2orb import SafeSubs
 # constants
 g = 9.80665
 mu = 3.986004418e14  
@@ -42,15 +43,21 @@ scaleTime = scale and True
 
 
 baseProblem = ContinuousThrustCircularOrbitTransferProblem()
-initialStateValues = baseProblem.CreateVariablesAtTime0(baseProblem.StateSymbols)
+initialStateSymbols = baseProblem.StateSymbolsInitial()
 problem = baseProblem
 
 if scale :
-    newSvs = ScaledSymbolicProblem.CreateBarVariables(problem.StateSymbols, problem.TimeSymbol) 
-    problem = ScaledSymbolicProblem(baseProblem, newSvs, {problem.StateSymbols[0]: initialStateValues[0], 
-                                                          problem.StateSymbols[1]: initialStateValues[2], 
-                                                          problem.StateSymbols[2]: initialStateValues[2], 
-                                                          problem.StateSymbols[3]: 1.0} , scaleTime)
+    originalProblem = problem
+    newSvs = Problem.CreateBarVariables(problem.StateSymbols, problem.TimeSymbol) 
+    problem = baseProblem.ScaleStateVariables(newSvs, {problem.StateSymbols[0]: newSvs[0] * initialStateSymbols[0], 
+                                                       problem.StateSymbols[1]: newSvs[1] * initialStateSymbols[2], 
+                                                       problem.StateSymbols[2]: newSvs[2] * initialStateSymbols[2], 
+                                                       problem.StateSymbols[3]: newSvs[3]}) #type: ignore
+    if scaleTime :
+        tau = sy.Symbol(r'\tau', real=True)
+        problem = problem.ScaleTime(tau, sy.Symbol(r'\tau_0', real=True), sy.Symbol(r'\tau_f', real=True), tau*problem.TimeFinalSymbol)  
+        jh.t = problem._timeSymbol # needed for cleaner printed equations
+
 rs = problem.StateSymbols[0]
 us = problem.StateSymbols[1]
 vs = problem.StateSymbols[2]
@@ -67,10 +74,10 @@ constantsSubsDict[baseProblem.Mu]= mu
 constantsSubsDict[baseProblem.Thrust] = thrust
 
 # register initial state values
-constantsSubsDict.update(zip(initialStateValues, [r0, u0, v0, lon0]))
+constantsSubsDict.update(zip(initialStateSymbols, [r0, u0, v0, lon0]))
 if scale :
     # and reset the real initial values using tau_0 instead of time
-    initialValuesAtTau0 = SafeSubs(initialStateValues, {baseProblem.TimeInitialSymbol: problem.TimeInitialSymbol})
+    initialValuesAtTau0 = SafeSubs(initialStateSymbols, {baseProblem.TimeInitialSymbol: problem.TimeInitialSymbol})
     constantsSubsDict.update(zip(initialValuesAtTau0, [r0, u0, v0, lon0]))
 
     r0 = r0/r0
@@ -78,10 +85,36 @@ if scale :
     v0 = v0/v0
     lon0 = lon0/1.0
     # add the scaled initial values (at tau_0).  We should NOT need to add these at t_0
-    initialScaledStateValues = problem.CreateVariablesAtTime0(problem.StateSymbols)
+    initialScaledStateValues = problem.StateSymbolsInitial()
     constantsSubsDict.update(zip(initialScaledStateValues, [r0, u0, v0, lon0])) 
     
 lambdifyFunctionMap = {'sqrt': poenv.sqrt, 'sin': poenv.sin, 'cos':poenv.cos} #TODO: MORE!!!!
+
+#%%
+from pyeq2orb.Numerical.SimpleProblemCallers import SimpleIntegrationAnswer,SingleShootingFunctions  #type:ignore
+from pyeq2orb.Numerical.SimpleProblemCallers import BlackBoxSingleShootingFunctions, fSolveSingleShootingSolver, BlackBoxSingleShootingFunctionsFromLambdifiedFunctions
+
+class pyomoEverythingSolver(EverythingProblem):
+    def __init__(self):
+        self.model = pyomo.ConcreteModel()
+    @property
+    def StateSymbols(self) ->List[sy.Symbol]:
+        pass
+
+    @property
+    def OtherArgumentSymbols(self) -> List[sy.Symbol]:
+        pass
+
+    @property
+    def BoundaryConditionExpressions(self) -> List[sy.Expr]: # this is a sympy expression, it must equal 0
+        pass
+
+    
+    def EvaluateProblem(self, time : List[float], initialState : List[float], args : List[float]) ->IEverythingAnswer:    
+        pass
+
+    def registerStateVariable(self, symbol : sy.Symbo, min : float, max : float, initialValue : Optional[float] = None):
+        #model.add_component(...)
 
 asNumericalProblem = NumericalProblemFromSymbolicProblem(problem, lambdifyFunctionMap)
 

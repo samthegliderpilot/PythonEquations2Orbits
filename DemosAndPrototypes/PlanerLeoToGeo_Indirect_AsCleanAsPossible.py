@@ -8,8 +8,7 @@ import plotly.express as px#type: ignore
 from pandas import DataFrame #type: ignore
 import math
 from scipy.optimize import fsolve#type: ignore
-from pyeq2orb.SymbolicOptimizerProblem import SymbolicProblem #type: ignore
-from pyeq2orb.ScaledSymbolicProblem import ScaledSymbolicProblem #type: ignore
+from pyeq2orb.ProblemBase import Problem #type: ignore
 from pyeq2orb.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem #type: ignore
 from pyeq2orb.Numerical import ScipyCallbackCreators #type: ignore
 from pyeq2orb.Numerical.LambdifyHelpers import OdeLambdifyHelperWithBoundaryConditions #type: ignore
@@ -90,19 +89,21 @@ controlSymbols = [alpSy]
 
 
 # this is the code I need to write/refactor to be this simple/general
-costateVariables = SymbolicProblem.CreateCostateVariables(x) #type: Vector
-hamiltonian = SymbolicProblem.CreateHamiltonianStatic(x[0:4], tSy, eoms[0:4], unintegratedPathCost, costateVariables) #type: sy.Expr
-optimalControl = SymbolicProblem.CreateControlExpressionsFromHamiltonian(hamiltonian, controlSymbols) # an expression for the control variables
+costateVariables = Problem.CreateCostateVariables(x) #type: Vector
+hamiltonian = Problem.CreateHamiltonianStatic(tSy, eoms[0:4], unintegratedPathCost, costateVariables) #type: sy.Expr
+optimalControl = Problem.CreateControlExpressionsFromHamiltonian(hamiltonian, controlSymbols) # an expression for the control variables
 substitutionDictionary[alpSy] = optimalControl[alpSy] # loop
-createCostateDifferentialEquations = SymbolicProblem.CreateLambdaDotEquationsStatic(hamiltonian,t, x[0:4], costateVariables) #type: sy.Eq
+createCostateDifferentialEquations = Problem.CreateLambdaDotEquationsStatic(hamiltonian,t, x[0:4], costateVariables) #type: sy.Eq
 
-costateBoundaryConditions = SymbolicProblem.CreateLambdaDotConditionStatic(hamiltonian, xf[0:4])
-[transversalityCondition, extraEndSymbols] = SymbolicProblem.TransversalityConditionInTheDifferentialForm(terminalCost, bcs, tfSy)
+costateBoundaryConditions = Problem.CreateLambdaDotConditionStatic(hamiltonian, xf[0:4])
+[transversalityCondition, extraEndSymbols] = Problem.TransversalityConditionInTheDifferentialForm(terminalCost, bcs, tfSy)
 #transversalityCondition = IndirectHelper.TransversalityConditionInTheDifferentialForm(terminalCost, bcs, tf) # the other transversality condition option
 
+initialSymbols = SafeSubs(x, {tSy: t0Sy})
+finalSymbols = SafeSubs(x, {tSy: tfSy})
 
 # and here is where a new script would start to do custom things
-helper = OdeLambdifyHelperWithBoundaryConditions(tSy, t0Sy, tfSy, eoms, [*bcs, *costateBoundaryConditions, *costRelatedBoundaryConditions, *transversalityCondition], [], substitutionDictionary)
+helper = OdeLambdifyHelperWithBoundaryConditions(tSy, t0Sy, tfSy, svs, initialSymbols, finalSymbols,  eoms, [*bcs, *costateBoundaryConditions, *costRelatedBoundaryConditions, *transversalityCondition], [], substitutionDictionary)
 helper.ScaleEquationsOfMotionAndBoundaryConditions(scaleDictionary, {tfSy, 1})
 
 scaledInitialValues = helper.ScaleState(initialValues)
@@ -119,3 +120,4 @@ finalScaledSolution = solve_ivp(solveIvpCallback, tArray, fSolveAnswer[0])
 
 
 # and plot, do whatever with the final answer
+# %%
