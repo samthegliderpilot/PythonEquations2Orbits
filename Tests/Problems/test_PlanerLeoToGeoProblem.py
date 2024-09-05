@@ -154,8 +154,8 @@ def CreateEvaluatableCallbacks(scale : bool, scaleTime : bool, useDifferentialTr
         problem._stateElements[i].FirstOrderDynamics = problem._stateElements[i].FirstOrderDynamics.trigsimp(deep=True).simplify() # some simplification to make numerical code more stable later, and that is why this code forces us to do things somewhat manually.  There are often special things like this that we ought to do that you can't really automate.
 
     ## Start with the boundary conditions
-    if scaleTime : # add BC if we are working with the final time (kind of silly for this example, but we need an equal number of in's and out's for fsolve later)
-        problem.BoundaryConditions.append(baseProblem.TimeFinalSymbol-tfOrg)
+    #if scaleTime : # add BC if we are working with the final time (kind of silly for this example, but we need an equal number of in's and out's for fsolve later)
+    #    problem.BoundaryConditions.append(baseProblem.TimeFinalSymbol-tfOrg)
 
     tToTfSubsDict = {problem.TimeSymbol: problem.TimeFinalSymbol}
     # make the transversality conditions
@@ -183,9 +183,10 @@ def CreateEvaluatableCallbacks(scale : bool, scaleTime : bool, useDifferentialTr
     if scaleTime :
         initialFSolveStateGuess.append(tfOrg)
 
-    otherArgs = []
+    otherArgs = problem.OtherArguments
     if scaleTime :
-        otherArgs.append(baseProblem.TimeFinalSymbol)
+        pass
+        #otherArgs.append(baseProblem.TimeFinalSymbol)
     if len(nus) > 0 :
         otherArgs.extend(nus)
     
@@ -206,8 +207,8 @@ def CreateEvaluatableCallbacks(scale : bool, scaleTime : bool, useDifferentialTr
         argsForOde = [] #type: List[float]
         if scaleTime :
             argsForOde.append(tfOrg)
-        # argsForOde.append(initialFSolveStateGuess[1])
-        # argsForOde.append(initialFSolveStateGuess[2])  
+        argsForOde.append(initialFSolveStateGuess[-2])
+        argsForOde.append(initialFSolveStateGuess[-1])  
         testSolution = solve_ivp(odeIntEomCallback, [tArray[0], tArray[-1]], [r0, u0, v0, lon0, *initialFSolveStateGuess[0:3]], args=tuple(argsForOde), t_eval=tArray, dense_output=True, method="LSODA")  
         #testSolution = odeint(odeIntEomCallback, [r0, u0, v0, lon0, *initialFSolveStateGuess[0:3]], tArray, args=tuple(argsForOde))
         finalValues = ScipyCallbackCreators.GetFinalStateFromIntegratorResults(testSolution)
@@ -266,7 +267,7 @@ def testRegressionWithAdjoinedTransversality() :
     for val in answer :
         assert abs(val) < 0.3, str(i)+"'th value in fsolve answer " + str(val) + " too big"
         i=i+1
-    odeAns = solve_ivp(odeSolveIvpCb, [tArray[0], tArray[-1]], [*z0, *knownAnswer[0:3]], args=tuple(knownAnswer[3:]), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)  
+    odeAns = solve_ivp(odeSolveIvpCb, [tArray[0], tArray[-1]], [*z0, *knownAnswer[1:4]], args=tuple(knownAnswer[3:]), t_eval=tArray, dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)  
     finalState = ScipyCallbackCreators.GetFinalStateFromIntegratorResults(odeAns)
     assertAlmostEqualsDelta(finalState[0], 42162141.30863323, 100, "radius check")
     assertAlmostEqualsDelta(finalState[1], 0.000, .1, "u check")

@@ -14,6 +14,71 @@ from pyeq2orb.Symbolics.SymbolicUtilities import SafeSubs
 
 @inherit_docstrings
 class ContinuousThrustCircularOrbitTransferProblem(Problem) :
+
+    class scaledHandWrittenDifferentialEquations:
+        
+        def __init__(self, r0, u0, v0, lon0, thrust, m0, mDot, lmdLon, mu, scaleElements, scaleTime):
+            self.r0 = r0
+            self.u0 = u0
+            self.v0 = v0
+            self.lon0 = lon0
+            self.thrust = thrust
+            self.m0 = m0
+            self.mDot = mDot
+            self.lmdLon = lmdLon
+            self.mu = mu
+            self.scaleElements =scaleElements
+            self.scaleTime = scaleTime
+
+
+        def scaledDifferentialEquationCallback(self, t, y, *args):
+            
+            r = y[0]
+            u = y[1]
+            v = y[2]
+            l = y[3]
+            lmdR = y[4]
+            lmdU = y[5]
+            lmdV = y[6]
+            if len(y) == 8:
+                lmdLon = y[7]
+            else:
+                lmdLon = self.lmdLon
+            tf = args[0]
+            
+            thrust = self.thrust * tf/self.v0
+            eta = self.v0*tf/self.r0
+
+            if not self.scaleElements:
+                eta = 1
+            if not self.scaleTime:
+                tf = 1
+                thrust = self.thrust
+
+            lmdUV = math.sqrt(lmdU**2+lmdV**2)
+            
+            m0 = self.m0
+            mDot = self.mDot
+            mu = self.mu
+
+
+            drdt = u*eta
+            dudt = ((v**2/r - mu/(r**2))*eta)+(thrust/(m0 - abs(mDot)*t*tf))*(lmdU/(lmdUV))
+            dvdt = -1*u*v*eta/r + (thrust/(m0 - abs(mDot)*t*tf))*(lmdV/(lmdUV))
+            dlondt = v*eta/r
+
+            dlmdRdt = lmdU*eta*((v**2)/(r**2) - (2*mu/(r**3))) - lmdV*u*v*eta/(r**2) + lmdLon*eta*(v/(r**2))
+            dlmdUdt = -1*lmdR*eta + lmdV*v*eta/r
+            dlmdVdt = -2*lmdU*v*eta/r + lmdV*u*eta/r - lmdLon*eta/r
+
+            dydt = [drdt, dudt, dvdt, dlondt, dlmdRdt, dlmdUdt, dlmdVdt]
+
+            if len(y) == 8:
+                dlmdLon = 0
+                dydt.append(dlmdLon)
+            
+            return dydt    
+
     def __init__(self) :
         """Initializes a new instance.  The equations of motion will be set in the order [r, u, v, longitude].
         """

@@ -1,9 +1,5 @@
 #%%
-import __init__  #type: ignore
 import sympy as sy
-# import sys
-# sys.path.append('..\\')
-# sys.path.append('..\..\\')
 from pyeq2orb.ForceModels.TwoBodyForce import CreateTwoBodyMotionMatrix, CreateTwoBodyListForModifiedEquinoctialElements
 from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
 from pyeq2orb.Coordinates.KeplerianModule import KeplerianElements
@@ -33,7 +29,6 @@ import plotly.graph_objects as go
 from collections import OrderedDict
 from scipy.interpolate import splev, splrep #type: ignore
 import pyeq2orb.Coordinates.OrbitFunctions as orb
-from pyeq2orb.Numerical import OdeHelperModule
 from collections import OrderedDict
 from pyeq2orb import SafeSubs
 from IPython.display import display

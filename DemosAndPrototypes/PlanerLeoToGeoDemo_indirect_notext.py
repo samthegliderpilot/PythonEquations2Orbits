@@ -29,7 +29,6 @@ thrust = 20.0
 isp = 6000.0
 m0 = 1500.0
 
-
 # initial values
 r0 = 6678000.0
 u0 = 0.0
@@ -46,8 +45,11 @@ tfVal  = 3600*3.97152*24
 tfOrg = tfVal
 
 # these are options to switch to try different things
-scaleElements = True
-scaleTime = scaleElements and True
+scaleElements = False
+scaleTime = scaleElements and False
+# your choice of the nu vector here controls which transversality condition we use
+nus = [sy.Symbol('B_{u_f}'), sy.Symbol('B_{v_f}')]
+#nus = [] #type: List[sy.Symbol]
 
 # make the time array
 tArray = np.linspace(0.0, tfOrg, 1200)
@@ -85,40 +87,40 @@ for bc in problem.BoundaryConditions :
 orgSvCount = len(problem.StateSymbols)
 costateSymbols = problem.CreateCostateVariables(problem.StateSymbols, r'\lambda', problem.TimeSymbol) # preemptively making the costate values
 hamiltonian = problem.CreateHamiltonian(costateSymbols)
-jh.showEquation("H", hamiltonian)
+
 lambdaDotExpressions = problem.CreateLambdaDotCondition(hamiltonian)
+dHdu = problem.CreateHamiltonianControlExpressions(hamiltonian)[0]
 for i in range(0, 4):
     problem.AddCostateVariable(ProblemVariable(costateSymbols[i], lambdaDotExpressions[i]))
-    jh.showEquation(costateSymbols[i].diff(problem.TimeSymbol), lambdaDotExpressions[i, 0])    
-
-
-dHdu = problem.CreateHamiltonianControlExpressions(hamiltonian)[0]
-jh.showEquation('\\frac{\\partial{H}}{\\partial{u}}=0', dHdu)
-
 controlSolved = sy.solve(dHdu, problem.ControlSymbols[0])[0] # something that may be different for other problems is when there are multiple control variables
-jh.showEquation(problem.ControlSymbols[0], controlSolved)
-
 eomWithControlSolved = problem.EquationsOfMotionAsEquations[1].rhs.subs(problem.ControlSymbols[0], controlSolved)
-jh.showEquation("a", eomWithControlSolved.trigsimp(deep=True).simplify())
-
 # update ALL equations of motion with the new expression for the control variable
 controlSubsDict = {problem.ControlSymbols[0]: controlSolved}
-# the trig simplification needs the deep=True for this problem to make the equations even cleaner
 for i in range(0, len(problem.StateVariableDynamics)):
     problem.StateVariableDynamics[i] = SafeSubs(problem.StateVariableDynamics[i],controlSubsDict).trigsimp(deep=True).simplify() # some simplification to make numerical code more stable later, and that is why this code forces us to do things somewhat manually.  There are often special things like this that we ought to do that you can't really automate.
-    jh.showEquation(problem.StateSymbols[i].diff(problem.TimeSymbol), problem.StateVariableDynamics[i], [problem.TimeInitialSymbol])
 constantsSubsDict[problem.ControlSymbols[0]]  =controlSolved
-
-# your choice of the nu vector here controls which transversality condition we use
-#nus = [sy.Symbol('B_{u_f}'), sy.Symbol('B_{v_f}')]
-nus = [] #type: List[sy.Symbol]
 lambdasFinal = SafeSubs(costateSymbols, {problem.TimeSymbol: problem.TimeFinalSymbol})
-# make the transversality conditions
-#%%
 if len(nus) != 0:
     transversalityCondition = problem.TransversalityConditionsByAugmentation(nus, lambdasFinal)
 else:
     transversalityCondition = problem.TransversalityConditionInTheDifferentialForm(hamiltonian, sy.Symbol(r'dt_f'), lambdasFinal)
+problem.BoundaryConditions.extend(transversalityCondition)
+if len(nus) > 0:
+    problem.OtherArguments.extend(nus)
+
+
+
+
+jh.showEquation("H", hamiltonian)
+for i in range(0, 4):
+    jh.showEquation(costateSymbols[i].diff(problem.TimeSymbol), lambdaDotExpressions[i, 0])    
+jh.showEquation('\\frac{\\partial{H}}{\\partial{u}}=0', dHdu)
+jh.showEquation(problem.ControlSymbols[0], controlSolved)
+jh.showEquation("a", eomWithControlSolved.trigsimp(deep=True).simplify())
+# the trig simplification needs the deep=True for this problem to make the equations even cleaner
+for i in range(0, len(problem.StateVariableDynamics)):
+    jh.showEquation(problem.StateSymbols[i].diff(problem.TimeSymbol), problem.StateVariableDynamics[i], [problem.TimeInitialSymbol])
+
 # and add them to the problem
 jh.printMarkdown('The transversality conditions')
 for xvers in transversalityCondition :
@@ -126,8 +128,6 @@ for xvers in transversalityCondition :
 
 #if scaleTime : # add BC if we are working with the final time (not all solvers need this, but when the same number of BC's and variables are required by the solver [like fsolve does] then...)
 #    problem.BoundaryConditions.append(stateAtTf[0]/r0_org-42162.0/r0_org)
-
-problem.BoundaryConditions.extend(transversalityCondition)
 
 
 
@@ -168,6 +168,7 @@ constantsSubsDict[lmdTheta]=0
 constantsSubsDict[lmdTheta.subs(problem.TimeSymbol, problem.TimeFinalSymbol)]=0
 constantsSubsDict[lmdTheta.subs(problem.TimeSymbol, problem.TimeInitialSymbol)]=0
 
+
 #%%
 initialFSolveStateGuess = [26.227553300281922,1277.0845661479312,  23647.73525022148]# ContinuousThrustCircularOrbitTransferProblem.CreateInitialLambdaGuessForLeoToGeo(problem, controlSolved, problem.CostateSymbols)
 
@@ -180,69 +181,6 @@ for co in problem.CostateVariables:
 
 for bc in problem.BoundaryConditions :
     jh.showEquation(0, bc)
-
-
-
-class differentialEquations:
-    def __init__(self, r0, u0, v0, lon0, thrust, m0, mDot, lmdLon, mu):
-        self.r0 = r0
-        self.u0 = u0
-        self.v0 = v0
-        self.lon0 = lon0
-        self.thrust = thrust
-        self.m0 = m0
-        self.mDot = mDot
-        self.lmdLon = lmdLon
-        self.mu = mu
-
-
-    def scaledDifferentialEquationCallback(self, t, y, *args):
-        
-        r = y[0]
-        u = y[1]
-        v = y[2]
-        l = y[3]
-        lmdR = y[4]
-        lmdU = y[5]
-        lmdV = y[6]
-        if len(y) == 8:
-            lmdLon = y[7]
-        else:
-            lmdLon = self.lmdLon
-        tf = args[0]
-        
-        thrust = self.thrust * tf/self.v0
-        eta = self.v0*tf/self.r0
-
-        if not scaleElements:
-            eta = 1
-        if not scaleTime:
-            tf = 1
-            thrust = self.thrust
-
-        lmdUV = math.sqrt(lmdU**2+lmdV**2)
-        
-        m0 = self.m0
-        mDot = self.mDot
-        mu = self.mu
-
-
-        drdt = u*eta
-        dudt = ((v**2/r - mu/(r**2))*eta)+(thrust/(m0 - abs(mDot)*t*tf))*(lmdU/(lmdUV))
-        dvdt = -1*u*v*eta/r + (thrust/(m0 - abs(mDot)*t*tf))*(lmdV/(lmdUV))
-        dlondt = v*eta/r
-
-        dlmdRdt = lmdU*eta*((v**2)/(r**2) - (2*mu/(r**3))) - lmdV*u*v*eta/(r**2) + lmdLon*eta*(v/(r**2))
-        dlmdUdt = -1*lmdR*eta + lmdV*v*eta/r
-        dlmdVdt = -2*lmdU*v*eta/r + lmdV*u*eta/r - lmdLon*eta/r
-
-        dydt = [drdt, dudt, dvdt, dlondt, dlmdRdt, dlmdUdt, dlmdVdt]
-
-        if len(y) == 8:
-            dlmdLon = 0
-            dydt.append(dlmdLon)
-        
-        return dydt
 
 #%%
 numerical = OdeLambdifyHelperWithBoundaryConditions.CreateFromProblem(problem)
@@ -264,24 +202,27 @@ def solve_ivp_wrapper(t, y, *args):
 
 bcCallback = numerical.CreateCallbackForBoundaryConditionsWithFullState()
 #%%
-#bcCallback(0, 6000, 2, 3, 4, 5, 6, 7, 100, 11000, 12, 13, 14, 15, 16, 17)
-#%%
 betterFSolveCallback = SingleShootingFunctions.CreateBoundaryConditionCallbackFromLambdifiedCallback(bcCallback)
 problemEvaluator = BlackBoxSingleShootingFunctionsFromLambdifiedFunctions(solve_ivp_wrapper, bcCallback, integrationVariables, problem.BoundaryConditions, problem.OtherArguments)
 fSolveInputSymbols = problem.CostateSymbols[:3]
 #if scaleTime:
 #    fSolveInputSymbols.append(originalProblem.TimeFinalSymbol)
 solver = fSolveSingleShootingSolver(problemEvaluator, fSolveInputSymbols, problem.BoundaryConditions[:-1])
-initialSolverGuess =  [1.0, 0.00010000000130634948, 1.0]
+#initialSolverGuess =  [1.0, 0.00010000000130634948, 1.0]
+initialSolverGuess = ContinuousThrustCircularOrbitTransferProblem.CreateInitialLambdaGuessForLeoToGeo(problem, controlSolved, costateSymbols)
+if len(nus) > 0:
+    initialSolverGuess.append(initialSolverGuess[2])
+    initialSolverGuess.append(initialSolverGuess[3])
 initialStateValues = [r0, u0, v0, lon0, *initialFSolveStateGuess]
-#initialSolverGuess = ContinuousThrustCircularOrbitTransferProblem.CreateInitialLambdaGuessForLeoToGeo(problem, controlSolved, costateSymbols)
+
 argsArray = None
 if scaleTime:
     argsArray = []
     #initialSolverGuess.append(tfOrg)
     argsArray.append(tfOrg)
+
 print(initialStateValues)
-ans = solver.solve(initialSolverGuess, tArray, initialStateValues, argsArray, full_output=True, factor=1.0, epsfcn=0.01)
+ans = solver.solve(initialSolverGuess, tArray, initialStateValues, full_output=True, factor=1.0, epsfcn=0.01)
 print(ans.SolverResult)
 
 
@@ -297,7 +238,7 @@ unscaledResults = problem.DescaleResults(solutionDictionary)
 
 # and validation
 mDot = -1*thrust/(isp*g)
-handWrittenDiffeq = differentialEquations(r0_org, u0_org, v0_org, lon0_org, thrust, m0, mDot, 0.0, mu)
+handWrittenDiffeq = ContinuousThrustCircularOrbitTransferProblem.scaledHandWrittenDifferentialEquations(r0_org, u0_org, v0_org, lon0_org, thrust, m0, mDot, 0.0, mu, scaleElements, scaleTime)
 initialStateForValidation = []
 for i in range(0, len(initialStateValues)):
     initialStateForValidation.append(ans.EvaluatedAnswer.RawIntegratorOutput.y[i][0])
