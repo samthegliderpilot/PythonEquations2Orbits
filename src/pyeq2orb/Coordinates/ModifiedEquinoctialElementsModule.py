@@ -23,10 +23,10 @@ class ModifiedEquinoctialElements:
         self.TrueLongitude = l
         self.GravitationalParameter = mu
 
-        self._wSymbol = sy.Symbol('w')
-        self._sSquaredSymbol = sy.Symbol('s^2')
-        self._alphaSymbol = sy.Symbol(r'\alpha')
-        self._rSymbol = sy.Symbol('r')
+        self._wSymbol = sy.Symbol('w', real=True)
+        self._sSquaredSymbol = sy.Symbol('s^2', real=True, positive=True)
+        self._alphaSymbol = sy.Symbol(r'\alpha', real=True)
+        self._rSymbol = sy.Symbol('r', real=True, positive=True)
 
     @staticmethod
     def FromCartesian(x, y, z, vx, vy, vz) -> ModifiedEquinoctialElements :
@@ -183,7 +183,7 @@ class ModifiedEquinoctialElements:
             motions.append(equi.ToMotionCartesian())
         return motions
 
-    def CreatePerturbationMatrix(self, useSymbolsForAuxElements :Optional[bool]= False) ->sy.Matrix :
+    def CreatePerturbationMatrix(self, ubsDict : Optional[Dict[sy.Expr, SymbolOrNumber]]= None) ->sy.Matrix :
         eqElements=self
         mu = eqElements.GravitationalParameter
         pEq = eqElements.SemiParameter        
@@ -192,12 +192,15 @@ class ModifiedEquinoctialElements:
         hEq = eqElements.InclinationCosTermH
         kEq = eqElements.InclinationSinTermK
         lEq = eqElements.TrueLongitude
-        if useSymbolsForAuxElements : 
-            w = self.WSymbol
-            s2 = self.SSquaredSymbol
-        else :
-            w = 1+fEq*sy.cos(lEq)+gEq*sy.sin(lEq)
-            s2 = cast(sy.Symbol, 1+kEq**2+hEq**2)
+        w = 1+fEq*sy.cos(lEq)+gEq*sy.sin(lEq)
+        s2 = cast(sy.Symbol, 1+kEq**2+hEq**2)
+        if ubsDict is not None : 
+            wSy = self.WSymbol
+            s2Sy = self.SSquaredSymbol
+            ubsDict[wSy] = w
+            ubsDict[s2Sy] = s2
+
+
         sqrtPOverMu=sy.sqrt(pEq/mu)
         # note that in teh 3rd row, middle term, I added a 1/w because I think it is correct even though the MME pdf doesn't have it
         # note that SAO/NASA (Walked, Ireland and Owens) says that the final term of the third element is feq/w instead of heq/w
@@ -355,7 +358,7 @@ class EquinoctialElementsHalfI(ABC):
 
     def MeanMotion(self):
         a = self.SemiMajorAxis
-        return sy.sqrt(mu/(a**3))
+        return sy.sqrt(self.GravitationalParameter/(a**3))
 
     def ToKeplerianIgnoringAnomaly(self) -> Keplerian.KeplerianElements :
         h = self.EccentricitySinTermH

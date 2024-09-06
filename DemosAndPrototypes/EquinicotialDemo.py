@@ -47,8 +47,8 @@ class HowManyImpulses(Problem) :
         self._elements = elements
         self._mu = elements.GravitationalParameter
         g = sy.Symbol('g', real=True, positive=True) #9.8065
-        f = CreateTwoBodyMotionMatrix(elements, True)
-        B = elements.CreatePerturbationMatrix(True)
+        f = CreateTwoBodyMotionMatrix(elements, self.SubstitutionDictionary)
+        B = elements.CreatePerturbationMatrix(self.SubstitutionDictionary)
         azi = sy.Function(r'\theta', real=True)(t)
         elv = sy.Function(r'\phi', real=True)(t)
         self._azi = azi
@@ -250,7 +250,9 @@ baseProblem.flattenEquationsOfMotion()
 
 scaledProblem = baseProblem.ScaleStateVariables(newSvs, trivialScalingDic)
 #scaledProblem = baseProblem.ScaleProblem(baseProblem.StateSymbols, trivialScalingDic, baseProblem.TimeFinalSymbol)
-
+numericalScalingDict = {}
+for k,v in scaledProblem._descaleDict.items():
+    numericalScalingDict[k] = 1.0/v
 asNumericalProblem = OdeLambdifyHelperWithBoundaryConditions.CreateFromProblem(scaledProblem)
 for (k,v) in lambdifyFunctionMap.items() :
     asNumericalProblem.FunctionRedirectionDictionary[k] =v
@@ -346,7 +348,7 @@ initialStateSymbols = SafeSubs(problemForOneOffPropagation.StateSymbols, {proble
 # odeHelper.lambdifyParameterSymbols.append(baseProblem.TimeFinalSymbol)
 # odeHelper.constants = problemForOneOffPropagation.SubstitutionDictionary
 
-callback = odeHelper.Lambdify()
+callback = odeHelper.CreateSimpleCallbackForSolveIvp()
 initialArray = initialElements.ToArray()
 initialArray.append(2000)
 fixedAz = math.pi/2.0
@@ -354,7 +356,11 @@ fixedEl = 0.0
 fixedMag = 1.0
 
 #%%
-testSolution = solve_ivp(callback, (0.0, tfVal), initialArray, t_eval=np.linspace(0.0, tfVal, n), dense_output=True, method="DOP853", args=(fixedAz, fixedEl, fixedMag, tfVal))
+
+def betterCallback(t, y, *args):
+    return callback(t, y, *args)
+
+testSolution = solve_ivp(betterCallback, (0.0, tfVal), initialArray, t_eval=np.linspace(0.0, tfVal, n), dense_output=True, method="DOP853", args=(fixedAz, fixedEl, fixedMag, tfVal))
 equiElements = []
 yFromIntegrator = testSolution.y 
 for i in range(0, len(yFromIntegrator[0])):
@@ -365,13 +371,13 @@ simEphemeris = prim.EphemerisArrays()
 simEphemeris.InitFromMotions(tSpace, guessMotions)
 simPath = prim.PathPrimitive(simEphemeris)
 simPath.color = "#00ff00"
-
+#%%
 print("making pyomo model")
 
 model = poenv.ConcreteModel()
 model.t = podae.ContinuousSet(initialize=np.linspace(0.0, 1.0, n), domain=poenv.NonNegativeReals)
-smaLow = 126.10e9/trivialScalingDic[baseProblem.StateSymbols[0]] # little less than earth
-smaHigh = 327.0e9/trivialScalingDic[baseProblem.StateSymbols[0]] # little more than mars
+smaLow = 126.10e9/numericalScalingDict[newSvs[0]] # little less than earth
+smaHigh = 327.0e9/numericalScalingDict[newSvs[0]] # little more than mars
 
 # some day, if I want to, using the add_component and a healthy amount of wrapping methods, we could
 # fully automate the creation of a pyomo model from the symbolic problem statement.  But I would 
@@ -417,7 +423,7 @@ class PyomoHelperFunctions :
     
 
 pyomoHelper = PyomoHelperFunctions(model, model.t)
-perRad = pyomoHelper.addStateElementToPyomo("perRad", smaLow, smaHigh, float(per0/trivialScalingDic[baseProblem.StateSymbols[0]]))
+perRad = pyomoHelper.addStateElementToPyomo("perRad", smaLow, smaHigh, float(per0/numericalScalingDict[newSvs[0]]))
 fVar = pyomoHelper.addStateElementToPyomo("f", -0.7, 0.7, float(f0))
 gVar = pyomoHelper.addStateElementToPyomo("g", -0.7, 0.7, float(g0))
 hVar = pyomoHelper.addStateElementToPyomo("h", -0.7, 0.7, float(h0))
@@ -468,7 +474,7 @@ model.kEom = poenv.Constraint(model.t, rule =lambda m, t2: m.kDot[t2] == mapPyom
 model.lonEom = poenv.Constraint(model.t, rule =lambda m, t2: m.lonDot[t2] == mapPyomoStateToProblemState(m, t2, listOfEomCallback[5]))
 model.massEom = poenv.Constraint(model.t, rule =lambda m, t2: m.mDot[t2] == mapPyomoStateToProblemState(m, t2, listOfEomCallback[6]))
 
-model.bc1 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[0](mod1, 1.0) - float(finalElements.SemiParameter/trivialScalingDic[baseProblem.StateSymbols[0]]))
+model.bc1 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[0](mod1, 1.0) - float(finalElements.SemiParameter/numericalScalingDict[newSvs[0]]))
 model.bc2 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[1](mod1, 1.0) - float(finalElements.EccentricityCosTermF))
 model.bc3 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[2](mod1, 1.0) - float(finalElements.EccentricitySinTermG))
 model.bc4 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[3](mod1, 1.0) - float(finalElements.InclinationCosTermH))
@@ -539,7 +545,7 @@ time = time*tfVal
 dictSolution = scaledProblem.DescaleResults(dictSolution)
 equiElements = []
 for i in range(0, len(time)):    
-    temp = ModifiedEquinoctialElements(dictSolution[stateSymbols[0]][i]*trivialScalingDic[baseProblem.StateSymbols[0]], dictSolution[stateSymbols[1]][i], dictSolution[stateSymbols[2]][i], dictSolution[stateSymbols[3]][i], dictSolution[stateSymbols[4]][i], dictSolution[stateSymbols[5]][i], muVal)
+    temp = ModifiedEquinoctialElements(dictSolution[stateSymbols[0]][i]*numericalScalingDict[newSvs[0]], dictSolution[stateSymbols[1]][i], dictSolution[stateSymbols[2]][i], dictSolution[stateSymbols[3]][i], dictSolution[stateSymbols[4]][i], dictSolution[stateSymbols[5]][i], muVal)
     #realEqui = scaleEquinoctialElements(temp, 1.0, 1.0)
     equiElements.append(temp)
 
@@ -550,7 +556,7 @@ simOtherValues[stateSymbols[6]] = []
 # simOtherValues[stateSymbols[8]] = []
 # simOtherValues[stateSymbols[9]] = []
 for i in range(0, len(tSim)) :
-    temp = ModifiedEquinoctialElements(profiles[i][0]*trivialScalingDic[baseProblem.StateSymbols[0]], profiles[i][1], profiles[i][2], profiles[i][3], profiles[i][4], profiles[i][5], muVal)
+    temp = ModifiedEquinoctialElements(profiles[i][0]*numericalScalingDict[newSvs[0]], profiles[i][1], profiles[i][2], profiles[i][3], profiles[i][4], profiles[i][5], muVal)
     simOtherValues[stateSymbols[6]].append(profiles[i][6])
     # simOtherValues[stateSymbols[7]].append(profiles[i][7])
     # simOtherValues[stateSymbols[8]].append(profiles[i][8])
@@ -592,5 +598,3 @@ plot2DLines([azimuthPlotData, elevationPlotData], "Thrust angles (deg)")
 throttle = prim.XAndYPlottableLineData(time, dictSolution[stateSymbols[9]], "throttle", '#FF0000', 2)
 plot2DLines([throttle], "Throttle (0 to 1)")
 
-
-# %%

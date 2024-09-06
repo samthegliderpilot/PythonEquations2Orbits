@@ -9,9 +9,7 @@ sy.init_printing()
 # I worked on this to answer, when doing 2 optimal burns for small argument of perigee, eccentricity, and SMA (or longitude drift rate) changes, 
 # does the order of the burns matter?  The answer, yes.  For the desired longitude drift (SMA change), it isn't zero sum as the drift after the first burn
 # burns either helps or hinders how much SMA change is needed by the second burn
-from pyeq2orb.ForceModels.TwoBodyForce import CreateTwoBodyMotionMatrix, CreateTwoBodyListForModifiedEquinoctialElements
-from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
-from pyeq2orb.Coordinates.KeplerianModule import KeplerianElements
+from pyeq2orb.Coordinates.CartesianModule import Cartesian
 import pyeq2orb.Coordinates.KeplerianModule as KepModule
 import scipyPaperPrinter as jh #type: ignore
 from scipy.optimize import fsolve, root #type: ignore

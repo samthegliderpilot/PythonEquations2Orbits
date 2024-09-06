@@ -9,7 +9,6 @@ from collections import OrderedDict
 sy.init_printing()
 from typing import Union, List, Optional, Sequence, cast, Dict, Iterator
 import pyeq2orb
-from pyeq2orb.ForceModels.TwoBodyForce import CreateTwoBodyMotionMatrix, CreateTwoBodyListForModifiedEquinoctialElements
 from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
 from pyeq2orb.Coordinates.KeplerianModule import KeplerianElements
 import pyeq2orb.Coordinates.KeplerianModule as KepModule

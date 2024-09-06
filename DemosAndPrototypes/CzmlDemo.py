@@ -8,7 +8,7 @@ from pyeq2orb.Numerical.LambdifyHelpers import LambdifyHelper, OdeLambdifyHelper
 from scipy.integrate import solve_ivp #type: ignore
 import pyeq2orb.Graphics.Primitives as prim
 import sympy as sy
-from pyeq2orb.ForceModels.TwoBodyForce import CreateTwoBodyMotionMatrix, CreateTwoBodyListForModifiedEquinoctialElements
+from pyeq2orb.ForceModels.TwoBodyForce import CreateTwoBodyListForModifiedEquinoctialElements
 from pyeq2orb.Coordinates.ModifiedEquinoctialElementsModule import ModifiedEquinoctialElements, CreateSymbolicElements
 from typing import cast,List
 
