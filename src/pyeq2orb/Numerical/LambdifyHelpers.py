@@ -221,20 +221,25 @@ class OdeLambdifyHelper(LambdifyHelper):
             eomStagingList.append(thisEom)   
         odeArgs = self.BuildLambdifyingState()
         
-        modules = ['scipy']
-        if self.FunctionRedirectionDictionary != None and len(self.FunctionRedirectionDictionary) >0 : 
-            moduels = self.FunctionRedirectionDictionary
+        modules : List[Any]= ['numpy']
+        if self.FunctionRedirectionDictionary != None and len(self.FunctionRedirectionDictionary) > 0:
+            modules = [self.FunctionRedirectionDictionary, 'numpy']
         
         eomList=[]
+        i = 0
         for thisEom in eomStagingList :
-            eomCallback = sy.lambdify(odeArgs, thisEom, modules=moduels, cse=True)
-
-            if not (self.OtherArguments == None or len(self.OtherArguments) == 0) :            
-                def callbackFunc(t, y, *args) :
-                    return eomCallback(t, y,args)
-                eomCallback = callbackFunc
-
+            eomCallback = sy.lambdify(odeArgs, thisEom, modules=modules, cse=True, dummify=True)
             eomList.append(eomCallback)
+        
+        if not (self.OtherArguments == None or len(self.OtherArguments) == 0) :  
+            realEomList = []
+            for eom in eomList:
+                this_eom = eom
+                def callbackFunc(t, y, *args) :
+                    return this_eom(t, y, args)
+                realCallback = callbackFunc
+                realEomList.append(realCallback)
+            #eomList = realEomList
         return eomList        
 
     def BuildLambdifyingState(self) :

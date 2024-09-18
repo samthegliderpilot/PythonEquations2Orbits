@@ -240,7 +240,7 @@ i=0
 for sv in baseProblem.StateSymbols :
     trivialScalingDic[sv]=newSvs[i]
     i=i+1
-trivialScalingDic[baseProblem.StateSymbols[0]] = newSvs[0]*(Au/10.0)
+trivialScalingDic[baseProblem.StateSymbols[0]] = newSvs[0]*(Au/1.0)
 #trivialScalingDic[baseProblem.StateSymbols[5]] = 1.0
 print("making scaled problem")
 
@@ -254,6 +254,9 @@ numericalScalingDict = {}
 for k,v in scaledProblem._descaleDict.items():
     numericalScalingDict[k] = 1.0/v
 asNumericalProblem = OdeLambdifyHelperWithBoundaryConditions.CreateFromProblem(scaledProblem)
+#TODO: Shouldn't need to do this, should get it from problem?
+asNumericalProblem.OtherArguments.extend([baseProblem.Azimuth, baseProblem.Elevation, baseProblem.Throttle, baseProblem.TimeFinalSymbol])
+
 for (k,v) in lambdifyFunctionMap.items() :
     asNumericalProblem.FunctionRedirectionDictionary[k] =v
 print("scaled and numerical problems made")
@@ -309,7 +312,7 @@ def createScattersForThrustVectors(ephemeris : prim.EphemerisArrays, inertialThr
 
 
 twoBodyMatrix = CreateTwoBodyListForModifiedEquinoctialElements(symbolicElements)
-simpleTwoBodyLambdifyCreator = OdeLambdifyHelper(t, symbolicElements, twoBodyMatrix, [], {symbolicElements.GravitationalParameter: muVal})
+simpleTwoBodyLambdifyCreator = OdeLambdifyHelper(t, symbolicElements.ToArray(), twoBodyMatrix, [], {symbolicElements.GravitationalParameter: muVal})
 odeCallback =simpleTwoBodyLambdifyCreator.CreateSimpleCallbackForSolveIvp()
 print("propagating earth and mars")
 earthSolution = solve_ivp(odeCallback, [0.0, tfVal], initialElements.ToArray(), args=tuple(), t_eval=np.linspace(0.0, tfVal,n), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
@@ -357,10 +360,7 @@ fixedMag = 1.0
 
 #%%
 
-def betterCallback(t, y, *args):
-    return callback(t, y, *args)
-
-testSolution = solve_ivp(betterCallback, (0.0, tfVal), initialArray, t_eval=np.linspace(0.0, tfVal, n), dense_output=True, method="DOP853", args=(fixedAz, fixedEl, fixedMag, tfVal))
+testSolution = solve_ivp(callback, (0.0, tfVal), initialArray, t_eval=np.linspace(0.0, tfVal, n), dense_output=True, method="DOP853", args=(fixedAz, fixedEl, fixedMag, tfVal))
 equiElements = []
 yFromIntegrator = testSolution.y 
 for i in range(0, len(yFromIntegrator[0])):
@@ -415,9 +415,9 @@ class PyomoHelperFunctions :
         #component.fix(float(initialGuess))
         return component
 
-    def addControlVariable(self, name, lowerBound, upperBound) :
+    def addControlVariable(self, name, lowerBound, upperBound, initialValue) :
         model = self.Model
-        model.add_component(name, poenv.Var(self.Domain, bounds=(lowerBound, upperBound)))
+        model.add_component(name, poenv.Var(self.Domain, bounds=(lowerBound, upperBound), initialize=initialValue))
         element = model.component(name)
         return element
     
@@ -433,9 +433,9 @@ massVar = pyomoHelper.addStateElementToPyomo("mass", 0, float(m0Val), float(m0Va
 tfVar = pyomoHelper.addConstantSolveForParameter("tf", tfVal, tfVal, tfVal)
 #model.tf = poenv.Var(bounds=(tfVal, tfVal), initialize=tfVal)
 #model.tf.fix(float(tfVal))
-azimuthControlVar = pyomoHelper.addControlVariable("controlAzimuth", -1*math.pi, math.pi)
-elevationControlVar = pyomoHelper.addControlVariable("controlElevation", -0.6, 0.6) # although this can go from -90 to 90 deg, common sense suggests that a lower bounds would be appropriate for this problem.  If the optimizer stays at these limits, then increase them
-throttleControlVar = pyomoHelper.addControlVariable("throttle", 0.0, 1.0)
+azimuthControlVar = pyomoHelper.addControlVariable("controlAzimuth", -1*math.pi, math.pi, math.pi/2.0)
+elevationControlVar = pyomoHelper.addControlVariable("controlElevation", -0.6, 0.6, 0.0) # although this can go from -90 to 90 deg, common sense suggests that a lower bounds would be appropriate for this problem.  If the optimizer stays at these limits, then increase them
+throttleControlVar = pyomoHelper.addControlVariable("throttle", 0.0, 1.0, 1.0)
 
 model.perDot = podae.DerivativeVar(model.perRad, wrt=model.t)
 model.fDot = podae.DerivativeVar(model.f, wrt=model.t)
@@ -454,17 +454,22 @@ indexToStateMap = {
 5: lambda m, t : m.lon[t],
 6: lambda m, t : m.mass[t],
 }
-#%%
+
 def mapPyomoStateToProblemState(m, t, expression) :    
-    state = [t, [m.perRad[t], m.f[t], m.g[t],m.h[t], m.k[t], m.lon[t], m.mass[t], m.controlAzimuth[t], m.controlElevation[t], m.throttle[t], m.tf]]    
-    return expression(*state)
+    state = [m.perRad[t], m.f[t], m.g[t],m.h[t], m.k[t], m.lon[t], m.mass[t]]
+    args = [m.controlAzimuth[t], m.controlElevation[t], m.throttle[t], m.tf]    
+    ans = expression(t, state, args)
+    return ans
 
 
-
+#%%
 display(asNumericalProblem.CheckAllParametersArePresent())
 display(asNumericalProblem.LambdifyArguments)
-
 listOfEomCallback = asNumericalProblem.CreateListOfEomCallbacks()
+
+print(listOfEomCallback[0](0.0, initialArray, [1.5, 0.0, 1.0, tfVal]))
+print(listOfEomCallback[1](0.0, initialArray, [1.5, 0.0, 1.0, tfVal]))
+print(listOfEomCallback[2](0.0, initialArray, [1.5, 0.0, 1.0, tfVal]))
 
 model.perEom = poenv.Constraint(model.t, rule =lambda m, t2: m.perDot[t2] == mapPyomoStateToProblemState(m, t2, listOfEomCallback[0]))
 model.fEom = poenv.Constraint(model.t, rule =lambda m, t2: m.fDot[t2] == mapPyomoStateToProblemState(m, t2, listOfEomCallback[1]))
@@ -505,14 +510,14 @@ sim.initialize_model()
 print("running the pyomo model")
 solver = poenv.SolverFactory('cyipopt')
 solver.config.options['tol'] = 1e-6
-solver.config.options['max_iter'] = 3000
+solver.config.options['max_iter'] = 2000
 
 try :
     solver.solve(model, tee=True)
 except Exception as ex:
     print("Whop whop" + str(ex))
     #print(lastState)
-
+#%%
 def extractPyomoSolution(model, stateSymbols):
     tSpace =np.array( [t for t in model.t]) 
     pSym = np.array([model.perRad[t]() for t in model.t])
@@ -580,7 +585,7 @@ except :
     print("Couldn't plot optimized path")
 
 
-
+#%%
 
 thrustVectorRun = getInertialThrustVectorFromDataDict(baseProblem, dictSolution, muVal)
 thrustPlotlyItemsRun = createScattersForThrustVectors(satPath.ephemeris, thrustVectorRun, "#ff0000", Au/10.0)
