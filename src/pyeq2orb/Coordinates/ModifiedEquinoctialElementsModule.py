@@ -193,7 +193,7 @@ class ModifiedEquinoctialElements:
         kEq = eqElements.InclinationSinTermK
         lEq = eqElements.TrueLongitude
         w = 1+fEq*sy.cos(lEq)+gEq*sy.sin(lEq)
-        s2 = cast(sy.Symbol, 1+kEq**2+hEq**2)
+        s2 = cast(sy.Symbol, 1.0+kEq**2+hEq**2)
         if ubsDict is not None : 
             wSy = self.WSymbol
             s2Sy = self.SSquaredSymbol
@@ -238,7 +238,7 @@ def ConvertKeplerianToEquinoctial(keplerianElements : Keplerian.KeplerianElement
     raan = keplerianElements.RightAscensionOfAscendingNode
     ta = keplerianElements.TrueAnomaly
 
-    per = a*(1-e**2)
+    per = a*(1.0-e**2)
     f = e*sy.cos(w+raan)
     g = e*sy.sin(w+raan)
     

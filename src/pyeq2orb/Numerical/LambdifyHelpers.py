@@ -174,6 +174,38 @@ class OdeLambdifyHelper(LambdifyHelper):
         """
         self._time = timeValue
 
+    def SolveIvpResultsReshaped(self, ivpResults) -> Tuple[List[float], List[List[float]]]:
+        t = []
+        equi = []
+        yFromIntegrator = ivpResults.y 
+        for i in range(0, len(yFromIntegrator[0])):
+            vals = []
+            for j in range(0, len(yFromIntegrator)):
+                vals.append(yFromIntegrator[j][i])
+            equi.append(vals)
+            t.append(ivpResults.t[i])
+
+        if t[0] > t[1] :
+            t.reverse()
+            equi.reverse()
+        return (t, equi)  
+
+    def SolveIvpResultsToTimeListAndListOfObjects(self, ivpResults, callbackToObject)->Tuple[List[float], List]:
+        t = []
+        equi = []
+        yFromIntegrator = ivpResults.y 
+        for i in range(0, len(yFromIntegrator[0])):
+            vals = []
+            for j in range(0, len(yFromIntegrator)):
+                vals.append(yFromIntegrator[j][i])
+            temp = callbackToObject(*vals)
+            equi.append(temp)
+            t.append(ivpResults.t[i])
+
+        if t[0] > t[1] :
+            t.reverse()
+            equi.reverse()
+        return (t, equi)        
 
     def CreateSimpleCallbackForSolveIvp(self) -> Callable : 
         """Creates a lambdified expression of the equations of motion in ExpressionsToLambdify.

@@ -184,16 +184,8 @@ def GetEquiElementsOutOfIvpResults(ivpResults) :
 t = sy.Symbol('t', real=True)
 symbolicElements = CreateSymbolicElements(t)
 
-def makeSphere(x, y, z, radius, resolution=10):
-    """Return the coordinates for plotting a sphere centered at (x,y,z)"""
-    u, v = np.mgrid[0:2*np.pi:resolution*2j, 0:np.pi:resolution*1j]
-    X = radius * np.cos(u)*np.sin(v) + x
-    Y = radius * np.sin(u)*np.sin(v) + y
-    Z = radius * np.cos(v) + z
-    #colors = ['#00ff00']*len(X)
-    #size = [2]*len(X)
-    return (X, Y, Z)#, colors, size)
-Xs, Ys, Zs = makeSphere(0.0, 0.0, 0.0, 6378137.0)
+
+Xs, Ys, Zs = prim.makeSphere(0.0, 0.0, 0.0, 6378137.0)
 sphereThing = Mesh3d({
                 'x': Xs.flatten(),
                 'y': Ys.flatten(),
@@ -217,7 +209,9 @@ h0 = initialElements.InclinationSinTermK
 lon0 = initialElements.TrueLongitude
 print("making base base problem")
 baseProblem = HowManyImpulses()
-newSvs = Problem.CreateBarVariables(baseProblem.StateSymbols, baseProblem.TimeSymbol)
+tfs = sy.Symbol('t_f', real=True)
+tau = sy.Symbol(r'\tau', real=True)
+newSvs = Problem.CreateBarVariables(baseProblem.StateSymbols, tau)
 baseProblem.SubstitutionDictionary[baseProblem.Mu] = cast(float, initialElements.GravitationalParameter)
 baseProblem.SubstitutionDictionary[baseProblem.Isp] = isp
 baseProblem.SubstitutionDictionary[baseProblem.Mass] = m0Val
@@ -228,8 +222,7 @@ baseProblem.SubstitutionDictionary[gSy] = g
 integrationSymbols = []
 integrationSymbols.extend(baseProblem.StateSymbols)
 
-arguments = [baseProblem.Azimuth, baseProblem.Elevation, baseProblem.Throttle, baseProblem.TimeFinalSymbol]
-#arguments = [baseProblem.Ux, baseProblem.Uy, baseProblem.Uz, baseProblem.Throttle, baseProblem.TimeFinalSymbol]
+
 # for emK, emV in baseProblem.EquationsOfMotion.items() :
 #     jh.showEquation(sy.diff(emK, t), emV)
 #%%
@@ -240,7 +233,7 @@ i=0
 for sv in baseProblem.StateSymbols :
     trivialScalingDic[sv]=newSvs[i]
     i=i+1
-trivialScalingDic[baseProblem.StateSymbols[0]] = newSvs[0]*(Au/1.0)
+#trivialScalingDic[baseProblem.StateSymbols[0]] = newSvs[0]*(Au/1.0)
 #trivialScalingDic[baseProblem.StateSymbols[5]] = 1.0
 print("making scaled problem")
 
@@ -249,14 +242,18 @@ for eom in baseProblem.EquationsOfMotionAsEquations:
 baseProblem.flattenEquationsOfMotion()
 
 scaledProblem = baseProblem.ScaleStateVariables(newSvs, trivialScalingDic)
+scaledProblem = scaledProblem.ScaleTime(tau, sy.Symbol(r'\tau_0', real=True), sy.Symbol(r'\tau_f', real=True), tau*tfs)
+scaledProblem.SubstitutionDictionary[tfs]=tfVal
 #scaledProblem = baseProblem.ScaleProblem(baseProblem.StateSymbols, trivialScalingDic, baseProblem.TimeFinalSymbol)
 numericalScalingDict = {}
 for k,v in scaledProblem._descaleDict.items():
     numericalScalingDict[k] = 1.0/v
 asNumericalProblem = OdeLambdifyHelperWithBoundaryConditions.CreateFromProblem(scaledProblem)
 #TODO: Shouldn't need to do this, should get it from problem?
-asNumericalProblem.OtherArguments.extend([baseProblem.Azimuth, baseProblem.Elevation, baseProblem.Throttle, baseProblem.TimeFinalSymbol])
-
+asNumericalProblem.OtherArguments.extend([baseProblem.Azimuth.subs(t, tau), baseProblem.Elevation.subs(t, tau), baseProblem.Throttle.subs(t, tau), baseProblem.TimeFinalSymbol])
+asNumericalProblem.SubstitutionDictionary[baseProblem.Azimuth] = baseProblem.Azimuth.subs(t, tau)
+asNumericalProblem.SubstitutionDictionary[baseProblem.Elevation] = baseProblem.Elevation.subs(t, tau)
+asNumericalProblem.SubstitutionDictionary[baseProblem.Throttle] = baseProblem.Throttle.subs(t, tau)
 for (k,v) in lambdifyFunctionMap.items() :
     asNumericalProblem.FunctionRedirectionDictionary[k] =v
 print("scaled and numerical problems made")
@@ -336,7 +333,7 @@ problemForOneOffPropagation = baseProblem
 #%%
 from pyeq2orb.Numerical.LambdifyHelpers import OdeLambdifyHelper
 
-odeHelper = OdeLambdifyHelper(problemForOneOffPropagation.TimeSymbol, problemForOneOffPropagation.StateSymbols, problemForOneOffPropagation.StateVariableDynamics, [problemForOneOffPropagation.Azimuth, problemForOneOffPropagation.Elevation, problemForOneOffPropagation.Throttle, problemForOneOffPropagation.TimeFinalSymbol], problemForOneOffPropagation.SubstitutionDictionary)
+odeHelper = OdeLambdifyHelper(problemForOneOffPropagation.TimeSymbol, problemForOneOffPropagation.StateSymbols, problemForOneOffPropagation.StateVariableDynamics, [problemForOneOffPropagation.Azimuth.subs(t, tau), problemForOneOffPropagation.Elevation.subs(t, tau), problemForOneOffPropagation.Throttle.subs(t, tau), problemForOneOffPropagation.TimeFinalSymbol], problemForOneOffPropagation.SubstitutionDictionary)
 initialStateSymbols = SafeSubs(problemForOneOffPropagation.StateSymbols, {problemForOneOffPropagation.TimeSymbol: problemForOneOffPropagation.TimeInitialSymbol})
 # odeHelper.setStateElement(problemForOneOffPropagation.StateSymbols[0], problemForOneOffPropagation.StateVariableDynamics[0], initialStateSymbols[0])
 # odeHelper.setStateElement(problemForOneOffPropagation.StateSymbols[1], problemForOneOffPropagation.StateVariableDynamics[1], initialStateSymbols[1])
@@ -465,6 +462,8 @@ def mapPyomoStateToProblemState(m, t, expression) :
 #%%
 display(asNumericalProblem.CheckAllParametersArePresent())
 display(asNumericalProblem.LambdifyArguments)
+asNumericalProblem.OtherArguments.clear()
+asNumericalProblem.OtherArguments.extend([problemForOneOffPropagation.Azimuth.subs(t, tau), problemForOneOffPropagation.Elevation.subs(t, tau), problemForOneOffPropagation.Throttle.subs(t, tau), problemForOneOffPropagation.TimeFinalSymbol])
 listOfEomCallback = asNumericalProblem.CreateListOfEomCallbacks()
 
 print(listOfEomCallback[0](0.0, initialArray, [1.5, 0.0, 1.0, tfVal]))

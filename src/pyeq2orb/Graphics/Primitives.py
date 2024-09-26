@@ -232,6 +232,15 @@ class PlanetPrimitive(MarkerPrimitive, PathPrimitive) :
     def radius(self, value) :
         self._radius = value
 
+
+    @staticmethod
+    def fromMotionEphemeris(tArray, motions, color):
+        ephemeris = EphemerisArrays()
+        ephemeris.InitFromMotions(tArray, motions)
+        planetPath = PathPrimitive(ephemeris)
+        planetPath.color = color
+        return planetPath
+
 class XAndYPlottableLineData :
     """
     A simple class grouping together common data needed to plot a 2D line.
@@ -243,3 +252,13 @@ class XAndYPlottableLineData :
         self.color = color
         self.lineWidth = lineWidth
         self.markerSize = markerSize        
+
+def makeSphere(x, y, z, radius, resolution=10):
+    """Return the coordinates for plotting a sphere centered at (x,y,z)"""
+    u, v = np.mgrid[0:2*np.pi:resolution*2j, 0:np.pi:resolution*1j]
+    X = radius * np.cos(u)*np.sin(v) + x
+    Y = radius * np.sin(u)*np.sin(v) + y
+    Z = radius * np.cos(v) + z
+    #colors = ['#00ff00']*len(X)
+    #size = [2]*len(X)
+    return (X, Y, Z)#, colors, size)        
