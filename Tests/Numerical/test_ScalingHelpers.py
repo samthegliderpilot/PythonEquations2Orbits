@@ -1,7 +1,7 @@
 import pytest
 import math
 import sympy as sy
-from pyeq2orb.Numerical.ScalingHelpers import scaledEquationsOfMotionResult
+from pyeq2orb.Numerical.ScalingHelpers import scaledEquationOfMotionHolder
 
 
 def testScalingStatesInOdes() :
@@ -22,7 +22,7 @@ def testScalingStatesInOdes() :
     expectedScaledRDot = uBar*5.0/r0
     expectedScaledUDot = a/5.0
 
-    scaledExpressions = scaledEquationsOfMotionResult.ScaleStateVariablesInFirstOrderOdes([r,u], [rDot, uDot], [rBar, uBar], [r0, 5.0])
+    scaledExpressions = scaledEquationOfMotionHolder.ScaleStateVariablesInFirstOrderOdes([r,u], [rDot, uDot], [rBar, uBar], [r0, 5.0])
     assert expectedScaledRDot == scaledExpressions.scaledFirstOrderDynamics[0]
     assert expectedScaledUDot == scaledExpressions.scaledFirstOrderDynamics[1]
 
@@ -46,7 +46,7 @@ def testScalingStatesAndTimesInOdes() :
     expectedScaledRDot = uBar*tf
     expectedScaledUDot = a*tf
 
-    scaledExpressions = scaledEquationsOfMotionResult.ScaleTimeInFirstOrderOdes([r,u], t, [rDot, uDot], tau, tf)
+    scaledExpressions = scaledEquationOfMotionHolder.ScaleTimeInFirstOrderOdes([r,u], t, [rDot, uDot], tau, tf)
     assert expectedScaledRDot == scaledExpressions.scaledFirstOrderDynamics[0]
     assert expectedScaledUDot == scaledExpressions.scaledFirstOrderDynamics[1]
 
@@ -73,6 +73,6 @@ def testScalingStatesAndTimeInOdes() :
     expectedScaledRDot = uBarTau*5.0*tf/r0
     expectedScaledUDot = a*tf/5.0
 
-    scaledExpressions = scaledEquationsOfMotionResult.ScaleStateVariablesAndTimeInFirstOrderOdes([r,u], [rDot, uDot], [rBar, uBar], [r0, 5.0], tau, tf)
+    scaledExpressions = scaledEquationOfMotionHolder.ScaleStateVariablesAndTimeInFirstOrderOdes([r,u], [rDot, uDot], [rBar, uBar], [r0, 5.0], tau, tf)
     assert expectedScaledRDot == scaledExpressions.scaledFirstOrderDynamics[0]
     assert expectedScaledUDot == scaledExpressions.scaledFirstOrderDynamics[1]

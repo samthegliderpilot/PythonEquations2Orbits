@@ -14,10 +14,12 @@ from typing import Union, Dict, List, Callable
 import pyeq2orb.Graphics.Primitives as prim
 from pyeq2orb.Graphics.Plotly2DModule import plot2DLines
 from pyeq2orb.Graphics.PlotlyUtilities import PlotAndAnimatePlanetsWithPlotly
-
+from pyeq2orb.Numerical.ScalingHelpers import scaledEquationOfMotionHolder
 subsDict : Dict[Union[sy.Symbol, sy.Expr], SymbolOrNumber]= {}
 
 t = sy.Symbol('t', real=True)
+t0 = sy.Symbol('t_0', real=True)
+tf = sy.Symbol('t_f', real=True)
 mu = sy.Symbol(r'\mu', real=True, positive=True)
 
 symbolicElements = CreateSymbolicElements(t, mu)
@@ -86,7 +88,9 @@ stateDynamics=stateDynamics.row_insert(6, sy.Matrix([mDot]))
 stateVariables = [*symbolicElements.ToArray(), m]
 #for i in range(0, 7):
 #    jh.showEquation(stateVariables[i].diff(t), stateDynamics[i])
-
+newSvs = scaledEquationOfMotionHolder.CreateVariablesWithBar(stateVariables, t)
+tau = sy.Symbol(r'\tau', positive=True, real=True)
+scaledEoms = scaledEquationOfMotionHolder.ScaleStateVariablesAndTimeInFirstOrderOdes(stateVariables, stateDynamics, newSvs, [Au, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], tau, tf, [azi, elv, throttle])
 
 
 subsDict[gSy] = gVal
@@ -98,6 +102,8 @@ satSolution = solve_ivp(simpleThrustCallback, [0.0, tfVal], [*initialElements.To
 (satMees) = [ModifiedEquinoctialElements(*x[:6], muVal) for x in satArrays]
 motions = ModifiedEquinoctialElements.CreateEphemeris(satMees)
 satPath = prim.PlanetPrimitive.fromMotionEphemeris(tArray, motions, "#00ffff")
+
+
 
 
 fig = PlotAndAnimatePlanetsWithPlotly("Earth and Mars", [earthPath, marsPath, satPath], tArray, None)
