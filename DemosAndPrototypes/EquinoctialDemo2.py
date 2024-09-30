@@ -90,7 +90,8 @@ stateVariables = [*symbolicElements.ToArray(), m]
 #    jh.showEquation(stateVariables[i].diff(t), stateDynamics[i])
 newSvs = scaledEquationOfMotionHolder.CreateVariablesWithBar(stateVariables, t)
 tau = sy.Symbol(r'\tau', positive=True, real=True)
-scaledEoms = scaledEquationOfMotionHolder.ScaleStateVariablesAndTimeInFirstOrderOdes(stateVariables, stateDynamics, newSvs, [Au, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], tau, tf, [azi, elv, throttle])
+scalingFactors =  [Au, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+scaledEoms = scaledEquationOfMotionHolder.ScaleStateVariablesAndTimeInFirstOrderOdes(stateVariables, stateDynamics, newSvs,scalingFactors, tau, tf, [azi, elv, throttle])
 
 
 subsDict[gSy] = gVal
@@ -102,10 +103,30 @@ satSolution = solve_ivp(simpleThrustCallback, [0.0, tfVal], [*initialElements.To
 (satMees) = [ModifiedEquinoctialElements(*x[:6], muVal) for x in satArrays]
 motions = ModifiedEquinoctialElements.CreateEphemeris(satMees)
 satPath = prim.PlanetPrimitive.fromMotionEphemeris(tArray, motions, "#00ffff")
+#%%
+simpleThrustCallbackHelperScaled = OdeLambdifyHelper(tau, scaledEoms.newStateVariables, scaledEoms.scaledFirstOrderDynamics, [mu, *scaledEoms.otherSymbols, isp], subsDict)
+simpleThrustCallbackScaledScaled = simpleThrustCallbackHelperScaled.CreateSimpleCallbackForSolveIvp()
+
+initialElementsScaled = [*initialElements]
+initialElementsScaled[0] = initialElementsScaled[0]/Au
+satSolutionScaled = solve_ivp(simpleThrustCallbackScaledScaled, [0.0, 1.0], [*initialElementsScaled, m0Val], args=[muVal, 1.5, 0.0, thrustVal, 1.0, ispVal], t_eval=np.linspace(0.0, tfVal,n), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
+(tArrayScaled, satArraysScaled) = simpleThrustCallbackHelper.SolveIvpResultsReshaped(initialElementsScaled)
+
+satArrays2 = scaledEoms.descaleStates(tArrayScaled, satArraysScaled, scalingFactors, tfVal)
+(satMees2) = [ModifiedEquinoctialElements(*x[:6], muVal) for x in satArrays2]
+motions2 = ModifiedEquinoctialElements.CreateEphemeris(satMees2)
+satPath2 = prim.PlanetPrimitive.fromMotionEphemeris(tArray, motions2, "#ff00ff")
 
 
-
-
-fig = PlotAndAnimatePlanetsWithPlotly("Earth and Mars", [earthPath, marsPath, satPath], tArray, None)
+fig = PlotAndAnimatePlanetsWithPlotly("Earth and Mars", [earthPath, marsPath, satPath, satPath2], tArray, None)
 fig.update_layout()
 fig.show()  
+
+
+diff = np.array(satArrays) - np.array(satArrays2)
+import matplotlib.pyplot as plt
+import numpy as np
+
+
+plt.plot(diff)
+plt.show()
