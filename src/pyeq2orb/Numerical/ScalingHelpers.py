@@ -88,13 +88,17 @@ class scaledEquationOfMotionHolder:
             newSv= SafeSubs(sv, {originalTimeSymbol: newTimeSymbol})
             newStateVariables.append(newSv)
             tSubsDict[sv] =newSv 
-        for i in range(0, len(firstOrderEquationsOfMotion)):
-            newEoms.append(SafeSubs(firstOrderEquationsOfMotion[i], tSubsDict)*timeScaleValueToDivideByOriginalTime)
-
         scaledOtherSymbols = []
+        otherSymbolsSubsDict = {}
         if otherSymbols is not None:
             for otherSymbol in otherSymbols:
-                scaledOtherSymbols.append(SafeSubs(otherSymbol, tSubsDict))
+                scaledOtherSymbols.append(SafeSubs(otherSymbol, {originalTimeSymbol: newTimeSymbol}))
+                otherSymbolsSubsDict[otherSymbol] = scaledOtherSymbols[-1]
+        for i in range(0, len(firstOrderEquationsOfMotion)):
+            newEoms.append(SafeSubs(firstOrderEquationsOfMotion[i].expand().simplify(), otherSymbolsSubsDict))
+            newEoms.append(SafeSubs(firstOrderEquationsOfMotion[i].expand().simplify(), tSubsDict)*timeScaleValueToDivideByOriginalTime)
+
+
         scaledHelper = scaledEquationOfMotionHolder(newStateVariables, newEoms, scaledOtherSymbols, newTimeSymbol, True)    
         return scaledHelper
 

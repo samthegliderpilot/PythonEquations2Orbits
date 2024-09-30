@@ -15,6 +15,8 @@ import pyeq2orb.Graphics.Primitives as prim
 from pyeq2orb.Graphics.Plotly2DModule import plot2DLines
 from pyeq2orb.Graphics.PlotlyUtilities import PlotAndAnimatePlanetsWithPlotly
 from pyeq2orb.Numerical.ScalingHelpers import scaledEquationOfMotionHolder
+from IPython.display import display
+
 subsDict : Dict[Union[sy.Symbol, sy.Expr], SymbolOrNumber]= {}
 
 t = sy.Symbol('t', real=True)
@@ -93,7 +95,8 @@ tau = sy.Symbol(r'\tau', positive=True, real=True)
 scalingFactors =  [Au, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 scaledEoms = scaledEquationOfMotionHolder.ScaleStateVariablesAndTimeInFirstOrderOdes(stateVariables, stateDynamics, newSvs,scalingFactors, tau, tf, [azi, elv, throttle])
 
-
+for seom in scaledEoms.scaledFirstOrderDynamics:
+    display("a", seom)
 subsDict[gSy] = gVal
 simpleThrustCallbackHelper = OdeLambdifyHelper(t, stateVariables, stateDynamics, [mu, azi, elv, thrust, throttle, isp], subsDict)
 simpleThrustCallback = simpleThrustCallbackHelper.CreateSimpleCallbackForSolveIvp()
