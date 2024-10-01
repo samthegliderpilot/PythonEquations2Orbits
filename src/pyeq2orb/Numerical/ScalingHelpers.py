@@ -1,4 +1,4 @@
-from typing import List, Callable, cast, Tuple
+from typing import List, Callable, cast, Tuple, Dict
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
 from pyeq2orb import SafeSubs
 from dataclasses import dataclass
@@ -11,6 +11,21 @@ class scaledEquationOfMotionHolder:
     otherSymbols : List[sy.Symbol]
     timeSymbol : sy.Symbol
     timeWasUpdated : bool
+
+    def createCorrectedSubsDict(self, subsDict : Dict[sy.Expr, SymbolOrNumber], originalSymbols: List[sy.Symbol], originalTime : sy.Symbol = None)->Dict[sy.Expr, SymbolOrNumber]:
+        newDict = {}
+        nonSvSubsDict = {}
+
+
+        for i in range(0, len(self.newStateVariables)):
+            nonSvSubsDict[originalSymbols[i]] = self.newStateVariables[i]
+        if originalTime is not None:
+            nonSvSubsDict[originalTime] = self.timeSymbol
+        for k,v in subsDict.items():
+            newKey = SafeSubs(k, nonSvSubsDict)
+            newValue = SafeSubs(v, nonSvSubsDict)
+            newDict[newKey] = newValue
+        return newDict
 
     def scaledDynamicsAsMatrix(self) -> sy.Matrix:
         return sy.Matrix(self.scaledFirstOrderDynamics)
@@ -68,7 +83,10 @@ class scaledEquationOfMotionHolder:
         newEoms= []
         subsDictForNewSvs = {}
         for i in range(0, len(newStateVariables)):
-            subsDictForNewSvs[oldStateVariables[i]] = newStateVariables[i]*scaleValuesToDivideByOriginal[i]
+            if scaleValuesToDivideByOriginal[i] != 1 and scaleValuesToDivideByOriginal[i] != 1.0:
+                subsDictForNewSvs[oldStateVariables[i]] = newStateVariables[i]*scaleValuesToDivideByOriginal[i]
+            else:
+                subsDictForNewSvs[oldStateVariables[i]] = newStateVariables[i]
         # the expression for scaling expressions is (scaling x to x1):
         # dx1/dt = dx1/dx * dx/dt
         # So for the dynamics, substitute {x:x1} and then multiple by dx1/dt, which is just the scaling value
@@ -95,8 +113,9 @@ class scaledEquationOfMotionHolder:
                 scaledOtherSymbols.append(SafeSubs(otherSymbol, {originalTimeSymbol: newTimeSymbol}))
                 otherSymbolsSubsDict[otherSymbol] = scaledOtherSymbols[-1]
         for i in range(0, len(firstOrderEquationsOfMotion)):
-            newEoms.append(SafeSubs(firstOrderEquationsOfMotion[i].expand().simplify(), otherSymbolsSubsDict))
-            newEoms.append(SafeSubs(firstOrderEquationsOfMotion[i].expand().simplify(), tSubsDict)*timeScaleValueToDivideByOriginalTime)
+            partlyScaledEom = SafeSubs(firstOrderEquationsOfMotion[i].expand().simplify(), otherSymbolsSubsDict)
+            partlyScaledEom = SafeSubs(partlyScaledEom, tSubsDict)*timeScaleValueToDivideByOriginalTime
+            newEoms.append(partlyScaledEom)
 
 
         scaledHelper = scaledEquationOfMotionHolder(newStateVariables, newEoms, scaledOtherSymbols, newTimeSymbol, True)    

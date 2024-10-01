@@ -230,7 +230,7 @@ class OdeLambdifyHelper(LambdifyHelper):
         if self.FunctionRedirectionDictionary != None and len(self.FunctionRedirectionDictionary) > 0:
             modules = [self.FunctionRedirectionDictionary, 'numpy']
 
-        eomCallback = sy.lambdify(odeArgs, eomList, modules=modules, cse=True, dummify=True)
+        eomCallback = sy.lambdify(odeArgs, eomList, modules=modules, dummify=True)
         #TODO: This shouldn't call lambdify directly, it should call base class?
 
         # don't need the next wrapper if there are no other args
@@ -239,6 +239,7 @@ class OdeLambdifyHelper(LambdifyHelper):
 
         # but if there are other arguments, handle that
         def callbackFunc(t, y, *args) :
+            nonlocal eomCallback
             return eomCallback(t, y, args)
         return callbackFunc        
 

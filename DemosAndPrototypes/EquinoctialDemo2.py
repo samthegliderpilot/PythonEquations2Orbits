@@ -44,14 +44,14 @@ rf = Cartesian(36216277800.4, -211692395522.5, -5325189049.9)
 vf = Cartesian(24798.8, 6168.2, -480.0)
 finalElements = ModifiedEquinoctialElements.FromMotionCartesian(MotionCartesian(rf, vf), muVal)
 
-earthSolution = solve_ivp(twoBodyOdeCallback, [0.0, tfVal], initialElements.ToArray(), args=[muVal], t_eval=np.linspace(0.0, tfVal,n), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
+earthSolution = solve_ivp(twoBodyOdeCallback, [0.0, tfVal], initialElements.ToArray(), args=(muVal,), t_eval=np.linspace(0.0, tfVal,n), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
 (tArray, earthArrays) = twoBodyEvaluationHelper.SolveIvpResultsReshaped(earthSolution)
 earthMmes = [ModifiedEquinoctialElements(*x, muVal) for x in earthArrays]
 motions = ModifiedEquinoctialElements.CreateEphemeris(earthMmes)
 earthPath = prim.PlanetPrimitive.fromMotionEphemeris(tArray, motions, "#00ff00")
 
 
-marsSolution = solve_ivp(twoBodyOdeCallback, [tfVal, 0.0], finalElements.ToArray(), args=[muVal], t_eval=np.linspace(tfVal, 0.0, n*2), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
+marsSolution = solve_ivp(twoBodyOdeCallback, [tfVal, 0.0], finalElements.ToArray(), args=(muVal,), t_eval=np.linspace(tfVal, 0.0, n*2), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
 (tArray, marsStateArrays) = twoBodyEvaluationHelper.SolveIvpResultsReshaped(marsSolution)
 marsMees = [ModifiedEquinoctialElements(*x, muVal) for x in marsStateArrays]
 marsMotion = ModifiedEquinoctialElements.CreateEphemeris(marsMees)
@@ -76,6 +76,8 @@ throttle = sy.Function('\delta', real=True, positive=True)(t)
 m = sy.Function('m', real=True, positive=True)(t)
 isp = sy.Symbol("I_{sp}", real=True, positive=True)
 
+subsDict[gSy] = gVal
+
 alp = sy.Matrix([[sy.cos(azi)*sy.cos(elv)], [sy.sin(azi)*sy.cos(elv)], [sy.sin(elv)]])
 B = symbolicElements.CreatePerturbationMatrix(subsDict)
 overallThrust = thrust*B*alp*(throttle)/(m) 
@@ -94,28 +96,27 @@ newSvs = scaledEquationOfMotionHolder.CreateVariablesWithBar(stateVariables, t)
 tau = sy.Symbol(r'\tau', positive=True, real=True)
 scalingFactors =  [Au, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 scaledEoms = scaledEquationOfMotionHolder.ScaleStateVariablesAndTimeInFirstOrderOdes(stateVariables, stateDynamics, newSvs,scalingFactors, tau, tf, [azi, elv, throttle])
+scaledSubsDict = scaledEoms.createCorrectedSubsDict(subsDict, stateVariables, t)
 
-for seom in scaledEoms.scaledFirstOrderDynamics:
-    display("a", seom)
-subsDict[gSy] = gVal
 simpleThrustCallbackHelper = OdeLambdifyHelper(t, stateVariables, stateDynamics, [mu, azi, elv, thrust, throttle, isp], subsDict)
 simpleThrustCallback = simpleThrustCallbackHelper.CreateSimpleCallbackForSolveIvp()
 
-satSolution = solve_ivp(simpleThrustCallback, [0.0, tfVal], [*initialElements.ToArray(), m0Val], args=[muVal, 1.5, 0.0, thrustVal, 1.0, ispVal], t_eval=np.linspace(0.0, tfVal,n), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
+satSolution = solve_ivp(simpleThrustCallback, [0.0, tfVal], [*initialElements.ToArray(), m0Val], args=[muVal, 1.5, 0.0, 1.0, thrustVal, ispVal], t_eval=np.linspace(0.0, tfVal,n), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
 (tArray, satArrays) = simpleThrustCallbackHelper.SolveIvpResultsReshaped(satSolution)
 (satMees) = [ModifiedEquinoctialElements(*x[:6], muVal) for x in satArrays]
 motions = ModifiedEquinoctialElements.CreateEphemeris(satMees)
 satPath = prim.PlanetPrimitive.fromMotionEphemeris(tArray, motions, "#00ffff")
-#%%
-simpleThrustCallbackHelperScaled = OdeLambdifyHelper(tau, scaledEoms.newStateVariables, scaledEoms.scaledFirstOrderDynamics, [mu, *scaledEoms.otherSymbols, isp], subsDict)
+
+simpleThrustCallbackHelperScaled = OdeLambdifyHelper(tau, scaledEoms.newStateVariables, scaledEoms.scaledFirstOrderDynamics, [mu, *scaledEoms.otherSymbols, thrust, isp, tf], scaledSubsDict)
 simpleThrustCallbackScaledScaled = simpleThrustCallbackHelperScaled.CreateSimpleCallbackForSolveIvp()
 
 initialElementsScaled = [*initialElements]
 initialElementsScaled[0] = initialElementsScaled[0]/Au
-satSolutionScaled = solve_ivp(simpleThrustCallbackScaledScaled, [0.0, 1.0], [*initialElementsScaled, m0Val], args=[muVal, 1.5, 0.0, thrustVal, 1.0, ispVal], t_eval=np.linspace(0.0, tfVal,n), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
-(tArrayScaled, satArraysScaled) = simpleThrustCallbackHelper.SolveIvpResultsReshaped(initialElementsScaled)
 
-satArrays2 = scaledEoms.descaleStates(tArrayScaled, satArraysScaled, scalingFactors, tfVal)
+satSolutionScaled = solve_ivp(simpleThrustCallbackScaledScaled, [0.0, 1.0], [*initialElementsScaled, m0Val], args=[muVal, 1.5, 0.0, 1.0, thrustVal, ispVal, tfVal], t_eval=np.linspace(0.0, 1.0,n), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
+(tArrayScaled, satArraysScaled) = simpleThrustCallbackHelper.SolveIvpResultsReshaped(satSolutionScaled)
+
+tarrayDescaled, satArrays2 = scaledEoms.descaleStates(tArrayScaled, satArraysScaled, scalingFactors, tfVal)
 (satMees2) = [ModifiedEquinoctialElements(*x[:6], muVal) for x in satArrays2]
 motions2 = ModifiedEquinoctialElements.CreateEphemeris(satMees2)
 satPath2 = prim.PlanetPrimitive.fromMotionEphemeris(tArray, motions2, "#ff00ff")
@@ -125,11 +126,20 @@ fig = PlotAndAnimatePlanetsWithPlotly("Earth and Mars", [earthPath, marsPath, sa
 fig.update_layout()
 fig.show()  
 
-
-diff = np.array(satArrays) - np.array(satArrays2)
 import matplotlib.pyplot as plt
 import numpy as np
 
+diffLines = []
+for k in range(0, len(satArrays[0])):
+    diffLines.append((str(k), []))
 
-plt.plot(diff)
+for i in range(0, len(satArrays2)):
+    nonScaledState = satArrays[i]
+    descaledState = satArrays2[i]
+    for j in range(0, len(nonScaledState)):
+        diffLines[j][1].append(nonScaledState[j]-descaledState[j])
+
+for line in diffLines:
+    plt.plot(line[1], label=line[0])
+plt.legend()
 plt.show()
