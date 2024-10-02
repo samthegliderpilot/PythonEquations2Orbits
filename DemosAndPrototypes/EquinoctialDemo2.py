@@ -10,7 +10,7 @@ import scipyPaperPrinter as jh#type: ignore
 import numpy as np
 import math as math
 from scipy.integrate import solve_ivp
-from typing import Union, Dict, List, Callable
+from typing import Union, Dict, List, Callable, Any
 import pyeq2orb.Graphics.Primitives as prim
 from pyeq2orb.Graphics.Plotly2DModule import plot2DLines
 from pyeq2orb.Graphics.PlotlyUtilities import PlotAndAnimatePlanetsWithPlotly
@@ -32,7 +32,7 @@ twoBodyOdeCallback = twoBodyEvaluationHelper.CreateSimpleCallbackForSolveIvp()
 
 #%%
 tfVal = 793*86400.0
-n = 303
+n = 150
 tSpace = np.linspace(0.0, tfVal, n)
 
 muVal = 1.32712440042e20
@@ -43,20 +43,6 @@ initialElements = ModifiedEquinoctialElements.FromMotionCartesian(MotionCartesia
 rf = Cartesian(36216277800.4, -211692395522.5, -5325189049.9)
 vf = Cartesian(24798.8, 6168.2, -480.0)
 finalElements = ModifiedEquinoctialElements.FromMotionCartesian(MotionCartesian(rf, vf), muVal)
-
-earthSolution = solve_ivp(twoBodyOdeCallback, [0.0, tfVal], initialElements.ToArray(), args=(muVal,), t_eval=np.linspace(0.0, tfVal,n), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
-(tArray, earthArrays) = twoBodyEvaluationHelper.SolveIvpResultsReshaped(earthSolution)
-earthMmes = [ModifiedEquinoctialElements(*x, muVal) for x in earthArrays]
-motions = ModifiedEquinoctialElements.CreateEphemeris(earthMmes)
-earthPath = prim.PlanetPrimitive.fromMotionEphemeris(tArray, motions, "#00ff00")
-
-
-marsSolution = solve_ivp(twoBodyOdeCallback, [tfVal, 0.0], finalElements.ToArray(), args=(muVal,), t_eval=np.linspace(tfVal, 0.0, n*2), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
-(tArray, marsStateArrays) = twoBodyEvaluationHelper.SolveIvpResultsReshaped(marsSolution)
-marsMees = [ModifiedEquinoctialElements(*x, muVal) for x in marsStateArrays]
-marsMotion = ModifiedEquinoctialElements.CreateEphemeris(marsMees)
-marsPath = prim.PlanetPrimitive.fromMotionEphemeris(tArray, marsMotion, "#ff0000")
-
 
 #%%
 # build up a perturbation matrix
@@ -81,22 +67,17 @@ subsDict[gSy] = gVal
 alp = sy.Matrix([[sy.cos(azi)*sy.cos(elv)], [sy.sin(azi)*sy.cos(elv)], [sy.sin(elv)]])
 B = symbolicElements.CreatePerturbationMatrix(subsDict)
 overallThrust = thrust*B*alp*(throttle)/(m) 
-stateDynamics = twoBodyOdeMatrix + overallThrust
-
 c = isp * gSy
-pathCost = throttle* thrust/c#TODO: VERY VERY IMPORTANT but currently unused!!!
 mDot = -1*thrust*throttle/(isp*gSy)
 
-stateDynamics=stateDynamics.row_insert(6, sy.Matrix([mDot]))
+pathCost = throttle* thrust/c#TODO: VERY VERY IMPORTANT but currently unused!!!
 
+stateDynamics = twoBodyOdeMatrix + overallThrust
+stateDynamics=stateDynamics.row_insert(6, sy.Matrix([mDot]))
 stateVariables = [*symbolicElements.ToArray(), m]
+
 #for i in range(0, 7):
 #    jh.showEquation(stateVariables[i].diff(t), stateDynamics[i])
-newSvs = scaledEquationOfMotionHolder.CreateVariablesWithBar(stateVariables, t)
-tau = sy.Symbol(r'\tau', positive=True, real=True)
-scalingFactors =  [Au, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
-scaledEoms = scaledEquationOfMotionHolder.ScaleStateVariablesAndTimeInFirstOrderOdes(stateVariables, stateDynamics, newSvs,scalingFactors, tau, tf, [azi, elv, throttle])
-scaledSubsDict = scaledEoms.createCorrectedSubsDict(subsDict, stateVariables, t)
 
 simpleThrustCallbackHelper = OdeLambdifyHelper(t, stateVariables, stateDynamics, [mu, azi, elv, thrust, throttle, isp], subsDict)
 simpleThrustCallback = simpleThrustCallbackHelper.CreateSimpleCallbackForSolveIvp()
@@ -107,12 +88,17 @@ satSolution = solve_ivp(simpleThrustCallback, [0.0, tfVal], [*initialElements.To
 motions = ModifiedEquinoctialElements.CreateEphemeris(satMees)
 satPath = prim.PlanetPrimitive.fromMotionEphemeris(tArray, motions, "#00ffff")
 
+#%%
+
+tau = sy.Symbol(r'\tau', positive=True, real=True)
+scalingFactors =  [Au, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+newSvs = scaledEquationOfMotionHolder.CreateVariablesWithBar(stateVariables, t)
+scaledEoms = scaledEquationOfMotionHolder.ScaleStateVariablesAndTimeInFirstOrderOdes(stateVariables, stateDynamics, newSvs,scalingFactors, tau, tf, [azi, elv, throttle])
+scaledSubsDict = scaledEoms.createCorrectedSubsDict(subsDict, stateVariables, t)
 simpleThrustCallbackHelperScaled = OdeLambdifyHelper(tau, scaledEoms.newStateVariables, scaledEoms.scaledFirstOrderDynamics, [mu, *scaledEoms.otherSymbols, thrust, isp, tf], scaledSubsDict)
 simpleThrustCallbackScaledScaled = simpleThrustCallbackHelperScaled.CreateSimpleCallbackForSolveIvp()
-
 initialElementsScaled = [*initialElements]
 initialElementsScaled[0] = initialElementsScaled[0]/Au
-
 satSolutionScaled = solve_ivp(simpleThrustCallbackScaledScaled, [0.0, 1.0], [*initialElementsScaled, m0Val], args=[muVal, 1.5, 0.0, 1.0, thrustVal, ispVal, tfVal], t_eval=np.linspace(0.0, 1.0,n), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
 (tArrayScaled, satArraysScaled) = simpleThrustCallbackHelper.SolveIvpResultsReshaped(satSolutionScaled)
 
@@ -121,6 +107,161 @@ tarrayDescaled, satArrays2 = scaledEoms.descaleStates(tArrayScaled, satArraysSca
 motions2 = ModifiedEquinoctialElements.CreateEphemeris(satMees2)
 satPath2 = prim.PlanetPrimitive.fromMotionEphemeris(tArray, motions2, "#ff00ff")
 
+#%%
+import pyomo.environ as poenv#type: ignore
+import pyomo.dae as podae#type: ignore
+
+print("making pyomo model")
+
+model = poenv.ConcreteModel()
+model.t = podae.ContinuousSet(initialize=np.linspace(0.0, 1.0, n), domain=poenv.NonNegativeReals)
+smaLow = 126.10e9/scalingFactors[0] # little less than earth
+smaHigh = 327.0e9/scalingFactors[0] # little more than mars
+lambdifyFunctionMap = {'sqrt': poenv.sqrt, 'sin': poenv.sin, 'cos':poenv.cos}
+for k,v in lambdifyFunctionMap.items():
+    simpleThrustCallbackHelperScaled.FunctionRedirectionDictionary[k] = v
+listOfEomCallback = simpleThrustCallbackHelperScaled.CreateListOfEomCallbacks()
+
+# some day, if I want to, using the add_component and a healthy amount of wrapping methods, we could
+# fully automate the creation of a pyomo model from the symbolic problem statement.  But I would 
+# rather explore more math and cases than build a well designed and tested library like that (for now).
+
+
+class PyomoHelperFunctions :
+    def __init__(self,model: poenv.ConcreteModel, domain):
+        self.Model = model
+        self.Domain = domain
+        self.IndexToStateMap = {} #type: Dict[int, Any]
+        self._nextStateIndex = 0
+    
+    def addStateElementToPyomo(self, name : str, lowerBound : float, upperBound:float, initialValue : float,  fixInitialValue = True) :
+        model = self.Model
+        model.add_component(name, poenv.Var(self.Domain, bounds=(lowerBound, upperBound), initialize=float(initialValue)))
+        element = model.component(name)
+        if fixInitialValue :
+            element[0].fix(float(initialValue))
+        self.IndexToStateMap[self._nextStateIndex] = lambda m, t : element[t]
+        self._nextStateIndex =self._nextStateIndex+1
+        return element
+
+    # def addEquationOfMotionConstraint(self, name, callback, originalElement):
+    #     model = self.Model
+    #     model.add_component(name, podae.DerivativeVar(originalElement, wrt=model.t))
+    #     derivativeElement = model.component(name)
+    #     model.add_component(name+"Eom", poenv.Constraint(self.Domain, rule =callback))
+    #     return model.component(name+"Eom")
+
+    def addConstantSolveForParameter(self, name, lowerBound, upperBound, initialGuess):
+        model = self.Model
+        model.add_component(name, poenv.Var(bounds=(lowerBound, upperBound), initialize=float(initialGuess)))
+        component = model.component(name)
+        #component.fix(float(initialGuess))
+        return component
+
+    def addControlVariable(self, name, lowerBound, upperBound, initialValue) :
+        model = self.Model
+        model.add_component(name, poenv.Var(self.Domain, bounds=(lowerBound, upperBound), initialize=initialValue))
+        element = model.component(name)
+        return element
+    
+
+pyomoHelper = PyomoHelperFunctions(model, model.t)
+perRad = pyomoHelper.addStateElementToPyomo("perRad", smaLow, smaHigh, float(initialElements[0]/scalingFactors[0]))
+fVar = pyomoHelper.addStateElementToPyomo("f", -0.7, 0.7, float(initialElements[1]))
+gVar = pyomoHelper.addStateElementToPyomo("g", -0.7, 0.7, float(initialElements[2]))
+hVar = pyomoHelper.addStateElementToPyomo("h", -0.7, 0.7, float(initialElements[3]))
+kVar = pyomoHelper.addStateElementToPyomo("k", -0.7, 0.7, float(initialElements[4]))
+lonVar = pyomoHelper.addStateElementToPyomo("lon", 0, 8*math.pi, float(initialElements[5]))
+massVar = pyomoHelper.addStateElementToPyomo("mass", 0, float(m0Val), float(m0Val))
+tfVar = pyomoHelper.addConstantSolveForParameter("tf", tfVal, tfVal, tfVal)
+#model.tf = poenv.Var(bounds=(tfVal, tfVal), initialize=tfVal)
+#model.tf.fix(float(tfVal))
+azimuthControlVar = pyomoHelper.addControlVariable("controlAzimuth", -1*math.pi, math.pi, math.pi/2.0)
+elevationControlVar = pyomoHelper.addControlVariable("controlElevation", -0.6, 0.6, 0.0) # although this can go from -90 to 90 deg, common sense suggests that a lower bounds would be appropriate for this problem.  If the optimizer stays at these limits, then increase them
+throttleControlVar = pyomoHelper.addControlVariable("throttle", 0.0, 1.0, 1.0)
+
+model.perDot = podae.DerivativeVar(model.perRad, wrt=model.t)
+model.fDot = podae.DerivativeVar(model.f, wrt=model.t)
+model.gDot = podae.DerivativeVar(model.g, wrt=model.t)
+model.hDot = podae.DerivativeVar(model.h, wrt=model.t)
+model.kDot = podae.DerivativeVar(model.k, wrt=model.t)
+model.lonDot = podae.DerivativeVar(model.lon, wrt=model.t)
+model.mDot = podae.DerivativeVar(model.mass, wrt=model.t)
+
+indexToStateMap = {
+0: lambda m, t : m.perRad[t],
+1: lambda m, t : m.f[t],
+2: lambda m, t : m.g[t],
+3: lambda m, t : m.h[t],
+4: lambda m, t : m.k[t],
+5: lambda m, t : m.lon[t],
+6: lambda m, t : m.mass[t],
+}
+
+def mapPyomoStateToProblemState(m, t, expression) :    
+    state = [m.perRad[t], m.f[t], m.g[t],m.h[t], m.k[t], m.lon[t], m.mass[t]]
+    args = [muVal, m.controlAzimuth[t], m.controlElevation[t], m.throttle[t], thrustVal, ispVal, m.tf]    
+    ans = expression(t, state, *args)
+    return ans
+
+model.perEom = poenv.Constraint(model.t, rule =lambda m, t2: m.perDot[t2] == mapPyomoStateToProblemState(m, t2, listOfEomCallback[0]))
+model.fEom = poenv.Constraint(model.t, rule =lambda m, t2: m.fDot[t2] == mapPyomoStateToProblemState(m, t2, listOfEomCallback[1]))
+model.gEom = poenv.Constraint(model.t, rule =lambda m, t2: m.gDot[t2] == mapPyomoStateToProblemState(m, t2, listOfEomCallback[2]))
+model.hEom = poenv.Constraint(model.t, rule =lambda m, t2: m.hDot[t2] == mapPyomoStateToProblemState(m, t2, listOfEomCallback[3]))
+model.kEom = poenv.Constraint(model.t, rule =lambda m, t2: m.kDot[t2] == mapPyomoStateToProblemState(m, t2, listOfEomCallback[4]))
+model.lonEom = poenv.Constraint(model.t, rule =lambda m, t2: m.lonDot[t2] == mapPyomoStateToProblemState(m, t2, listOfEomCallback[5]))
+model.massEom = poenv.Constraint(model.t, rule =lambda m, t2: m.mDot[t2] == mapPyomoStateToProblemState(m, t2, listOfEomCallback[6]))
+
+model.bc1 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[0](mod1, 1.0) - float(finalElements.SemiParameter/scalingFactors[0]))
+model.bc2 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[1](mod1, 1.0) - float(finalElements.EccentricityCosTermF))
+model.bc3 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[2](mod1, 1.0) - float(finalElements.EccentricitySinTermG))
+model.bc4 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[3](mod1, 1.0) - float(finalElements.InclinationCosTermH))
+model.bc5 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[4](mod1, 1.0) - float(finalElements.InclinationSinTermK))
+#model.bc6 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[5](mod1, 1.0) - float(finalElements.TrueLongitude + (4*math.pi)))
+model.bc6 = poenv.Constraint(rule = lambda mod1 : 0 == poenv.sin(indexToStateMap[5](mod1, 1.0)) - math.sin(finalElements.TrueLongitude%(2*math.pi)))
+model.bc7 = poenv.Constraint(rule = lambda mod1 : 0 == poenv.cos(indexToStateMap[5](mod1, 1.0)) - math.cos(finalElements.TrueLongitude%(2*math.pi)))
+
+finalMassCallback = lambda m : m.mass[1.0]/100.0
+model.massObjective = poenv.Objective(expr = finalMassCallback, sense=poenv.maximize)
+
+sim = podae.Simulator(model, package='scipy')
+model.var_input = poenv.Suffix(direction=poenv.Suffix.IMPORT)
+model.var_input[model.controlAzimuth] = {0.0: math.pi/2.0}
+model.var_input[model.controlElevation] = {0.0: 0.0}
+model.var_input[model.throttle] = {0.0: 1.0}
+tSim, profiles = sim.simulate(numpoints=n, varying_inputs=model.var_input, integrator='dop853')
+
+#poenv.TransformationFactory('dae.finite_difference').apply_to(model, wrt=model.t, nfe=n, scheme='BACKWARD')
+print("transforming pyomo")
+poenv.TransformationFactory('dae.collocation').apply_to(model, wrt=model.t, nfe=n, ncp=5, scheme='LAGRANGE-RADAU')
+#['LAGRANGE-RADAU', 'LAGRANGE-LEGENDRE']
+print("initializing the pyomo model")
+sim.initialize_model()
+
+print("running the pyomo model")
+solver = poenv.SolverFactory('cyipopt')
+solver.config.options['tol'] = 1e-6
+solver.config.options['max_iter'] = 2000
+
+try :
+    solver.solve(model, tee=True)
+except Exception as ex:
+    print("Whop whop" + str(ex))
+#%%
+
+
+earthSolution = solve_ivp(twoBodyOdeCallback, [0.0, tfVal], initialElements.ToArray(), args=(muVal,), t_eval=np.linspace(0.0, tfVal,n), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
+(tArray, earthArrays) = twoBodyEvaluationHelper.SolveIvpResultsReshaped(earthSolution)
+earthMmes = [ModifiedEquinoctialElements(*x, muVal) for x in earthArrays]
+motions = ModifiedEquinoctialElements.CreateEphemeris(earthMmes)
+earthPath = prim.PlanetPrimitive.fromMotionEphemeris(tArray, motions, "#00ff00")
+
+
+marsSolution = solve_ivp(twoBodyOdeCallback, [tfVal, 0.0], finalElements.ToArray(), args=(muVal,), t_eval=np.linspace(tfVal, 0.0, n*2), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
+(tArray, marsStateArrays) = twoBodyEvaluationHelper.SolveIvpResultsReshaped(marsSolution)
+marsMees = [ModifiedEquinoctialElements(*x, muVal) for x in marsStateArrays]
+marsMotion = ModifiedEquinoctialElements.CreateEphemeris(marsMees)
+marsPath = prim.PlanetPrimitive.fromMotionEphemeris(tArray, marsMotion, "#ff0000")
 
 fig = PlotAndAnimatePlanetsWithPlotly("Earth and Mars", [earthPath, marsPath, satPath, satPath2], tArray, None)
 fig.update_layout()

@@ -232,16 +232,11 @@ class OdeLambdifyHelper(LambdifyHelper):
 
         eomCallback = sy.lambdify(odeArgs, eomList, modules=modules, dummify=True)
         #TODO: This shouldn't call lambdify directly, it should call base class?
-
-        # don't need the next wrapper if there are no other args
-        if self.OtherArguments == None or len(self.OtherArguments) == 0 :            
-            return eomCallback
-
-        # but if there are other arguments, handle that
-        def callbackFunc(t, y, *args) :
-            nonlocal eomCallback
-            return eomCallback(t, y, args)
-        return callbackFunc        
+        
+        #Remember, the calling code is responsible for telling LambidfyHelper what the state is
+        # which also means they are responsible for calling the callback correctly. we do NOT 
+        # have to handle a special args version of the callbacks here
+        return eomCallback   
 
     def CreateListOfEomCallbacks(self) ->List[Callable]:
         equationsOfMotion = self.ExpressionsToLambdify
@@ -263,16 +258,9 @@ class OdeLambdifyHelper(LambdifyHelper):
         for thisEom in eomStagingList :
             eomCallback = sy.lambdify(odeArgs, thisEom, modules=modules, cse=True, dummify=True)
             eomList.append(eomCallback)
-        
-        if not (self.OtherArguments == None or len(self.OtherArguments) == 0) :  
-            realEomList = []
-            for eom in eomList:
-                this_eom = eom
-                def callbackFunc(t, y, *args) :
-                    return this_eom(t, y, args)
-                realCallback = callbackFunc
-                realEomList.append(realCallback)
-            #eomList = realEomList
+        #Remember, the calling code is responsible for telling LambidfyHelper what the state is
+        # which also means they are responsible for calling the callback correctly. we do NOT 
+        # have to handle a special args version of the callbacks here
         return eomList        
 
     def BuildLambdifyingState(self) :
@@ -280,7 +268,8 @@ class OdeLambdifyHelper(LambdifyHelper):
         state.append(self.Time)
         state.append(self.NonTimeLambdifyArguments)
         if self.OtherArguments != None and len(self.OtherArguments) > 0:
-            state.append(self.OtherArguments)
+            for arg in self.OtherArguments:
+                state.append(arg)
         return state
 
     def CreateSimpleCallbackForOdeint(self) -> Callable : 
