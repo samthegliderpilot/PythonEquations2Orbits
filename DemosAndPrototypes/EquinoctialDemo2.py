@@ -16,6 +16,7 @@ from pyeq2orb.Graphics.Plotly2DModule import plot2DLines
 from pyeq2orb.Graphics.PlotlyUtilities import PlotAndAnimatePlanetsWithPlotly
 from pyeq2orb.Numerical.ScalingHelpers import scaledEquationOfMotionHolder
 from IPython.display import display
+from collections import OrderedDict
 
 subsDict : Dict[Union[sy.Symbol, sy.Expr], SymbolOrNumber]= {}
 
@@ -32,7 +33,7 @@ twoBodyOdeCallback = twoBodyEvaluationHelper.CreateSimpleCallbackForSolveIvp()
 
 #%%
 tfVal = 793*86400.0
-n = 150
+n = 303
 tSpace = np.linspace(0.0, tfVal, n)
 
 muVal = 1.32712440042e20
@@ -233,7 +234,7 @@ tSim, profiles = sim.simulate(numpoints=n, varying_inputs=model.var_input, integ
 
 #poenv.TransformationFactory('dae.finite_difference').apply_to(model, wrt=model.t, nfe=n, scheme='BACKWARD')
 print("transforming pyomo")
-poenv.TransformationFactory('dae.collocation').apply_to(model, wrt=model.t, nfe=n, ncp=5, scheme='LAGRANGE-RADAU')
+poenv.TransformationFactory('dae.collocation').apply_to(model, wrt=model.t, nfe=n, ncp=3, scheme='LAGRANGE-RADAU')
 #['LAGRANGE-RADAU', 'LAGRANGE-LEGENDRE']
 print("initializing the pyomo model")
 sim.initialize_model()
@@ -248,7 +249,71 @@ try :
 except Exception as ex:
     print("Whop whop" + str(ex))
 #%%
+def extractPyomoSolution(model, stateSymbols):
+    tSpace =np.array( [t for t in model.t]) 
+    pSym = np.array([model.perRad[t]() for t in model.t])
+    fSym = np.array([model.f[t]() for t in model.t])
+    gSym = np.array([model.g[t]() for t in model.t])
+    hSym = np.array([model.h[t]() for t in model.t])
+    kSym = np.array([model.k[t]() for t in model.t])
+    lonSym = np.array([model.lon[t]() for t in model.t])
+    massSym = np.array([model.mass[t]() for t in model.t])
+    controlAzimuth = np.array([model.controlAzimuth[t]() for t in model.t])
+    controlElevation = np.array([model.controlElevation[t]() for t in model.t])
+    throttle = np.array([model.throttle[t]() for t in model.t])
+    ansAsDict = OrderedDict()
+    ansAsDict[stateSymbols[0]]= pSym
+    ansAsDict[stateSymbols[1]]= fSym
+    ansAsDict[stateSymbols[2]]= gSym
+    ansAsDict[stateSymbols[3]]= hSym
+    ansAsDict[stateSymbols[4]]= kSym
+    ansAsDict[stateSymbols[5]]= lonSym
+    ansAsDict[stateSymbols[6]]= massSym
+    ansAsDict[stateSymbols[7]]= controlAzimuth
+    ansAsDict[stateSymbols[8]]= controlElevation
+    ansAsDict[stateSymbols[9]]= throttle
 
+    return [tSpace, ansAsDict]
+
+stateSymbols = [stateVariables, [azi, elv], throttle]
+[time, dictSolution] = extractPyomoSolution(model, stateSymbols)
+time = time*tfVal
+dictSolution = scaledEquationOfMotionHolder.DescaleResults(dictSolution)
+equiElements = []
+for i in range(0, len(time)):    
+    temp = ModifiedEquinoctialElements(dictSolution[stateSymbols[0]][i]*numericalScalingDict[newSvs[0]], dictSolution[stateSymbols[1]][i], dictSolution[stateSymbols[2]][i], dictSolution[stateSymbols[3]][i], dictSolution[stateSymbols[4]][i], dictSolution[stateSymbols[5]][i], muVal)
+    #realEqui = scaleEquinoctialElements(temp, 1.0, 1.0)
+    equiElements.append(temp)
+
+simEqui = []
+simOtherValues = {} #type: Dict[sy.Expr, List[float]]
+simOtherValues[stateSymbols[6]] = []
+# simOtherValues[stateSymbols[7]] = []
+# simOtherValues[stateSymbols[8]] = []
+# simOtherValues[stateSymbols[9]] = []
+for i in range(0, len(tSim)) :
+    temp = ModifiedEquinoctialElements(profiles[i][0]*numericalScalingDict[newSvs[0]], profiles[i][1], profiles[i][2], profiles[i][3], profiles[i][4], profiles[i][5], muVal)
+    simOtherValues[stateSymbols[6]].append(profiles[i][6])
+    # simOtherValues[stateSymbols[7]].append(profiles[i][7])
+    # simOtherValues[stateSymbols[8]].append(profiles[i][8])
+    # simOtherValues[stateSymbols[9]].append(profiles[i][9])
+    simEqui.append(temp)
+    
+
+guessMotions = ModifiedEquinoctialElements.CreateEphemeris(simEqui)
+simEphemeris = prim.EphemerisArrays()
+simEphemeris.InitFromMotions(tSim*tfVal, guessMotions)
+simPath = prim.PathPrimitive(simEphemeris)
+simPath.color = "#00ff00"
+
+try :
+    motions = ModifiedEquinoctialElements.CreateEphemeris(equiElements)
+    satEphemeris = prim.EphemerisArrays()
+    satEphemeris.InitFromMotions(time, motions)
+    satPath = prim.PathPrimitive(satEphemeris)
+    satPath.color = "#ff00ff"
+except :
+    print("Couldn't plot optimized path")
 
 earthSolution = solve_ivp(twoBodyOdeCallback, [0.0, tfVal], initialElements.ToArray(), args=(muVal,), t_eval=np.linspace(0.0, tfVal,n), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
 (tArray, earthArrays) = twoBodyEvaluationHelper.SolveIvpResultsReshaped(earthSolution)
