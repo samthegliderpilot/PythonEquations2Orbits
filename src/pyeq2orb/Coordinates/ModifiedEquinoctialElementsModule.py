@@ -81,7 +81,7 @@ class ModifiedEquinoctialElements:
         a = p/(1-f**2-g**2)
         e = sy.sqrt(f*f+g*g)
         # it is not clear to me if the atan2 in the MME PDF passes in x,y or y,x (y,x is right for sy)
-        i = sy.atan2(2*sy.sqrt(h*h+k*k), 1-h*h-k*k)
+        i = sy.atan2(2*sy.sqrt(h*h+k*k), 1.0-h*h-k*k)
         w = sy.atan2(g*h-f*k, f*h+g*k)
         if isinstance(w, float) and math.isnan(w):
             w=0.0

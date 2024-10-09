@@ -17,6 +17,8 @@ from pyeq2orb.Graphics.PlotlyUtilities import PlotAndAnimatePlanetsWithPlotly
 from pyeq2orb.Numerical.ScalingHelpers import scaledEquationOfMotionHolder
 from IPython.display import display
 from collections import OrderedDict
+import matplotlib.pyplot as plt
+import numpy as np
 
 subsDict : Dict[Union[sy.Symbol, sy.Expr], SymbolOrNumber]= {}
 
@@ -167,7 +169,7 @@ class PyomoHelperFunctions :
     
 
 pyomoHelper = PyomoHelperFunctions(model, model.t)
-perRad = pyomoHelper.addStateElementToPyomo("perRad", smaLow, smaHigh, float(initialElements[0]/scalingFactors[0]))
+semiParam = pyomoHelper.addStateElementToPyomo("semiParam", smaLow, smaHigh, float(initialElements[0]/scalingFactors[0]))
 fVar = pyomoHelper.addStateElementToPyomo("f", -0.7, 0.7, float(initialElements[1]))
 gVar = pyomoHelper.addStateElementToPyomo("g", -0.7, 0.7, float(initialElements[2]))
 hVar = pyomoHelper.addStateElementToPyomo("h", -0.7, 0.7, float(initialElements[3]))
@@ -181,7 +183,7 @@ azimuthControlVar = pyomoHelper.addControlVariable("controlAzimuth", -1*math.pi,
 elevationControlVar = pyomoHelper.addControlVariable("controlElevation", -0.6, 0.6, 0.0) # although this can go from -90 to 90 deg, common sense suggests that a lower bounds would be appropriate for this problem.  If the optimizer stays at these limits, then increase them
 throttleControlVar = pyomoHelper.addControlVariable("throttle", 0.0, 1.0, 1.0)
 
-model.perDot = podae.DerivativeVar(model.perRad, wrt=model.t)
+model.semiParamDot = podae.DerivativeVar(model.semiParam, wrt=model.t)
 model.fDot = podae.DerivativeVar(model.f, wrt=model.t)
 model.gDot = podae.DerivativeVar(model.g, wrt=model.t)
 model.hDot = podae.DerivativeVar(model.h, wrt=model.t)
@@ -190,7 +192,7 @@ model.lonDot = podae.DerivativeVar(model.lon, wrt=model.t)
 model.mDot = podae.DerivativeVar(model.mass, wrt=model.t)
 
 indexToStateMap = {
-0: lambda m, t : m.perRad[t],
+0: lambda m, t : m.semiParam[t],
 1: lambda m, t : m.f[t],
 2: lambda m, t : m.g[t],
 3: lambda m, t : m.h[t],
@@ -200,12 +202,12 @@ indexToStateMap = {
 }
 
 def mapPyomoStateToProblemState(m, t, expression) :    
-    state = [m.perRad[t], m.f[t], m.g[t],m.h[t], m.k[t], m.lon[t], m.mass[t]]
+    state = [m.semiParam[t], m.f[t], m.g[t],m.h[t], m.k[t], m.lon[t], m.mass[t]]
     args = [muVal, m.controlAzimuth[t], m.controlElevation[t], m.throttle[t], thrustVal, ispVal, m.tf]    
     ans = expression(t, state, *args)
     return ans
 
-model.perEom = poenv.Constraint(model.t, rule =lambda m, t2: m.perDot[t2] == mapPyomoStateToProblemState(m, t2, listOfEomCallback[0]))
+model.perEom = poenv.Constraint(model.t, rule =lambda m, t2: m.semiParamDot[t2] == mapPyomoStateToProblemState(m, t2, listOfEomCallback[0]))
 model.fEom = poenv.Constraint(model.t, rule =lambda m, t2: m.fDot[t2] == mapPyomoStateToProblemState(m, t2, listOfEomCallback[1]))
 model.gEom = poenv.Constraint(model.t, rule =lambda m, t2: m.gDot[t2] == mapPyomoStateToProblemState(m, t2, listOfEomCallback[2]))
 model.hEom = poenv.Constraint(model.t, rule =lambda m, t2: m.hDot[t2] == mapPyomoStateToProblemState(m, t2, listOfEomCallback[3]))
@@ -249,51 +251,68 @@ try :
 except Exception as ex:
     print("Whop whop" + str(ex))
 #%%
-def extractPyomoSolution(model, stateSymbols):
+
+pyomoVarDict = {semiParam: scaledEoms.newStateVariables[0], 
+                fVar: scaledEoms.newStateVariables[1],
+                gVar: scaledEoms.newStateVariables[2],
+                hVar: scaledEoms.newStateVariables[3],
+                kVar: scaledEoms.newStateVariables[4],
+                lonVar: scaledEoms.newStateVariables[5],
+                massVar: scaledEoms.newStateVariables[6],
+                azimuthControlVar: azi,
+                elevationControlVar: elv,
+                throttleControlVar: throttle}
+
+def extractPyomoSolution(model, pyomoVarToSymbolDict):
     tSpace =np.array( [t for t in model.t]) 
-    pSym = np.array([model.perRad[t]() for t in model.t])
-    fSym = np.array([model.f[t]() for t in model.t])
-    gSym = np.array([model.g[t]() for t in model.t])
-    hSym = np.array([model.h[t]() for t in model.t])
-    kSym = np.array([model.k[t]() for t in model.t])
-    lonSym = np.array([model.lon[t]() for t in model.t])
-    massSym = np.array([model.mass[t]() for t in model.t])
-    controlAzimuth = np.array([model.controlAzimuth[t]() for t in model.t])
-    controlElevation = np.array([model.controlElevation[t]() for t in model.t])
-    throttle = np.array([model.throttle[t]() for t in model.t])
+    # pSym = np.array([model.semiParam[t]() for t in model.t])
+    # fSym = np.array([model.f[t]() for t in model.t])
+    # gSym = np.array([model.g[t]() for t in model.t])
+    # hSym = np.array([model.h[t]() for t in model.t])
+    # kSym = np.array([model.k[t]() for t in model.t])
+    # lonSym = np.array([model.lon[t]() for t in model.t])
+    # massSym = np.array([model.mass[t]() for t in model.t])
+    # controlAzimuth = np.array([model.controlAzimuth[t]() for t in model.t])
+    # controlElevation = np.array([model.controlElevation[t]() for t in model.t])
+    # throttle = np.array([model.throttle[t]() for t in model.t])
     ansAsDict = OrderedDict()
-    ansAsDict[stateSymbols[0]]= pSym
-    ansAsDict[stateSymbols[1]]= fSym
-    ansAsDict[stateSymbols[2]]= gSym
-    ansAsDict[stateSymbols[3]]= hSym
-    ansAsDict[stateSymbols[4]]= kSym
-    ansAsDict[stateSymbols[5]]= lonSym
-    ansAsDict[stateSymbols[6]]= massSym
-    ansAsDict[stateSymbols[7]]= controlAzimuth
-    ansAsDict[stateSymbols[8]]= controlElevation
-    ansAsDict[stateSymbols[9]]= throttle
+
+    for k,v in pyomoVarToSymbolDict.items():
+        ansAsDict[v] = np.array([k[t]() for t in model.t])
+
+    # ansAsDict[stateSymbols[0]]= pSym
+    # ansAsDict[stateSymbols[1]]= fSym
+    # ansAsDict[stateSymbols[2]]= gSym
+    # ansAsDict[stateSymbols[3]]= hSym
+    # ansAsDict[stateSymbols[4]]= kSym
+    # ansAsDict[stateSymbols[5]]= lonSym
+    # ansAsDict[stateSymbols[6]]= massSym
+    # ansAsDict[stateSymbols[7]]= controlAzimuth
+    # ansAsDict[stateSymbols[8]]= controlElevation
+    # ansAsDict[stateSymbols[9]]= throttle
 
     return [tSpace, ansAsDict]
 
 stateSymbols = [stateVariables, [azi, elv], throttle]
-[time, dictSolution] = extractPyomoSolution(model, stateSymbols)
-time = time*tfVal
-dictSolution = scaledEquationOfMotionHolder.DescaleResults(dictSolution)
+[tauHistory, dictSolution] = extractPyomoSolution(model, pyomoVarDict)
+#time = time*tfVal
+timeDescaled, dictSolutionDescaled = scaledEoms.descaleStatesDict(tauHistory, dictSolution, [*scalingFactors, 1], tfVal )
 equiElements = []
-for i in range(0, len(time)):    
-    temp = ModifiedEquinoctialElements(dictSolution[stateSymbols[0]][i]*numericalScalingDict[newSvs[0]], dictSolution[stateSymbols[1]][i], dictSolution[stateSymbols[2]][i], dictSolution[stateSymbols[3]][i], dictSolution[stateSymbols[4]][i], dictSolution[stateSymbols[5]][i], muVal)
+#%%
+for i in range(0, len(timeDescaled)):    
+    temp = ModifiedEquinoctialElements(dictSolutionDescaled[stateSymbols[0][0]][i], dictSolutionDescaled[stateSymbols[0][1]][i], dictSolutionDescaled[stateSymbols[0][2]][i], dictSolutionDescaled[stateSymbols[0][3]][i], dictSolutionDescaled[stateSymbols[0][4]][i], dictSolutionDescaled[stateSymbols[0][5]][i], muVal)
     #realEqui = scaleEquinoctialElements(temp, 1.0, 1.0)
     equiElements.append(temp)
 
 simEqui = []
 simOtherValues = {} #type: Dict[sy.Expr, List[float]]
-simOtherValues[stateSymbols[6]] = []
+simOtherValues[stateSymbols[0][6]] = []
 # simOtherValues[stateSymbols[7]] = []
 # simOtherValues[stateSymbols[8]] = []
 # simOtherValues[stateSymbols[9]] = []
 for i in range(0, len(tSim)) :
-    temp = ModifiedEquinoctialElements(profiles[i][0]*numericalScalingDict[newSvs[0]], profiles[i][1], profiles[i][2], profiles[i][3], profiles[i][4], profiles[i][5], muVal)
-    simOtherValues[stateSymbols[6]].append(profiles[i][6])
+    temp = ModifiedEquinoctialElements(profiles[i][0]*scalingFactors[0], profiles[i][1], profiles[i][2], profiles[i][3], profiles[i][4], profiles[i][5], muVal)
+    simOtherValues[stateSymbols[0][6]].append(profiles[i][6])
     # simOtherValues[stateSymbols[7]].append(profiles[i][7])
     # simOtherValues[stateSymbols[8]].append(profiles[i][8])
     # simOtherValues[stateSymbols[9]].append(profiles[i][9])
@@ -309,7 +328,7 @@ simPath.color = "#00ff00"
 try :
     motions = ModifiedEquinoctialElements.CreateEphemeris(equiElements)
     satEphemeris = prim.EphemerisArrays()
-    satEphemeris.InitFromMotions(time, motions)
+    satEphemeris.InitFromMotions(timeDescaled, motions)
     satPath = prim.PathPrimitive(satEphemeris)
     satPath.color = "#ff00ff"
 except :
@@ -327,13 +346,12 @@ marsSolution = solve_ivp(twoBodyOdeCallback, [tfVal, 0.0], finalElements.ToArray
 marsMees = [ModifiedEquinoctialElements(*x, muVal) for x in marsStateArrays]
 marsMotion = ModifiedEquinoctialElements.CreateEphemeris(marsMees)
 marsPath = prim.PlanetPrimitive.fromMotionEphemeris(tArray, marsMotion, "#ff0000")
-
+#%%
 fig = PlotAndAnimatePlanetsWithPlotly("Earth and Mars", [earthPath, marsPath, satPath, satPath2], tArray, None)
 fig.update_layout()
 fig.show()  
 
-import matplotlib.pyplot as plt
-import numpy as np
+
 
 diffLines = []
 for k in range(0, len(satArrays[0])):
@@ -349,3 +367,34 @@ for line in diffLines:
     plt.plot(line[1], label=line[0])
 plt.legend()
 plt.show()
+
+#%%
+import pyeq2orb.Coordinates.OrbitFunctions as orb
+def getInertialThrustVectorFromDataDict(azi, elev, throt, equiElements, dataDict, muValue) -> List[Cartesian] :
+    cartesians = []
+    az = dataDict[azi]
+    el = dataDict[elev]
+    mag = dataDict[throt]
+    for i in range(0, len(az)) :
+        x = mag[i] * math.cos(az[i])*math.cos(el[i])
+        y = mag[i] * math.sin(az[i])*math.cos(el[i])
+        z = mag[i] * math.sin(el[i])      
+        equiElement = equiElements[i]
+        ricToInertial = orb.CreateComplicatedRicToInertialMatrix(equiElement.ToMotionCartesian())
+        cartesians.append(ricToInertial*Cartesian(x,y,z))
+    return cartesians
+
+#thrustVectorRun = getInertialThrustVectorFromDataDict(azi, elv, throttle, equiElements, dictSolution, muVal)
+#thrustPlotlyItemsRun = createScattersForThrustVectors(satPath.ephemeris, thrustVectorRun, "#ff0000", Au/10.0)
+
+azimuthPlotData = prim.XAndYPlottableLineData(timeDescaled, dictSolution[stateSymbols[1][0]]*180.0/math.pi, "azimuth", '#0000ff', 2, 0)
+elevationPlotData = prim.XAndYPlottableLineData(timeDescaled, dictSolution[stateSymbols[1][1]]*180.0/math.pi, "elevation", '#00ff00', 2, 0)
+
+#azimuthPlotDataSim = prim.XAndYPlottableLineData(time, np.array(simOtherValues[stateSymbols[7]])*180.0/math.pi, "azimuth_sim", '#ff00ff', 2, 0)
+#elevationPlotDataSim = prim.XAndYPlottableLineData(time, np.array(simOtherValues[stateSymbols[8]])*180.0/math.pi, "elevation_sim", '#ffff00', 2, 0)
+
+plot2DLines([azimuthPlotData, elevationPlotData], "Thrust angles (deg)")
+
+throttle = prim.XAndYPlottableLineData(timeDescaled, dictSolution[stateSymbols[2]], "throttle", '#FF0000', 2)
+plot2DLines([throttle], "Throttle (0 to 1)")
+

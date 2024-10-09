@@ -1,4 +1,4 @@
-from typing import List, Callable, cast, Tuple, Dict
+from typing import List, Callable, cast, Tuple, Dict, Optional
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
 from pyeq2orb import SafeSubs
 from dataclasses import dataclass
@@ -11,6 +11,7 @@ class scaledEquationOfMotionHolder:
     otherSymbols : List[sy.Symbol]
     timeSymbol : sy.Symbol
     timeWasUpdated : bool
+    originalSymbols : List[sy.Symbol]
 
     def createCorrectedSubsDict(self, subsDict : Dict[sy.Expr, SymbolOrNumber], originalSymbols: List[sy.Symbol], originalTime : sy.Symbol = None)->Dict[sy.Expr, SymbolOrNumber]:
         newDict = {}
@@ -46,6 +47,27 @@ class scaledEquationOfMotionHolder:
             (tD, sD) = self.descaleState(t[i], states[i], scalingFactors, timeScalingFactor)
             tDescaled.append(tD)
             statesDescaled.append(sD)
+        return (tDescaled, statesDescaled)
+
+    def descaleStatesDict(self, t : List[SymbolOrNumber], states : Dict[sy.Symbol, List[SymbolOrNumber]], scalingFactors : List[SymbolOrNumber], timeScalingFactor : SymbolOrNumber = 1)->Tuple[List[float], Dict[sy.Symbol, List[float]]]:
+
+        listOfListsInOrder = []
+        for i in range(0, len(self.newStateVariables)):
+            listOfListsInOrder.append(states[self.newStateVariables[i]])
+        
+        statesDescaled = {}
+        for i in range(0, len(self.newStateVariables)):
+            scaledArray = []
+            statesForThisVariable = states[self.newStateVariables[i]]
+            scaleValue = scalingFactors[i]
+            for val in statesForThisVariable:
+                scaledArray.append(val*scaleValue)
+            statesDescaled[self.originalSymbols[i]] = scaledArray
+        
+        if self.timeWasUpdated:
+            tDescaled = []
+            for i in range(0, len(t)):
+                tDescaled.append(t[i]*timeScalingFactor)
         return (tDescaled, statesDescaled)
 
     def scaleState(self, t : SymbolOrNumber, state : List[SymbolOrNumber], scalingFactors : List[SymbolOrNumber], timeScalingFactor : SymbolOrNumber = 1) ->Tuple[SymbolOrNumber, List[SymbolOrNumber]]:
@@ -93,12 +115,12 @@ class scaledEquationOfMotionHolder:
         for i in range(0, len(newStateVariables)):            
             newEoms.append(SafeSubs(firstOrderEquationsOfMotion[i], subsDictForNewSvs)/scaleValuesToDivideByOriginal[i])
 
-        scaledHelper = scaledEquationOfMotionHolder(newStateVariables, newEoms, [], oldStateVariables[0].args[0], False)        
+        scaledHelper = scaledEquationOfMotionHolder(newStateVariables, newEoms, [], oldStateVariables[0].args[0], False, oldStateVariables)        
 
         return scaledHelper
 
     @staticmethod
-    def ScaleTimeInFirstOrderOdes(originalStateSymbols : List[sy.Symbol], originalTimeSymbol : sy.Symbol, firstOrderEquationsOfMotion : List[SymbolOrNumber], newTimeSymbol : sy.Symbol = None, timeScaleValueToDivideByOriginalTime : SymbolOrNumber = None, otherSymbols : List[sy.Symbol] =None)-> "scaledEquationOfMotionHolder":
+    def ScaleTimeInFirstOrderOdes(originalStateSymbols : List[sy.Symbol], originalTimeSymbol : sy.Symbol, firstOrderEquationsOfMotion : List[SymbolOrNumber], newTimeSymbol : sy.Symbol = None, timeScaleValueToDivideByOriginalTime : SymbolOrNumber = None, otherSymbols : List[sy.Symbol] =None, evenMoreOldStateVariabes : Optional[List[sy.Symbol]] = None)-> "scaledEquationOfMotionHolder":
         newEoms : List[sy.Expr] = []
         tSubsDict = {originalTimeSymbol: timeScaleValueToDivideByOriginalTime*newTimeSymbol}
         newStateVariables = []
@@ -117,8 +139,9 @@ class scaledEquationOfMotionHolder:
             partlyScaledEom = SafeSubs(partlyScaledEom, tSubsDict)*timeScaleValueToDivideByOriginalTime
             newEoms.append(partlyScaledEom)
 
-
-        scaledHelper = scaledEquationOfMotionHolder(newStateVariables, newEoms, scaledOtherSymbols, newTimeSymbol, True)    
+        if evenMoreOldStateVariabes is not None:
+            originalStateSymbols = evenMoreOldStateVariabes
+        scaledHelper = scaledEquationOfMotionHolder(newStateVariables, newEoms, scaledOtherSymbols, newTimeSymbol, True, originalStateSymbols)    
         return scaledHelper
 
 
@@ -126,5 +149,5 @@ class scaledEquationOfMotionHolder:
     def ScaleStateVariablesAndTimeInFirstOrderOdes(oldStateVariables : List[sy.Symbol], firstOrderEquationsOfMotion : List[SymbolOrNumber], newStateVariables : List[sy.Symbol], scaleValuesToDivideByOriginal: List[SymbolOrNumber], newTimeSymbol : sy.Symbol, timeScaleValueToDivideByOriginalTime : SymbolOrNumber, otherSymbols : List[sy.Symbol] =None) -> "scaledEquationOfMotionHolder":
         originalTimeSymbol = oldStateVariables[0].args[0]
         justScaledState = scaledEquationOfMotionHolder.ScaleStateVariablesInFirstOrderOdes(oldStateVariables, firstOrderEquationsOfMotion, newStateVariables, scaleValuesToDivideByOriginal)
-        andScaledByTime = scaledEquationOfMotionHolder.ScaleTimeInFirstOrderOdes(justScaledState.newStateVariables, originalTimeSymbol, justScaledState.scaledFirstOrderDynamics, newTimeSymbol, timeScaleValueToDivideByOriginalTime, otherSymbols)
+        andScaledByTime = scaledEquationOfMotionHolder.ScaleTimeInFirstOrderOdes(justScaledState.newStateVariables, originalTimeSymbol, justScaledState.scaledFirstOrderDynamics, newTimeSymbol, timeScaleValueToDivideByOriginalTime, otherSymbols, oldStateVariables)
         return andScaledByTime
