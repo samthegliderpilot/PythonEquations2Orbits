@@ -10,7 +10,7 @@ import scipyPaperPrinter as jh#type: ignore
 import numpy as np
 import math as math
 from scipy.integrate import solve_ivp
-from typing import Union, Dict, List, Callable, Any
+from typing import Union, Dict, List, Callable, Any, Optional
 import pyeq2orb.Graphics.Primitives as prim
 from pyeq2orb.Graphics.Plotly2DModule import plot2DLines
 from pyeq2orb.Graphics.PlotlyUtilities import PlotAndAnimatePlanetsWithPlotly
@@ -19,6 +19,21 @@ from IPython.display import display
 from collections import OrderedDict
 import matplotlib.pyplot as plt
 import numpy as np
+
+
+class ModifiedEquinoctialElementsHelpers:
+    @staticmethod
+    def createSatPathFromIvpSolution(ivpSolution, mu, color : str, scalingFactors : Optional[List[float]] = None, timeScalingFactor : Optional[float] = 1)->prim.PlanetPrimitive:
+        
+        (tArray, satArrays) = simpleThrustCallbackHelper.SolveIvpResultsReshaped(ivpSolution)
+        if scalingFactors is not None or timeScalingFactor != 1:
+            if scalingFactors == None:
+                scalingFactors = []
+            tArray, satArrays = scaledEquationOfMotionHolder.descaleStates(tArray, satArrays, scalingFactors, tfVal)
+        (satMees) = [ModifiedEquinoctialElements(*x[:6], muVal) for x in satArrays]
+        motions = ModifiedEquinoctialElements.CreateEphemeris(satMees)
+        satPath = prim.PlanetPrimitive.fromMotionEphemeris(tArray, motions, color)
+        return satPath    
 
 subsDict : Dict[Union[sy.Symbol, sy.Expr], SymbolOrNumber]= {}
 
@@ -35,7 +50,7 @@ twoBodyOdeCallback = twoBodyEvaluationHelper.CreateSimpleCallbackForSolveIvp()
 
 #%%
 tfVal = 793*86400.0
-n = 303
+n = 123
 tSpace = np.linspace(0.0, tfVal, n)
 
 muVal = 1.32712440042e20
@@ -56,7 +71,7 @@ gSy = sy.Symbol('g', real=True, positive=True) #9.8065
 m0Val = 2000.0
 ispVal = 3000.0
 nRev = 2.0
-thrustVal = 0.203 # odd number pulled from just under Fig14
+thrustVal = 0.1997*1.2#0.25 # odd number pulled from just under Fig14
 
 azi = sy.Function(r'\theta', real=True)(t)
 elv = sy.Function(r'\phi', real=True)(t)
@@ -86,10 +101,7 @@ simpleThrustCallbackHelper = OdeLambdifyHelper(t, stateVariables, stateDynamics,
 simpleThrustCallback = simpleThrustCallbackHelper.CreateSimpleCallbackForSolveIvp()
 
 satSolution = solve_ivp(simpleThrustCallback, [0.0, tfVal], [*initialElements.ToArray(), m0Val], args=[muVal, 1.5, 0.0, 1.0, thrustVal, ispVal], t_eval=np.linspace(0.0, tfVal,n), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
-(tArray, satArrays) = simpleThrustCallbackHelper.SolveIvpResultsReshaped(satSolution)
-(satMees) = [ModifiedEquinoctialElements(*x[:6], muVal) for x in satArrays]
-motions = ModifiedEquinoctialElements.CreateEphemeris(satMees)
-satPath = prim.PlanetPrimitive.fromMotionEphemeris(tArray, motions, "#00ffff")
+satPath = ModifiedEquinoctialElementsHelpers.createSatPathFromIvpSolution(satSolution, muVal, "#00ffff")
 
 #%%
 
@@ -98,17 +110,15 @@ scalingFactors =  [Au, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 newSvs = scaledEquationOfMotionHolder.CreateVariablesWithBar(stateVariables, t)
 scaledEoms = scaledEquationOfMotionHolder.ScaleStateVariablesAndTimeInFirstOrderOdes(stateVariables, stateDynamics, newSvs,scalingFactors, tau, tf, [azi, elv, throttle])
 scaledSubsDict = scaledEoms.createCorrectedSubsDict(subsDict, stateVariables, t)
-simpleThrustCallbackHelperScaled = OdeLambdifyHelper(tau, scaledEoms.newStateVariables, scaledEoms.scaledFirstOrderDynamics, [mu, *scaledEoms.otherSymbols, thrust, isp, tf], scaledSubsDict)
-simpleThrustCallbackScaledScaled = simpleThrustCallbackHelperScaled.CreateSimpleCallbackForSolveIvp()
 initialElementsScaled = [*initialElements]
 initialElementsScaled[0] = initialElementsScaled[0]/Au
-satSolutionScaled = solve_ivp(simpleThrustCallbackScaledScaled, [0.0, 1.0], [*initialElementsScaled, m0Val], args=[muVal, 1.5, 0.0, 1.0, thrustVal, ispVal, tfVal], t_eval=np.linspace(0.0, 1.0,n), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
-(tArrayScaled, satArraysScaled) = simpleThrustCallbackHelper.SolveIvpResultsReshaped(satSolutionScaled)
 
-tarrayDescaled, satArrays2 = scaledEoms.descaleStates(tArrayScaled, satArraysScaled, scalingFactors, tfVal)
-(satMees2) = [ModifiedEquinoctialElements(*x[:6], muVal) for x in satArrays2]
-motions2 = ModifiedEquinoctialElements.CreateEphemeris(satMees2)
-satPath2 = prim.PlanetPrimitive.fromMotionEphemeris(tArray, motions2, "#ff00ff")
+simpleThrustCallbackHelperScaled = OdeLambdifyHelper(tau, scaledEoms.newStateVariables, scaledEoms.scaledFirstOrderDynamics, [mu, *scaledEoms.otherSymbols, thrust, isp, tf], scaledSubsDict)
+simpleThrustCallbackScaledScaled = simpleThrustCallbackHelperScaled.CreateSimpleCallbackForSolveIvp()
+
+
+satSolutionScaled = solve_ivp(simpleThrustCallbackScaledScaled, [0.0, 1.0], [*initialElementsScaled, m0Val], args=[muVal, 1.5, 0.0, 1.0, thrustVal, ispVal, tfVal], t_eval=np.linspace(0.0, 1.0,n), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
+satPath2 = ModifiedEquinoctialElementsHelpers.createSatPathFromIvpSolution(satSolutionScaled, muVal, "#ff00ff", scalingFactors, tfVal)
 
 #%%
 import pyomo.environ as poenv#type: ignore
@@ -280,17 +290,6 @@ def extractPyomoSolution(model, pyomoVarToSymbolDict):
     for k,v in pyomoVarToSymbolDict.items():
         ansAsDict[v] = np.array([k[t]() for t in model.t])
 
-    # ansAsDict[stateSymbols[0]]= pSym
-    # ansAsDict[stateSymbols[1]]= fSym
-    # ansAsDict[stateSymbols[2]]= gSym
-    # ansAsDict[stateSymbols[3]]= hSym
-    # ansAsDict[stateSymbols[4]]= kSym
-    # ansAsDict[stateSymbols[5]]= lonSym
-    # ansAsDict[stateSymbols[6]]= massSym
-    # ansAsDict[stateSymbols[7]]= controlAzimuth
-    # ansAsDict[stateSymbols[8]]= controlElevation
-    # ansAsDict[stateSymbols[9]]= throttle
-
     return [tSpace, ansAsDict]
 
 stateSymbols = [stateVariables, [azi, elv], throttle]
@@ -335,38 +334,15 @@ except :
     print("Couldn't plot optimized path")
 
 earthSolution = solve_ivp(twoBodyOdeCallback, [0.0, tfVal], initialElements.ToArray(), args=(muVal,), t_eval=np.linspace(0.0, tfVal,n), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
-(tArray, earthArrays) = twoBodyEvaluationHelper.SolveIvpResultsReshaped(earthSolution)
-earthMmes = [ModifiedEquinoctialElements(*x, muVal) for x in earthArrays]
-motions = ModifiedEquinoctialElements.CreateEphemeris(earthMmes)
-earthPath = prim.PlanetPrimitive.fromMotionEphemeris(tArray, motions, "#00ff00")
-
+earthPath = ModifiedEquinoctialElementsHelpers.createSatPathFromIvpSolution(earthSolution, muVal, "#00ff00")
 
 marsSolution = solve_ivp(twoBodyOdeCallback, [tfVal, 0.0], finalElements.ToArray(), args=(muVal,), t_eval=np.linspace(tfVal, 0.0, n*2), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
-(tArray, marsStateArrays) = twoBodyEvaluationHelper.SolveIvpResultsReshaped(marsSolution)
-marsMees = [ModifiedEquinoctialElements(*x, muVal) for x in marsStateArrays]
-marsMotion = ModifiedEquinoctialElements.CreateEphemeris(marsMees)
-marsPath = prim.PlanetPrimitive.fromMotionEphemeris(tArray, marsMotion, "#ff0000")
+marsPath = ModifiedEquinoctialElementsHelpers.createSatPathFromIvpSolution(marsSolution, muVal, "#ff0000")
+
 #%%
-fig = PlotAndAnimatePlanetsWithPlotly("Earth and Mars", [earthPath, marsPath, satPath, satPath2], tArray, None)
+fig = PlotAndAnimatePlanetsWithPlotly("Earth and Mars", [earthPath, marsPath, satPath, satPath2], marsPath.ephemeris.T, None)
 fig.update_layout()
 fig.show()  
-
-
-
-diffLines = []
-for k in range(0, len(satArrays[0])):
-    diffLines.append((str(k), []))
-
-for i in range(0, len(satArrays2)):
-    nonScaledState = satArrays[i]
-    descaledState = satArrays2[i]
-    for j in range(0, len(nonScaledState)):
-        diffLines[j][1].append(nonScaledState[j]-descaledState[j])
-
-for line in diffLines:
-    plt.plot(line[1], label=line[0])
-plt.legend()
-plt.show()
 
 #%%
 import pyeq2orb.Coordinates.OrbitFunctions as orb

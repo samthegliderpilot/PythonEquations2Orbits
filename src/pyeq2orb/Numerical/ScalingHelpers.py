@@ -31,7 +31,8 @@ class scaledEquationOfMotionHolder:
     def scaledDynamicsAsMatrix(self) -> sy.Matrix:
         return sy.Matrix(self.scaledFirstOrderDynamics)
 
-    def descaleState(self, t : SymbolOrNumber, state : List[SymbolOrNumber], scalingFactors : List[SymbolOrNumber], timeScalingFactor : SymbolOrNumber = 1) ->Tuple[SymbolOrNumber, List[SymbolOrNumber]]:
+    @staticmethod
+    def descaleState(t : SymbolOrNumber, state : List[SymbolOrNumber], scalingFactors : List[SymbolOrNumber], timeScalingFactor : SymbolOrNumber = 1) ->Tuple[SymbolOrNumber, List[SymbolOrNumber]]:
         descaled = []
         for i in range(0, len(state)):
             val = state[i]
@@ -40,21 +41,19 @@ class scaledEquationOfMotionHolder:
         tDescaled = timeScalingFactor*t
         return (tDescaled, descaled)
 
-    def descaleStates(self, t : List[SymbolOrNumber], states : List[List[SymbolOrNumber]], scalingFactors : List[SymbolOrNumber], timeScalingFactor : SymbolOrNumber = 1)->Tuple[List[float], List[List[float]]]:
+    @staticmethod
+    def descaleStates(t : List[SymbolOrNumber], states : List[List[SymbolOrNumber]], scalingFactors : List[SymbolOrNumber], timeScalingFactor : SymbolOrNumber = 1)->Tuple[List[float], List[List[float]]]:
         tDescaled = []
         statesDescaled = []
         for i in range(0, len(t)):
-            (tD, sD) = self.descaleState(t[i], states[i], scalingFactors, timeScalingFactor)
+            (tD, sD) = scaledEquationOfMotionHolder.descaleState(t[i], states[i], scalingFactors, timeScalingFactor)
             tDescaled.append(tD)
             statesDescaled.append(sD)
         return (tDescaled, statesDescaled)
 
     def descaleStatesDict(self, t : List[SymbolOrNumber], states : Dict[sy.Symbol, List[SymbolOrNumber]], scalingFactors : List[SymbolOrNumber], timeScalingFactor : SymbolOrNumber = 1)->Tuple[List[float], Dict[sy.Symbol, List[float]]]:
 
-        listOfListsInOrder = []
-        for i in range(0, len(self.newStateVariables)):
-            listOfListsInOrder.append(states[self.newStateVariables[i]])
-        
+
         statesDescaled = {}
         for i in range(0, len(self.newStateVariables)):
             scaledArray = []
@@ -64,13 +63,14 @@ class scaledEquationOfMotionHolder:
                 scaledArray.append(val*scaleValue)
             statesDescaled[self.originalSymbols[i]] = scaledArray
         
-        if self.timeWasUpdated:
+        if timeScalingFactor != 1:
             tDescaled = []
             for i in range(0, len(t)):
                 tDescaled.append(t[i]*timeScalingFactor)
         return (tDescaled, statesDescaled)
 
-    def scaleState(self, t : SymbolOrNumber, state : List[SymbolOrNumber], scalingFactors : List[SymbolOrNumber], timeScalingFactor : SymbolOrNumber = 1) ->Tuple[SymbolOrNumber, List[SymbolOrNumber]]:
+    @staticmethod
+    def scaleState(t : SymbolOrNumber, state : List[SymbolOrNumber], scalingFactors : List[SymbolOrNumber], timeScalingFactor : SymbolOrNumber = 1) ->Tuple[SymbolOrNumber, List[SymbolOrNumber]]:
         scaled = []
         for i in range(0, len(state)):
             val = state[i]
