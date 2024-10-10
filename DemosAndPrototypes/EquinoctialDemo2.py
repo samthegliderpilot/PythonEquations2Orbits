@@ -19,7 +19,10 @@ from IPython.display import display
 from collections import OrderedDict
 import matplotlib.pyplot as plt
 import numpy as np
-
+from pandas import DataFrame #type: ignore
+import plotly.graph_objects as go
+import plotly.express as px#type: ignore
+import pyeq2orb.Coordinates.OrbitFunctions as orb
 
 class ModifiedEquinoctialElementsHelpers:
     @staticmethod
@@ -88,7 +91,7 @@ overallThrust = thrust*B*alp*(throttle)/(m)
 c = isp * gSy
 mDot = -1*thrust*throttle/(isp*gSy)
 
-pathCost = throttle* thrust/c#TODO: VERY VERY IMPORTANT but currently unused!!!
+pathCost = throttle* thrust/c
 
 stateDynamics = twoBodyOdeMatrix + overallThrust
 stateDynamics=stateDynamics.row_insert(6, sy.Matrix([mDot]))
@@ -110,15 +113,8 @@ scalingFactors =  [Au, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 newSvs = scaledEquationOfMotionHolder.CreateVariablesWithBar(stateVariables, t)
 scaledEoms = scaledEquationOfMotionHolder.ScaleStateVariablesAndTimeInFirstOrderOdes(stateVariables, stateDynamics, newSvs,scalingFactors, tau, tf, [azi, elv, throttle])
 scaledSubsDict = scaledEoms.createCorrectedSubsDict(subsDict, stateVariables, t)
-initialElementsScaled = [*initialElements]
-initialElementsScaled[0] = initialElementsScaled[0]/Au
 
 simpleThrustCallbackHelperScaled = OdeLambdifyHelper(tau, scaledEoms.newStateVariables, scaledEoms.scaledFirstOrderDynamics, [mu, *scaledEoms.otherSymbols, thrust, isp, tf], scaledSubsDict)
-simpleThrustCallbackScaledScaled = simpleThrustCallbackHelperScaled.CreateSimpleCallbackForSolveIvp()
-
-
-satSolutionScaled = solve_ivp(simpleThrustCallbackScaledScaled, [0.0, 1.0], [*initialElementsScaled, m0Val], args=[muVal, 1.5, 0.0, 1.0, thrustVal, ispVal, tfVal], t_eval=np.linspace(0.0, 1.0,n), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
-satPath2 = ModifiedEquinoctialElementsHelpers.createSatPathFromIvpSolution(satSolutionScaled, muVal, "#ff00ff", scalingFactors, tfVal)
 
 #%%
 import pyomo.environ as poenv#type: ignore
@@ -339,13 +335,10 @@ earthPath = ModifiedEquinoctialElementsHelpers.createSatPathFromIvpSolution(eart
 marsSolution = solve_ivp(twoBodyOdeCallback, [tfVal, 0.0], finalElements.ToArray(), args=(muVal,), t_eval=np.linspace(tfVal, 0.0, n*2), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
 marsPath = ModifiedEquinoctialElementsHelpers.createSatPathFromIvpSolution(marsSolution, muVal, "#ff0000")
 
-#%%
-fig = PlotAndAnimatePlanetsWithPlotly("Earth and Mars", [earthPath, marsPath, satPath, satPath2], marsPath.ephemeris.T, None)
-fig.update_layout()
-fig.show()  
+
 
 #%%
-import pyeq2orb.Coordinates.OrbitFunctions as orb
+
 def getInertialThrustVectorFromDataDict(azi, elev, throt, equiElements, dataDict, muValue) -> List[Cartesian] :
     cartesians = []
     az = dataDict[azi]
@@ -360,8 +353,29 @@ def getInertialThrustVectorFromDataDict(azi, elev, throt, equiElements, dataDict
         cartesians.append(ricToInertial*Cartesian(x,y,z))
     return cartesians
 
-#thrustVectorRun = getInertialThrustVectorFromDataDict(azi, elv, throttle, equiElements, dictSolution, muVal)
-#thrustPlotlyItemsRun = createScattersForThrustVectors(satPath.ephemeris, thrustVectorRun, "#ff0000", Au/10.0)
+def createScattersForThrustVectors(ephemeris : prim.EphemerisArrays, inertialThrustVectors : List[Cartesian], color : str, scale : float) -> List[px.scatter_3d] :
+    scats = []
+    for i in range(0, len(ephemeris.T)) :
+        hereX = ephemeris.X[i]
+        hereY = ephemeris.Y[i]
+        hereZ = ephemeris.Z[i]
+
+        thereX = inertialThrustVectors[i].X*scale + hereX
+        thereY = inertialThrustVectors[i].Y*scale + hereY
+        thereZ = inertialThrustVectors[i].Z*scale + hereZ
+        smallDict = DataFrame({"x":np.array([hereX, thereX], dtype="float64"), "y":np.array([hereY, thereY], dtype="float64"), "z":np.array([hereZ, thereZ], dtype="float64")})
+        
+        thisLine = go.Scatter3d(x=smallDict["x"], y=smallDict["y"], z=smallDict["z"], mode="lines", line=dict(color=color, width=1))
+        scats.append(thisLine)
+    #fig = go.Figure(data=scats)
+    #fig.show()
+    return scats    
+thrustVectorRun = getInertialThrustVectorFromDataDict(azi, elv, throttle, equiElements, dictSolution, muVal)    
+thrustPlotlyItemsRun = createScattersForThrustVectors(satPath.ephemeris, thrustVectorRun, "#ff0000", Au/10.0)
+#%%
+fig = PlotAndAnimatePlanetsWithPlotly("Earth and Mars", [earthPath, marsPath, satPath], marsPath.ephemeris.T, thrustPlotlyItemsRun)
+fig.update_layout()
+fig.show()  
 
 azimuthPlotData = prim.XAndYPlottableLineData(timeDescaled, dictSolution[stateSymbols[1][0]]*180.0/math.pi, "azimuth", '#0000ff', 2, 0)
 elevationPlotData = prim.XAndYPlottableLineData(timeDescaled, dictSolution[stateSymbols[1][1]]*180.0/math.pi, "elevation", '#00ff00', 2, 0)
