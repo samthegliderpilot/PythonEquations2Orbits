@@ -174,7 +174,8 @@ class OdeLambdifyHelper(LambdifyHelper):
         """
         self._time = timeValue
 
-    def SolveIvpResultsReshaped(self, ivpResults) -> Tuple[List[float], List[List[float]]]:
+    @staticmethod
+    def SolveIvpResultsReshaped(ivpResults) -> Tuple[List[float], List[List[float]]]:
         t = []
         equi = []
         yFromIntegrator = ivpResults.y 

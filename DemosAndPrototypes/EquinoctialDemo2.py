@@ -6,11 +6,12 @@ from pyeq2orb.Coordinates.ModifiedEquinoctialElementsModule import ModifiedEquin
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
 from pyeq2orb import SafeSubs
 from pyeq2orb.Numerical.LambdifyHelpers import LambdifyHelper, OdeLambdifyHelper, OdeLambdifyHelperWithBoundaryConditions
+from pyeq2orb.HighLevelHelpers.EquinoctialElementsHelpers import ModifiedEquinoctialElementsHelpers
 import scipyPaperPrinter as jh#type: ignore
 import numpy as np
 import math as math
 from scipy.integrate import solve_ivp
-from typing import Union, Dict, List, Callable, Any, Optional
+from typing import Union, Dict, List, Callable, Any, Optional, Tuple
 import pyeq2orb.Graphics.Primitives as prim
 from pyeq2orb.Graphics.Plotly2DModule import plot2DLines
 from pyeq2orb.Graphics.PlotlyUtilities import PlotAndAnimatePlanetsWithPlotly
@@ -18,25 +19,12 @@ from pyeq2orb.Numerical.ScalingHelpers import scaledEquationOfMotionHolder
 from IPython.display import display
 from collections import OrderedDict
 import matplotlib.pyplot as plt
-import numpy as np
 from pandas import DataFrame #type: ignore
 import plotly.graph_objects as go
 import plotly.express as px#type: ignore
 import pyeq2orb.Coordinates.OrbitFunctions as orb
-
-class ModifiedEquinoctialElementsHelpers:
-    @staticmethod
-    def createSatPathFromIvpSolution(ivpSolution, mu, color : str, scalingFactors : Optional[List[float]] = None, timeScalingFactor : Optional[float] = 1)->prim.PlanetPrimitive:
-        
-        (tArray, satArrays) = simpleThrustCallbackHelper.SolveIvpResultsReshaped(ivpSolution)
-        if scalingFactors is not None or timeScalingFactor != 1:
-            if scalingFactors == None:
-                scalingFactors = []
-            tArray, satArrays = scaledEquationOfMotionHolder.descaleStates(tArray, satArrays, scalingFactors, tfVal)
-        (satMees) = [ModifiedEquinoctialElements(*x[:6], muVal) for x in satArrays]
-        motions = ModifiedEquinoctialElements.CreateEphemeris(satMees)
-        satPath = prim.PlanetPrimitive.fromMotionEphemeris(tArray, motions, color)
-        return satPath    
+import pyomo.environ as poenv#type: ignore
+import pyomo.dae as podae#type: ignore
 
 subsDict : Dict[Union[sy.Symbol, sy.Expr], SymbolOrNumber]= {}
 
@@ -49,7 +37,6 @@ symbolicElements = CreateSymbolicElements(t, mu)
 twoBodyOdeMatrix = CreateTwoBodyMotionMatrix(symbolicElements, subsDict)
 twoBodyEvaluationHelper = OdeLambdifyHelper(t, symbolicElements.ToArray(), twoBodyOdeMatrix, [mu], subsDict)
 twoBodyOdeCallback = twoBodyEvaluationHelper.CreateSimpleCallbackForSolveIvp()
-
 
 #%%
 tfVal = 793*86400.0
@@ -97,9 +84,6 @@ stateDynamics = twoBodyOdeMatrix + overallThrust
 stateDynamics=stateDynamics.row_insert(6, sy.Matrix([mDot]))
 stateVariables = [*symbolicElements.ToArray(), m]
 
-#for i in range(0, 7):
-#    jh.showEquation(stateVariables[i].diff(t), stateDynamics[i])
-
 simpleThrustCallbackHelper = OdeLambdifyHelper(t, stateVariables, stateDynamics, [mu, azi, elv, thrust, throttle, isp], subsDict)
 simpleThrustCallback = simpleThrustCallbackHelper.CreateSimpleCallbackForSolveIvp()
 
@@ -117,9 +101,6 @@ scaledSubsDict = scaledEoms.createCorrectedSubsDict(subsDict, stateVariables, t)
 simpleThrustCallbackHelperScaled = OdeLambdifyHelper(tau, scaledEoms.newStateVariables, scaledEoms.scaledFirstOrderDynamics, [mu, *scaledEoms.otherSymbols, thrust, isp, tf], scaledSubsDict)
 
 #%%
-import pyomo.environ as poenv#type: ignore
-import pyomo.dae as podae#type: ignore
-
 print("making pyomo model")
 
 model = poenv.ConcreteModel()
@@ -134,7 +115,6 @@ listOfEomCallback = simpleThrustCallbackHelperScaled.CreateListOfEomCallbacks()
 # some day, if I want to, using the add_component and a healthy amount of wrapping methods, we could
 # fully automate the creation of a pyomo model from the symbolic problem statement.  But I would 
 # rather explore more math and cases than build a well designed and tested library like that (for now).
-
 
 class PyomoHelperFunctions :
     def __init__(self,model: poenv.ConcreteModel, domain):
@@ -172,7 +152,6 @@ class PyomoHelperFunctions :
         model.add_component(name, poenv.Var(self.Domain, bounds=(lowerBound, upperBound), initialize=initialValue))
         element = model.component(name)
         return element
-    
 
 pyomoHelper = PyomoHelperFunctions(model, model.t)
 semiParam = pyomoHelper.addStateElementToPyomo("semiParam", smaLow, smaHigh, float(initialElements[0]/scalingFactors[0]))
@@ -298,7 +277,7 @@ for i in range(0, len(timeDescaled)):
     temp = ModifiedEquinoctialElements(dictSolutionDescaled[stateSymbols[0][0]][i], dictSolutionDescaled[stateSymbols[0][1]][i], dictSolutionDescaled[stateSymbols[0][2]][i], dictSolutionDescaled[stateSymbols[0][3]][i], dictSolutionDescaled[stateSymbols[0][4]][i], dictSolutionDescaled[stateSymbols[0][5]][i], muVal)
     #realEqui = scaleEquinoctialElements(temp, 1.0, 1.0)
     equiElements.append(temp)
-
+#%%
 simEqui = []
 simOtherValues = {} #type: Dict[sy.Expr, List[float]]
 simOtherValues[stateSymbols[0][6]] = []
@@ -312,7 +291,6 @@ for i in range(0, len(tSim)) :
     # simOtherValues[stateSymbols[8]].append(profiles[i][8])
     # simOtherValues[stateSymbols[9]].append(profiles[i][9])
     simEqui.append(temp)
-    
 
 guessMotions = ModifiedEquinoctialElements.CreateEphemeris(simEqui)
 simEphemeris = prim.EphemerisArrays()
@@ -335,44 +313,20 @@ earthPath = ModifiedEquinoctialElementsHelpers.createSatPathFromIvpSolution(eart
 marsSolution = solve_ivp(twoBodyOdeCallback, [tfVal, 0.0], finalElements.ToArray(), args=(muVal,), t_eval=np.linspace(tfVal, 0.0, n*2), dense_output=True, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
 marsPath = ModifiedEquinoctialElementsHelpers.createSatPathFromIvpSolution(marsSolution, muVal, "#ff0000")
 
-
-
 #%%
 
-def getInertialThrustVectorFromDataDict(azi, elev, throt, equiElements, dataDict, muValue) -> List[Cartesian] :
-    cartesians = []
-    az = dataDict[azi]
-    el = dataDict[elev]
-    mag = dataDict[throt]
-    for i in range(0, len(az)) :
-        x = mag[i] * math.cos(az[i])*math.cos(el[i])
-        y = mag[i] * math.sin(az[i])*math.cos(el[i])
-        z = mag[i] * math.sin(el[i])      
-        equiElement = equiElements[i]
-        ricToInertial = orb.CreateComplicatedRicToInertialMatrix(equiElement.ToMotionCartesian())
-        cartesians.append(ricToInertial*Cartesian(x,y,z))
-    return cartesians
+def convertThrustStartAndStopsToScatter3ds(startAndStopCartesians : List[Tuple[List[float], List[float]]], color : str, width : int):
+    quiver = []
+    for start, stop in startAndStopCartesians:
+        smallDict = DataFrame({"x":np.array([start[0], stop[0]], dtype="float64"), "y":np.array([start[1], stop[1]], dtype="float64"), "z":np.array([start[2], stop[2]], dtype="float64")})
+        thisLine = go.Scatter3d(x=smallDict["x"], y=smallDict["y"], z=smallDict["z"], mode="lines", line=dict(color=color, width=1))    
+        quiver.append(thisLine)
+    return quiver
 
-def createScattersForThrustVectors(ephemeris : prim.EphemerisArrays, inertialThrustVectors : List[Cartesian], color : str, scale : float) -> List[px.scatter_3d] :
-    scats = []
-    for i in range(0, len(ephemeris.T)) :
-        hereX = ephemeris.X[i]
-        hereY = ephemeris.Y[i]
-        hereZ = ephemeris.Z[i]
+thrustVectorRun = ModifiedEquinoctialElementsHelpers.getInertialThrustVectorFromDataDict(dictSolution[azi], dictSolution[elv], dictSolution[throttle], equiElements)    
+thrustStartAndStops = ModifiedEquinoctialElementsHelpers.createScattersForThrustVectors(satPath.ephemeris, thrustVectorRun,  Au/10.0)
+thrustPlotlyItemsRun = convertThrustStartAndStopsToScatter3ds(thrustStartAndStops, "#ff0000", 1)
 
-        thereX = inertialThrustVectors[i].X*scale + hereX
-        thereY = inertialThrustVectors[i].Y*scale + hereY
-        thereZ = inertialThrustVectors[i].Z*scale + hereZ
-        smallDict = DataFrame({"x":np.array([hereX, thereX], dtype="float64"), "y":np.array([hereY, thereY], dtype="float64"), "z":np.array([hereZ, thereZ], dtype="float64")})
-        
-        thisLine = go.Scatter3d(x=smallDict["x"], y=smallDict["y"], z=smallDict["z"], mode="lines", line=dict(color=color, width=1))
-        scats.append(thisLine)
-    #fig = go.Figure(data=scats)
-    #fig.show()
-    return scats    
-thrustVectorRun = getInertialThrustVectorFromDataDict(azi, elv, throttle, equiElements, dictSolution, muVal)    
-thrustPlotlyItemsRun = createScattersForThrustVectors(satPath.ephemeris, thrustVectorRun, "#ff0000", Au/10.0)
-#%%
 fig = PlotAndAnimatePlanetsWithPlotly("Earth and Mars", [earthPath, marsPath, satPath], marsPath.ephemeris.T, thrustPlotlyItemsRun)
 fig.update_layout()
 fig.show()  
@@ -380,11 +334,7 @@ fig.show()
 azimuthPlotData = prim.XAndYPlottableLineData(timeDescaled, dictSolution[stateSymbols[1][0]]*180.0/math.pi, "azimuth", '#0000ff', 2, 0)
 elevationPlotData = prim.XAndYPlottableLineData(timeDescaled, dictSolution[stateSymbols[1][1]]*180.0/math.pi, "elevation", '#00ff00', 2, 0)
 
-#azimuthPlotDataSim = prim.XAndYPlottableLineData(time, np.array(simOtherValues[stateSymbols[7]])*180.0/math.pi, "azimuth_sim", '#ff00ff', 2, 0)
-#elevationPlotDataSim = prim.XAndYPlottableLineData(time, np.array(simOtherValues[stateSymbols[8]])*180.0/math.pi, "elevation_sim", '#ffff00', 2, 0)
-
 plot2DLines([azimuthPlotData, elevationPlotData], "Thrust angles (deg)")
 
 throttle = prim.XAndYPlottableLineData(timeDescaled, dictSolution[stateSymbols[2]], "throttle", '#FF0000', 2)
 plot2DLines([throttle], "Throttle (0 to 1)")
-
