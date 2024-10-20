@@ -30,6 +30,7 @@ from pyeq2orb.Numerical import ScipyCallbackCreators #type: ignore
 from pyeq2orb.Utilities.LambdifiedExpressionCache import CacheKey, ExpressionCache
 import pygmo as pg #type: ignore
 from abc import ABC, abstractmethod
+from pyeq2orb.Numerical.SimpleProblemCallers import fSolveSingleShootingSolver, BlackBoxSingleShootingFunctions, BlackBoxSingleShootingFunctionsFromLambdifiedFunctions
 
 expressionCache = ExpressionCache("SepspotRecreationExpressions.pickle")
 expressionCache.ReloadFile()
@@ -42,7 +43,7 @@ def CreateAndCacheExpression(cache : ExpressionCache, id:str, sympyExpression, l
 jh.printMarkdown("# SEPSPOT Recreation")
 #jh.printMarkdown("In working my way up through low-thrust modeling for satellite maneuvers, it is inevitable to run into Dr. Edelbaum's work.  Newer work such as Jean Albert Kechichian's practically requires understanding SEPSPOT as a prerequesit.  This writeup will go through the basics of SEPSPOT's algorithsm as described in the references below.")
 muVal = 3.986004418e5  
-def doItAll(tArray, includeJ2) ->blackBoxSingleShootingFunctions:
+def doItAll(tArray, includeJ2) ->fSolveSingleShootingSolver:
     #jh.printMarkdown("In other work in this python library, I have already created many helper types such as Equinoctial elements, their equations of motion, rotation matrices, and more. To start, we will define out set of equinoctial elements.  Unlike the orignial paper, I will be using the modified elements.  This replaces the semi-major axis with the parameter and reorders/renames some of the other elements.")
     t=sy.Symbol('t', real=True)
     J2 = sy.Symbol('J_2', real=True)
@@ -376,16 +377,25 @@ def doItAll(tArray, includeJ2) ->blackBoxSingleShootingFunctions:
     fSolveGuess.append(lon0)
     fSolveGuess.extend(lmdGuess)
     fSolveGuess.append(tfV)
-    allTheCallbacks = blackBoxSingleShootingFunctions(ipvCallback, boundaryConditionsLambdified, fSolveCallback, initialStateValues[0:5], fSolveGuess, hamlfEvala)
-    return allTheCallbacks
+
+    fSolveSymbolicInput = [problem.StateSymbols[5], *problem.CostateSymbols, problem.TimeFinalSymbol]
+
+
+    problemEvaluator = BlackBoxSingleShootingFunctionsFromLambdifiedFunctions(realIpvCallback, boundaryConditionsLambdified, [*problem.StateSymbols, *problem.CostateSymbols], bcCallbacks, [problem.TimeFinalSymbol])
+# fSolveInputSymbols = problem.CostateSymbols[:3]
+# #if scaleTime:
+# #    fSolveInputSymbols.append(originalProblem.TimeFinalSymbol)
+    solver = fSolveSingleShootingSolver(problemEvaluator, fSolveSymbolicInput, problem.BoundaryConditions)
+    solver.InitialFSolveGuess = fSolveGuess
+    return solver
 
 
 tArray = np.linspace(0.0, 1.0, 400)
-#%%
+
 twoBodyCallbacks = doItAll(tArray, False)
 
 #%%
-fSolveSol = fsolve(twoBodyCallbacks.fSolveCallback, twoBodyCallbacks.InitialFSolveGuess, full_output=True, factor=0.2, epsfcn=0.001, maxfev=0)
+fSolveSol = twoBodyCallbacks.solve(twoBodyCallbacks.InitialFSolveGuess, full_output=True, factor=0.2, epsfcn=0.001, maxfev=0)
 
 #%%
 

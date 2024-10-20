@@ -202,7 +202,6 @@ def solve_ivp_wrapper(t, y, *args):
 
 bcCallback = numerical.CreateCallbackForBoundaryConditionsWithFullState()
 #%%
-betterFSolveCallback = SingleShootingFunctions.CreateBoundaryConditionCallbackFromLambdifiedCallback(bcCallback)
 problemEvaluator = BlackBoxSingleShootingFunctionsFromLambdifiedFunctions(solve_ivp_wrapper, bcCallback, integrationVariables, problem.BoundaryConditions, problem.OtherArguments)
 fSolveInputSymbols = problem.CostateSymbols[:3]
 #if scaleTime:
