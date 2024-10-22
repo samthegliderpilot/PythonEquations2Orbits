@@ -395,7 +395,7 @@ tArray = np.linspace(0.0, 1.0, 400)
 twoBodyCallbacks = doItAll(tArray, False)
 
 #%%
-fSolveSol = twoBodyCallbacks.solve(twoBodyCallbacks.InitialFSolveGuess, full_output=True, factor=0.2, epsfcn=0.001, maxfev=0)
+fSolveSol = twoBodyCallbacks.solve(twoBodyCallbacks.InitialFSolveGuess, tArray, initialStateValues, full_output=True, factor=0.2, epsfcn=0.001, maxfev=0)
 
 #%%
 

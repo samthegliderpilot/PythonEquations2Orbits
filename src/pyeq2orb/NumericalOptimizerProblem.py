@@ -4,8 +4,7 @@ import numpy as np
 import sympy as sy
 from matplotlib.figure import Figure # type: ignore
 import pyeq2orb.Utilities.SolutionDictionaryFunctions as DictionaryHelper
-from scipy.integrate import simps # type: ignore
-
+from scipy.integrate import simpson
 class NumericalOptimizerProblemBase(ABC) :
     """ A base type for the kinds of numerical optimization problems I hope to solve. 
 
@@ -212,7 +211,7 @@ class NumericalOptimizerProblemBase(ABC) :
             stateNow = DictionaryHelper.GetValueFromStateDictionaryAtIndex(stateAndControlDict, i)
             z = tuple(self.ConvertStateAndControlDictionaryToArray(stateNow))
             unintegratedValues.append(self.UnIntegratedPathCost(tArray[i], z))
-        value = simps(unintegratedValues, x=tArray)
+        value = simpson(unintegratedValues, x=tArray)
         
         return value
 

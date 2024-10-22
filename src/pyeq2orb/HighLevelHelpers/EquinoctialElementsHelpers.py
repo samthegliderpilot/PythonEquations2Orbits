@@ -41,7 +41,7 @@ class ModifiedEquinoctialElementsHelpers:
             z = mag[i] * math.sin(el[i])      
             equiElement = equiElements[i]
             ricToInertial = orb.CreateComplicatedRicToInertialMatrix(equiElement.ToMotionCartesian())
-            cartesians.append(ricToInertial*Cartesian(x,y,z))
+            cartesians.append(Cartesian(*(ricToInertial*Cartesian(x,y,z))))
         return cartesians
 
     @staticmethod

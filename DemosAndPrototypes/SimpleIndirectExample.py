@@ -2,7 +2,6 @@
 import sympy as sy
 from IPython.display import display
 from scipyPaperPrinter import printMarkdown, showEquation #type: ignore
-from abc import ABC, abstractmethod
 from typing import Dict, List, Tuple, Any, Optional, Iterable
 from scipy.integrate import solve_ivp #type: ignore
 import numpy as np
@@ -139,7 +138,7 @@ problemEvaluator = BlackBoxSingleShootingFunctionsFromLambdifiedFunctions(solve_
 
 fSolveSolver = fSolveSingleShootingSolver(problemEvaluator, [*problem.CostateSymbols[1:], problem.TimeFinalSymbol], problem.BoundaryConditions)
 tfEst = 250.0
-theAnswer = fSolveSolver.solve([*initialGuess[5:], 250.0], tArray, initialGuess, [tfEst], full_output=True,  factor=0.2,epsfcn=0.001)
+theAnswer = fSolveSolver.solve([*initialGuess[5:], 250.0], tArray, initialGuess, args=[tfEst], full_output=True,  factor=0.2,epsfcn=0.001)
 print(theAnswer)
 print(theAnswer.SolverResult)
 #%%

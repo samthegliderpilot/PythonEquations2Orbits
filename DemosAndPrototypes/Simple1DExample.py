@@ -20,3 +20,5 @@ fig = plt.figure()
 oneDWorkProblem.AddResultsToFigure(fig, t, analyticalAnswer, "Analytical Answer")
 oneDWorkProblem.AddResultsToFigure(fig, t, plottableNumericalAnswer, "Numerical Answer")
 plt.show()
+
+# %%

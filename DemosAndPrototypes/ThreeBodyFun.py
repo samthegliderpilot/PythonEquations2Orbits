@@ -53,7 +53,7 @@ satEphemeris = EphemerisArrays()
 satEphemeris.ExtendValues(ipvResults.t, solutionDictionary[x], solutionDictionary[y], solutionDictionary[z]) #type: ignore
 satPath = prim.PathPrimitive(satEphemeris, "#ff00ff")
 
-moonResults = solve_ivp(integratorCallback, [tArray[0], tArray[-1]], [ 1.0, 0.0, 0.0, 0.0, 0.1, 0.0], t_eval=tArray)
+moonResults = solve_ivp(integratorCallback, [tArray[0], tArray[-1]], [ 1.0, 0.0, 0.0, 0.0, 0.1, 0.0], t_eval=tArray, method='DOP853')
 moonSolutionDictionary = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(helper.NonTimeLambdifyArguments, moonResults)
 moonEphemeris = EphemerisArrays()
 
@@ -63,7 +63,7 @@ moonEphemeris = EphemerisArrays()
 x_2 = np.linspace(1.0, 1.0, 1000)
 y_2 = np.linspace(0.0, 0.0, 1000)
 moonEphemeris.ExtendValues(tArray, x_2, y_2, moonSolutionDictionary[z]) #type: ignore
-moonPath = prim.PathPrimitive(moonEphemeris, "#ffffff")
+moonPath = prim.PathPrimitive(moonEphemeris, "#000000")
 
 fig = PlotAndAnimatePlanetsWithPlotly("NHRL in Rotation Frame", [satPath, moonPath], tArray, None)
 fig.update_layout(
@@ -84,7 +84,7 @@ for i in range(0, len(tArray)):
     newMoonXyz = rotMat*moonPos
     moonInertialEphemeris.AppendValues(tNow, float(newMoonXyz[0]), float(newMoonXyz[1]), float(newMoonXyz[2]))
 
-fig = PlotAndAnimatePlanetsWithPlotly("NHRL In Inertial Frame", [prim.PathPrimitive(inertialEphemeris, "#ff00ff", 3), prim.PathPrimitive(moonInertialEphemeris, "#ffffff", 3)], tArray, None)
+fig = PlotAndAnimatePlanetsWithPlotly("NHRL In Inertial Frame", [prim.PathPrimitive(inertialEphemeris, "#ff00ff", 3), prim.PathPrimitive(moonInertialEphemeris, "#000000", 3)], tArray, None)
 fig.update_layout(
      margin=dict(l=20, r=20, t=20, b=20))
 

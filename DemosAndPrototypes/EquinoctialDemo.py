@@ -40,7 +40,7 @@ twoBodyOdeCallback = twoBodyEvaluationHelper.CreateSimpleCallbackForSolveIvp()
 
 #%%
 tfVal = 793*86400.0
-n = 123
+n = 252
 tSpace = np.linspace(0.0, tfVal, n)
 
 muVal = 1.32712440042e20
@@ -149,7 +149,8 @@ class PyomoHelperFunctions :
 
     def addControlVariable(self, name, lowerBound, upperBound, initialValue) :
         model = self.Model
-        model.add_component(name, poenv.Var(self.Domain, bounds=(lowerBound, upperBound), initialize=initialValue))
+        theVar =  poenv.Var(self.Domain, bounds=(lowerBound, upperBound), initialize=initialValue)
+        model.add_component(name,theVar)
         element = model.component(name)
         return element
 
@@ -209,7 +210,7 @@ model.bc5 = poenv.Constraint(rule = lambda mod1 : 0 == indexToStateMap[4](mod1, 
 model.bc6 = poenv.Constraint(rule = lambda mod1 : 0 == poenv.sin(indexToStateMap[5](mod1, 1.0)) - math.sin(finalElements.TrueLongitude%(2*math.pi)))
 model.bc7 = poenv.Constraint(rule = lambda mod1 : 0 == poenv.cos(indexToStateMap[5](mod1, 1.0)) - math.cos(finalElements.TrueLongitude%(2*math.pi)))
 
-finalMassCallback = lambda m : m.mass[1.0]/100.0
+finalMassCallback = lambda m : m.mass[1.0]/150.0 # 150 has worked better than 100, 200 was not great...
 model.massObjective = poenv.Objective(expr = finalMassCallback, sense=poenv.maximize)
 
 sim = podae.Simulator(model, package='scipy')
@@ -324,7 +325,7 @@ def convertThrustStartAndStopsToScatter3ds(startAndStopCartesians : List[Tuple[L
     return quiver
 
 thrustVectorRun = ModifiedEquinoctialElementsHelpers.getInertialThrustVectorFromDataDict(dictSolution[azi], dictSolution[elv], dictSolution[throttle], equiElements)    
-thrustStartAndStops = ModifiedEquinoctialElementsHelpers.createScattersForThrustVectors(satPath.ephemeris, thrustVectorRun,  Au/10.0)
+thrustStartAndStops = ModifiedEquinoctialElementsHelpers.createScattersForThrustVectors(satPath.ephemeris, thrustVectorRun,  Au/5.0)
 thrustPlotlyItemsRun = convertThrustStartAndStopsToScatter3ds(thrustStartAndStops, "#ff0000", 1)
 
 fig = PlotAndAnimatePlanetsWithPlotly("Earth and Mars", [earthPath, marsPath, satPath], marsPath.ephemeris.T, thrustPlotlyItemsRun)
