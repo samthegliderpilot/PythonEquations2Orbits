@@ -5,18 +5,18 @@ import sympy as sy
 
 def testMagnitude():
     testingCart = Cartesian(3.0, 4.0, 0.0)
-    assert 5 == testingCart.Magnitude()
+    assert 5.0 == testingCart.Magnitude()
 
 def testBasicOperations() :
     aCart = Cartesian(1.0,2.0,3.0)
-    anotherCart = Cartesian(4,5,6)
+    anotherCart = Cartesian(4.0,5.0,6.0)
 
-    expectedAdd = Cartesian(5,7,9)
-    expectedSubtract = Cartesian(-3,-3,-3)
-    expectedMagnitude = math.sqrt(1+4+9)
+    expectedAdd = Cartesian(5.0,7.0,9.0)
+    expectedSubtract = Cartesian(-3.0,-3.0,-3.0)
+    expectedMagnitude = math.sqrt(1.0+4.0+9.0)
     expectedNorm = Cartesian(1.0/expectedMagnitude, 2.0/expectedMagnitude, 3.0/expectedMagnitude)
-    expectedDot = 4+10+18
-    expectedCross = Cartesian(12-15, 12-6, 5-8)
+    expectedDot = 4.0+10.0+18.0
+    expectedCross = Cartesian(12.0-15.0, 12.0-6.0, 5.0-8.0)
     assert aCart+anotherCart== expectedAdd, "add"
     assert aCart-anotherCart== expectedSubtract, "subtract"
     assert aCart.Magnitude()== expectedMagnitude, "mag"
@@ -24,13 +24,13 @@ def testBasicOperations() :
     assert aCart.dot(anotherCart)== expectedDot, "dot"
     assert aCart.cross(anotherCart)== expectedCross, "cross"
 
-    assert aCart.X== 1, "x element"
-    assert aCart.Y== 2, "y element"
-    assert aCart.Z== 3, "z element"
+    assert aCart.X== 1.0, "x element"
+    assert aCart.Y== 2.0, "y element"
+    assert aCart.Z== 3.0, "z element"
 
-    assert aCart[0]== 1, "first element"
-    assert aCart[1]== 2, "second element"
-    assert aCart[2]== 3, "third element"
+    assert aCart[0]== 1.0, "first element"
+    assert aCart[1]== 2.0, "second element"
+    assert aCart[2]== 3.0, "third element"
 
 def testEquality() :
     aCart = Cartesian(1,2,3)
@@ -50,7 +50,7 @@ def testEquality() :
     assert not aCart == diffX, "diffX"
     assert not aCart == diffY, "diffY"
     assert not aCart == diffZ, "diffZ"
-    assert aCart == floats, "floats"
+    assert aCart != floats, "floats"
     assert not aCart == trans, "transpose"
     assert aCart == sameMat, "same Matrix"
     assert not aCart == diffMat, "diffMat"

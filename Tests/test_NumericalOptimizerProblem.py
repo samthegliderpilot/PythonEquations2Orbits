@@ -1,5 +1,4 @@
 import pytest
-from pyeq2orb.NumericalOptimizerProblem import NumericalOptimizerProblemBase # type: ignore
 from pyeq2orb.Problems.OneDimensionalMinimalWorkProblem import OneDWorkProblem # type: ignore
 
 

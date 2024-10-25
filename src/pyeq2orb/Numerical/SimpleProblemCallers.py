@@ -1,7 +1,6 @@
 from pyeq2orb.ProblemBase import Problem, ProblemVariable
 from pyeq2orb import SafeSubs
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
-from pyeq2orb.NumericalOptimizerProblem import NumericalOptimizerProblemBase
 import sympy as sy
 from IPython.display import display
 from abc import ABC, abstractmethod

@@ -36,7 +36,7 @@ def testToArray() :
 
 def testMagnitude() :
     vec = Vector.fromValues(3.0, 4.0)
-    assert 5== vec.Magnitude()
+    assert 5.0== vec.Magnitude()
 
 def testZeros() :
     vec = Vector.zeros(5)

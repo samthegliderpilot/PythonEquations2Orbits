@@ -13,7 +13,7 @@ I have tried to make a virtual environment, however it is still something I'm fi
 ```
 conda create --name py310OptFun python=3.10
 conda activate py310OptFun
-conda install -c conda-forge sympy numpy pandas scipy plotly matplotlib jupyter pygmo pyomo cmake pytest plotly p2j pandoc networkx openpyxl pint pymysql pyodbc pyro4 xlrd cyipopt pandoc mypy vispy spiceypy setuptools mypy pylint czml3
+conda install -c conda-forge sympy numpy pandas scipy plotly matplotlib jupyter pygmo pyomo cmake pytest plotly p2j pandoc networkx openpyxl pint pymysql pyodbc pyro4 xlrd cyipopt pandoc mypy vispy spiceypy setuptools mypy pylint czml3 dill
 pyomo download-extensions
 pyomo build-extensions
 python setup.py dependencies --extra optional 

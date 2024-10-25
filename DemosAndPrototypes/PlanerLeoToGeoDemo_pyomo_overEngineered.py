@@ -25,7 +25,6 @@ from pyeq2orb.Numerical import ScipyCallbackCreators
 import scipyPaperPrinter as jh
 import pyomo.environ as poenv
 import pyomo.dae as podae
-from pyeq2orb.NumericalOptimizerProblem import NumericalOptimizerProblemBase
 from matplotlib.figure import Figure
 from pyeq2orb.NumericalProblemFromSymbolic import NumericalProblemFromSymbolicProblem
 

@@ -12,7 +12,6 @@ from pyeq2orb.Numerical.LambdifyHelpers import OdeLambdifyHelperWithBoundaryCond
 import pyeq2orb.Numerical.ScipyCallbackCreators as ScipyCallbackCreators
 from pyeq2orb.ProblemBase import Problem, ProblemVariable
 from pyeq2orb import SafeSubs
-from pyeq2orb.NumericalOptimizerProblem import NumericalOptimizerProblemBase
 from pyeq2orb.Graphics.Plotly2DModule import plot2DLines
 import pyeq2orb.Graphics.Primitives as prim
 
