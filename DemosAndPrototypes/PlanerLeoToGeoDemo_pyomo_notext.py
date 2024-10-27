@@ -9,6 +9,7 @@ from collections import OrderedDict
 
 # to get pyomo to work on windows, must also install this library:
 # conda install -c conda-forge pynumero_libraries
+from pyeq2orb.Numerical.LambdifyHelpers import LambdifyHelper, OdeLambdifyHelper, OdeLambdifyHelperWithBoundaryConditions
 
 from pyeq2orb.Problems.ContinuousThrustCircularOrbitTransfer import ContinuousThrustCircularOrbitTransferProblem
 from pyeq2orb.Numerical import ScipyCallbackCreators
@@ -45,7 +46,7 @@ scaleTime = scale and True
 baseProblem = ContinuousThrustCircularOrbitTransferProblem()
 initialStateSymbols = baseProblem.StateSymbolsInitial()
 problem = baseProblem
-
+tfSym = baseProblem.TimeFinalSymbol
 if scale :
     originalProblem = problem
     newSvs = Problem.CreateBarVariables(problem.StateSymbols, problem.TimeSymbol) 
@@ -91,35 +92,26 @@ if scale :
 lambdifyFunctionMap = {'sqrt': poenv.sqrt, 'sin': poenv.sin, 'cos':poenv.cos} #TODO: MORE!!!!
 
 #%%
-from pyeq2orb.Numerical.SimpleProblemCallers import SimpleIntegrationAnswer,SingleShootingFunctions  #type:ignore
-from pyeq2orb.Numerical.SimpleProblemCallers import BlackBoxSingleShootingFunctions, fSolveSingleShootingSolver, BlackBoxSingleShootingFunctionsFromLambdifiedFunctions
+from pyeq2orb.Numerical.ScalingHelpers import scaledEquationOfMotionHolder
+simpleThrustCallbackHelperScaled = OdeLambdifyHelper(tau, problem.StateSymbols, [equ.rhs for equ in problem.EquationsOfMotionAsEquations], [*problem.ControlSymbols, tfSym], constantsSubsDict)
 
-class pyomoEverythingSolver(EverythingProblem):
-    def __init__(self):
-        self.model = pyomo.ConcreteModel()
-    @property
-    def StateSymbols(self) ->List[sy.Symbol]:
-        pass
 
-    @property
-    def OtherArgumentSymbols(self) -> List[sy.Symbol]:
-        pass
 
-    @property
-    def BoundaryConditionExpressions(self) -> List[sy.Expr]: # this is a sympy expression, it must equal 0
-        pass
-
-    
-    def EvaluateProblem(self, time : List[float], initialState : List[float], args : List[float]) ->IEverythingAnswer:    
-        pass
-
-    def registerStateVariable(self, symbol : sy.Symbo, min : float, max : float, initialValue : Optional[float] = None):
-        #model.add_component(...)
-
-asNumericalProblem = NumericalProblemFromSymbolicProblem(problem, lambdifyFunctionMap)
+#%%
+print("making pyomo model")
 
 n=200
 tSpace = np.linspace(0.0, 1.0, n)
+
+model = poenv.ConcreteModel()
+model.t = podae.ContinuousSet(initialize=np.linspace(0.0, 1.0, n), domain=poenv.NonNegativeReals)
+for k,v in lambdifyFunctionMap.items():
+    simpleThrustCallbackHelperScaled.FunctionRedirectionDictionary[k] = v
+listOfEomCallback = simpleThrustCallbackHelperScaled.CreateListOfEomCallbacks()
+
+
+
+
 
 model = poenv.ConcreteModel()
 model.t = podae.ContinuousSet(initialize=tSpace, domain=poenv.NonNegativeReals)
@@ -143,12 +135,18 @@ model.vDot = podae.DerivativeVar(model.v, wrt=model.t)
 model.lonDot = podae.DerivativeVar(model.lon, wrt=model.t)
 
 def mapPyomoStateToProblemState(m, t, expression) :
-    return expression([t, m.r[t], m.u[t], m.v[t], m.lon[t], m.control[t], m.tf])
+    return expression(t, [m.r[t], m.u[t], m.v[t], m.lon[t]], m.control[t], m.tf)
 
-model.rEom = poenv.Constraint(model.t, rule =lambda m, t2: m.rDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 0)))
-model.uEom = poenv.Constraint(model.t, rule =lambda m, t2: m.uDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 1)))
-model.vEom = poenv.Constraint(model.t, rule =lambda m, t2: m.vDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 2)))
-model.lonEom = poenv.Constraint(model.t, rule =lambda m, t2: m.lonDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 3)))
+# model.rEom = poenv.Constraint(model.t, rule =lambda m, t2: m.rDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 0)))
+# model.uEom = poenv.Constraint(model.t, rule =lambda m, t2: m.uDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 1)))
+# model.vEom = poenv.Constraint(model.t, rule =lambda m, t2: m.vDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 2)))
+# model.lonEom = poenv.Constraint(model.t, rule =lambda m, t2: m.lonDot[t2] == mapPyomoStateToProblemState(m, t2, lambda state : asNumericalProblem.SingleEquationOfMotionWithTInState(state, 3)))
+
+
+model.rEom = poenv.Constraint(model.t, rule =lambda m, t2: m.rDot[t2] == mapPyomoStateToProblemState(m, t2, listOfEomCallback[0]))
+model.uEom = poenv.Constraint(model.t, rule =lambda m, t2: m.uDot[t2] == mapPyomoStateToProblemState(m, t2, listOfEomCallback[1]))
+model.vEom = poenv.Constraint(model.t, rule =lambda m, t2: m.vDot[t2] == mapPyomoStateToProblemState(m, t2, listOfEomCallback[2]))
+model.lonEom = poenv.Constraint(model.t, rule =lambda m, t2: m.lonDot[t2] == mapPyomoStateToProblemState(m, t2, listOfEomCallback[3]))
 
 
 def mapPyomoStateToProblemStateBc(m, t, expression) :

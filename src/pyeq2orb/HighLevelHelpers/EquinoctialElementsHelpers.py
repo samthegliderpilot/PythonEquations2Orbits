@@ -5,7 +5,7 @@ from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
 from pyeq2orb.Coordinates.ModifiedEquinoctialElementsModule import ModifiedEquinoctialElements, CreateSymbolicElements
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
 from pyeq2orb import SafeSubs
-from pyeq2orb.Numerical.LambdifyHelpers import LambdifyHelper, OdeLambdifyHelper, OdeLambdifyHelperWithBoundaryConditions
+from pyeq2orb.Numerical.LambdifyHelpers import LambdifyHelper, OdeLambdifyHelper
 import scipyPaperPrinter as jh#type: ignore
 import math as math
 from typing import Union, Dict, List, Callable, Any, Optional, Tuple

@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict, Callable, Collection
+from typing import List, Dict, Callable, Collection, Iterable
 import numpy as np
 import sympy as sy
 from matplotlib.figure import Figure # type: ignore
 import pyeq2orb.Utilities.SolutionDictionaryFunctions as DictionaryHelper
 from scipy.integrate import simpson
+
 class NumericalOptimizerProblemBase(ABC) :
     """ A base type for the kinds of numerical optimization problems I hope to solve. 
 
@@ -26,28 +27,6 @@ class NumericalOptimizerProblemBase(ABC) :
         self.Control = [] #type: List[sy.Expr]       
         self._knownFinalConditions = {} #type: Dict[sy.Expr, float]
         self._knownInitialConditions = {}#type: Dict[sy.Expr, float]
-
-    #TODO: Rework the problem types to use this format of state everywhere
-    # def CreateState(self, time : object, states : List, controls : List, otherParameters :object = None) -> List :
-    #     """Creates a state to pass into the various function calls in the problem that require the overall state in a single list.
-    #     Consider overriding this method if you have a preferred order to the state.
-
-    #     Args:
-    #         time (object): The time, usually either a float or a symbol.
-    #         states (List): The states in a ordered list.
-    #         controls (List): The controls in an ordered list.
-    #         otherParameters (object): Other parameters, may be a single item or a list, and it can be None.
-
-    #     Returns:
-    #         List: The state to pass into other functions on this type.
-    #     """
-    #     overallState = [time, *states, *controls]
-    #     if otherParameters != None :
-    #         if hasattr(otherParameters, "__len__") :
-    #             overallState.extend(otherParameters)
-    #         else :
-    #             overallState.append(otherParameters)
-    #     return overallState
 
     @property
     def NumberOfStateVariables(self) ->int :
@@ -75,20 +54,6 @@ class NumericalOptimizerProblemBase(ABC) :
             int: The number of variables that are fed to the optimizer (the count of state + control variables).
         """        
         return self.NumberOfControlVariables+self.NumberOfStateVariables
-
-    def CreateTimeRange(self, n) ->List[float]:
-        """Creates a default evenly spaced array of time values between self.T0 and self.Tf.
-
-        Returns:
-            List[float]: An array of the time values.
-        """
-        # this is a function that is likely to get overridden in more complicated problems        
-        t = []
-        step = (self.Tf-self.T0)/n
-        for i in range(0, n) :
-            t.append(self.T0+i*step)
-        t.append(self.Tf)
-        return t
     
     def InitialTrajectoryGuess(self,n :int, t0:float, stateAndControlAtT0 : List[float], tf : float, stateAndControlAtTf : List[float]) -> Dict[sy.Expr, List[float]] :
         """Provides an initial guess for the overall trajectory.  By default this does a linear interpolation from the initial 

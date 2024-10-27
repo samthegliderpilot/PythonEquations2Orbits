@@ -2,19 +2,20 @@
 import numpy as np
 from pandas import DataFrame #type: ignore
 from scipy.integrate import solve_ivp #type: ignore
-from pyeq2orb.Numerical.LambdifyHelpers import LambdifyHelper, OdeLambdifyHelper, OdeLambdifyHelperWithBoundaryConditions #type: ignore
-import sympy as sy
-from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
-from pyeq2orb.Graphics.Primitives import EphemerisArrays
+from pyeq2orb.Numerical.LambdifyHelpers import LambdifyHelper, OdeLambdifyHelper #type: ignore
+import sympy as sy #type: ignore
+from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian #type: ignore
+from pyeq2orb.Graphics.Primitives import EphemerisArrays #type: ignore
 import math
 import plotly.express as px #type: ignore
-from pyeq2orb.Graphics.PlotlyUtilities import PlotlyDataAndFramesAccumulator
-from pyeq2orb.Numerical import ScipyCallbackCreators
-import pyeq2orb.Graphics.Primitives as prim
+from pyeq2orb.Graphics.PlotlyUtilities import PlotlyDataAndFramesAccumulator #type: ignore
+from pyeq2orb.Numerical import ScipyCallbackCreators #type: ignore
+import pyeq2orb.Graphics.Primitives as prim #type: ignore
 from pyeq2orb.Graphics.PlotlyUtilities import PlotAndAnimatePlanetsWithPlotly
-from pyeq2orb.Coordinates.RotationMatrix import RotAboutZ
-
-import plotly.graph_objects as go #type: ignore
+from pyeq2orb.Coordinates.RotationMatrix import RotAboutZ #type: ignore
+from pyeq2orb.Graphics.Plotly2DModule import plot2DLines #type: ignore
+from pyeq2orb.Graphics.Primitives import XAndYPlottableLineData #type: ignore
+import plotly.graph_objects as go #type: ignore 
 import plotly.io as pio #type: ignore
 pio.renderers.default = "vscode"
 deg2rad = math.pi/180
@@ -70,8 +71,7 @@ fig.update_layout(
      margin=dict(l=20, r=20, t=20, b=20))
 
 fig.show()  
-from pyeq2orb.Graphics.Plotly2DModule import plot2DLines
-from pyeq2orb.Graphics.Primitives import XAndYPlottableLineData
+
 
 inertialEphemeris = EphemerisArrays()
 moonInertialEphemeris = EphemerisArrays()

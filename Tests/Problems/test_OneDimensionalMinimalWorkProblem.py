@@ -1,5 +1,6 @@
 import pytest
 from pyeq2orb.Problems.OneDimensionalMinimalWorkProblem import OneDWorkSymbolicProblem, OneDWorkProblem, AnalyticalAnswerToProblem #type: ignore
+import numpy as np
 
 def testConstructor() :
     oneDWorkProblem = OneDWorkProblem()
@@ -56,7 +57,7 @@ def testCostFunction() :
     history[oneDWorkProblem.State[1]]=[0.1, 0.1, 0.1, 0.1]
     history[oneDWorkProblem.Control[0]]=[0.25, 0.25, 1.0, 1.0]
 
-    cost = oneDWorkProblem.CostFunction(oneDWorkProblem.CreateTimeRange(3), history)
+    cost = oneDWorkProblem.CostFunction(np.linspace(oneDWorkProblem.T0, oneDWorkProblem.Tf, num=3+1), history)
     assert pytest.approx(cost, 0.00001) == 0.5052083333333334, "cost"
 
 
@@ -78,14 +79,14 @@ def testOptimalU() :
 
 def testAnalyticalSolution() :
     oneDWorkProblem = OneDWorkProblem()
-    t = oneDWorkProblem.CreateTimeRange(5)
+    t = np.linspace(oneDWorkProblem.T0, oneDWorkProblem.Tf, num=6)
     analyticalAnswerEvaluator = AnalyticalAnswerToProblem()
     analyticalAnswer = analyticalAnswerEvaluator.EvaluateAnswer(oneDWorkProblem, t)
     AssertEqualityOfAnalyticalSolution(oneDWorkProblem, analyticalAnswer)
 
 def testAnalyticalSolutionDefaultT() :
     oneDWorkProblem = OneDWorkProblem()
-    t = oneDWorkProblem.CreateTimeRange(5)
+    t = np.linspace(oneDWorkProblem.T0, oneDWorkProblem.Tf, num=6)
     analyticalAnswerEvaluator = AnalyticalAnswerToProblem()
     analyticalAnswer = analyticalAnswerEvaluator.EvaluateAnswer(oneDWorkProblem, t)
     AssertEqualityOfAnalyticalSolution(oneDWorkProblem, analyticalAnswer)

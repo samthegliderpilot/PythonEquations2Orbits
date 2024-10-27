@@ -799,7 +799,7 @@ class Problem(ABC) :
         transversalityConditions = []
         for dx in variationVector :
             coef = overallCond.coeff(dx)
-            if(coef != 0.0) :
+            if(not isinstance(coef, int) and coef != 0) :
                 transversalityConditions.append(coef)    
 
         return transversalityConditions  

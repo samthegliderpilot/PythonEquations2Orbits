@@ -2,7 +2,7 @@ from typing import List, Callable, cast, Tuple, Dict, Optional
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
 from pyeq2orb import SafeSubs
 from dataclasses import dataclass
-import sympy as sy
+import sympy as sy #type: ignore
 
 @dataclass
 class scaledEquationOfMotionHolder:
@@ -52,8 +52,6 @@ class scaledEquationOfMotionHolder:
         return (tDescaled, statesDescaled)
 
     def descaleStatesDict(self, t : List[SymbolOrNumber], states : Dict[sy.Symbol, List[SymbolOrNumber]], scalingFactors : List[SymbolOrNumber], timeScalingFactor : SymbolOrNumber = 1)->Tuple[List[float], Dict[sy.Symbol, List[float]]]:
-
-
         statesDescaled = {}
         for i in range(0, len(self.newStateVariables)):
             scaledArray = []

@@ -19,12 +19,11 @@ class ScipyDiscretizationMinimizeWrapper:
         self.Problem = problem
         self.NumberOfVariables = problem.NumberOfOptimizerStateVariables
 
-    def ScipyOptimize(self, n : int, tArray: Optional[List[float]] = None, zGuess : Optional[List[float]] = None, optMethod : str ="SLSQP") -> OptimizeResult: 
+    def ScipyOptimize(self, tArray: Collection[float], zGuess : Optional[List[float]] = None, optMethod : str ="SLSQP") -> OptimizeResult: 
         """A default implementation of calling scipy.optimize.minimize
 
         Args:
-            n (int): The number of segments to discretize the solution into
-            tArray (List[float], optional): The time array. Defaults to None which will trigger calling CreateTimeRange on the problem.
+            tArray (List[float]): The time array. 
             zGuess (List[float], optional): An initial guess at the optimizer state (fully discretized). Defaults to None which will trigger calling CreateInitialGuess on the problem.
             optMethod (str, optional): The "method" parameter for scipy.optimize.minimize. Defaults to "SLSQP", and be sure to pick something that can handle constraints.
 
@@ -32,8 +31,6 @@ class ScipyDiscretizationMinimizeWrapper:
             OptimizeResult: The structure returned from a scipy.optimize.minimize call.
         """
         # handle default case of no time range specified
-        if(tArray == None) :
-            tArray = self.Problem.CreateTimeRange(n)
         tArray = cast(List[float], tArray)
         # and create the initial guess if none was given
         if zGuess == None :
@@ -106,14 +103,6 @@ class ScipyDiscretizationMinimizeWrapper:
             start = (np1)*endMultiplier
             endMultiplier=endMultiplier+1
         return finalDict
-
-    # @staticmethod
-    # def ExtractFinalValuesFromDiscretizedState(problem : NumericalOptimizerProblemBase, z : List[float]) -> List[float]:
-    #     finalValues = []
-    #     everyN = len(z) / problem.NumberOfOptimizerStateVariables
-    #     for i in range(0, problem.NumberOfOptimizerStateVariables) :
-    #         finalValues.append(z[int(everyN*(i+1))-1])
-    #     return finalValues
 
     def CreateIndividualBoundaryValueConstraintCallbacks(self) -> list[Callable[[list[float]], float]] :
         """Creates callbacks for the difference between the boundary conditions of each state variable in the optimizer state and 

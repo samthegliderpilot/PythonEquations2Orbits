@@ -1,5 +1,5 @@
-from typing import List, Dict, Collection, NoReturn
-import sympy as sy
+from typing import List, Dict, Collection, NoReturn, Iterable
+import sympy as sy #type:ignore
 import matplotlib.pyplot as plt # type: ignore
 from matplotlib.figure import Figure # type: ignore
 import numpy as np
@@ -122,32 +122,6 @@ class OneDWorkProblem(NumericalOptimizerProblemBase) :
         # I am only including this to make the problem exercise more of the system
         return abs(1.0-finalStateAndControl[self.State[0]]) # and min final x
 
-    def AddResultsToFigure(self, figure : Figure, t : List[float], dictionaryOfValueArraysKeyedOffState : Dict[sy.Expr, List[float]], label : str) -> None :
-        """Adds the contents of dictionaryOfValueArraysKeyedOffState to the plot.
-
-        Args:
-            figure (matplotlib.figure.Figure): The figure the data is getting added to.
-            t (List[float]): The time corresponding to the data in dictionaryOfValueArraysKeyedOffState.
-            dictionaryOfValueArraysKeyedOffState (Dict[sy.Expr, List[float]]): The x, v, and u to be plotted.
-            label (str): A label for the data to use in the plot legend.
-        """
-        xAct = dictionaryOfValueArraysKeyedOffState[self.State[0]] #TODO: I don't like how this line knows that the 0th element is X (and the next two too)
-        vAct = dictionaryOfValueArraysKeyedOffState[self.State[1]]
-        uAct = dictionaryOfValueArraysKeyedOffState[self.Control[0]]
-        plt.subplot(311)
-        plt.title("1D Work Problem")
-        plt.plot(t, xAct, label=label)
-        plt.ylabel('x')
-
-        plt.subplot(312)
-        plt.plot(t, vAct, label=label)
-        plt.ylabel('v_x')
-
-        plt.subplot(313)
-        plt.plot(t, uAct, label=label)
-        plt.ylabel('u')
-        plt.legend()
-
 
 class AnalyticalAnswerToProblem :
     """A class holding the functions needed to solve the optimal block-moving example analytically.
@@ -209,11 +183,12 @@ class AnalyticalAnswerToProblem :
             that is ready to plot with the plotting function in the oneDWorkProblem.
         """
         n = len(t)
-        if(t == None) :
-            t = oneDWorkProblem.CreateTimeRange(n)
-        t=np.array(t)
         optXValues = self.OptimalX(t)
         optVValues = self.OptimalV(t)
         optUValues = self.OptimalControl(t)
-        analytical = {oneDWorkProblem.State[0]:optXValues, oneDWorkProblem.State[1]:optVValues, oneDWorkProblem.Control[0]:optUValues}
+        analytical = OrderedDict()
+        analytical[oneDWorkProblem.State[0]] = optXValues
+        analytical[oneDWorkProblem.State[1]] = optVValues
+        analytical[oneDWorkProblem.Control[0]] = optUValues
+
         return analytical

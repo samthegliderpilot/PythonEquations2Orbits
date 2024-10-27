@@ -5,7 +5,7 @@ from pyeq2orb.Coordinates.CartesianModule import Cartesian, MotionCartesian
 from pyeq2orb.Coordinates.ModifiedEquinoctialElementsModule import ModifiedEquinoctialElements, CreateSymbolicElements
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
 from pyeq2orb import SafeSubs
-from pyeq2orb.Numerical.LambdifyHelpers import LambdifyHelper, OdeLambdifyHelper, OdeLambdifyHelperWithBoundaryConditions
+from pyeq2orb.Numerical.LambdifyHelpers import OdeLambdifyHelper
 from pyeq2orb.HighLevelHelpers.EquinoctialElementsHelpers import ModifiedEquinoctialElementsHelpers
 import scipyPaperPrinter as jh#type: ignore
 import numpy as np
@@ -95,10 +95,10 @@ satPath = ModifiedEquinoctialElementsHelpers.createSatPathFromIvpSolution(satSol
 tau = sy.Symbol(r'\tau', positive=True, real=True)
 scalingFactors =  [Au, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 newSvs = scaledEquationOfMotionHolder.CreateVariablesWithBar(stateVariables, t)
-scaledEoms = scaledEquationOfMotionHolder.ScaleStateVariablesAndTimeInFirstOrderOdes(stateVariables, stateDynamics, newSvs,scalingFactors, tau, tf, [azi, elv, throttle])
-scaledSubsDict = scaledEoms.createCorrectedSubsDict(subsDict, stateVariables, t)
+scaledEquationsOfMotion = scaledEquationOfMotionHolder.ScaleStateVariablesAndTimeInFirstOrderOdes(stateVariables, stateDynamics, newSvs,scalingFactors, tau, tf, [azi, elv, throttle])
+scaledSubsDict = scaledEquationsOfMotion.createCorrectedSubsDict(subsDict, stateVariables, t)
 
-simpleThrustCallbackHelperScaled = OdeLambdifyHelper(tau, scaledEoms.newStateVariables, scaledEoms.scaledFirstOrderDynamics, [mu, *scaledEoms.otherSymbols, thrust, isp, tf], scaledSubsDict)
+simpleThrustCallbackHelperScaled = OdeLambdifyHelper(tau, scaledEquationsOfMotion.newStateVariables, scaledEquationsOfMotion.scaledFirstOrderDynamics, [mu, *scaledEquationsOfMotion.otherSymbols, thrust, isp, tf], scaledSubsDict)
 
 #%%
 print("making pyomo model")
@@ -238,13 +238,13 @@ except Exception as ex:
     print("Whop whop" + str(ex))
 #%%
 
-pyomoVarDict = {semiParam: scaledEoms.newStateVariables[0], 
-                fVar: scaledEoms.newStateVariables[1],
-                gVar: scaledEoms.newStateVariables[2],
-                hVar: scaledEoms.newStateVariables[3],
-                kVar: scaledEoms.newStateVariables[4],
-                lonVar: scaledEoms.newStateVariables[5],
-                massVar: scaledEoms.newStateVariables[6],
+pyomoVarDict = {semiParam: scaledEquationsOfMotion.newStateVariables[0], 
+                fVar: scaledEquationsOfMotion.newStateVariables[1],
+                gVar: scaledEquationsOfMotion.newStateVariables[2],
+                hVar: scaledEquationsOfMotion.newStateVariables[3],
+                kVar: scaledEquationsOfMotion.newStateVariables[4],
+                lonVar: scaledEquationsOfMotion.newStateVariables[5],
+                massVar: scaledEquationsOfMotion.newStateVariables[6],
                 azimuthControlVar: azi,
                 elevationControlVar: elv,
                 throttleControlVar: throttle}
@@ -271,7 +271,7 @@ def extractPyomoSolution(model, pyomoVarToSymbolDict):
 stateSymbols = [stateVariables, [azi, elv], throttle]
 [tauHistory, dictSolution] = extractPyomoSolution(model, pyomoVarDict)
 #time = time*tfVal
-timeDescaled, dictSolutionDescaled = scaledEoms.descaleStatesDict(tauHistory, dictSolution, [*scalingFactors, 1], tfVal )
+timeDescaled, dictSolutionDescaled = scaledEquationsOfMotion.descaleStatesDict(tauHistory, dictSolution, [*scalingFactors, 1], tfVal )
 equiElements = []
 #%%
 for i in range(0, len(timeDescaled)):    

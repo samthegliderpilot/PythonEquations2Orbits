@@ -2,15 +2,13 @@ import unittest
 from pyeq2orb.Problems.ZermeloProblem import ZermelosProblem #type:ignore
 from scipy.integrate import solve_ivp # type: ignore
 import numpy as np
-import sympy as sy
+import sympy as sy #type:ignore
 from pyeq2orb.Numerical import ScipyCallbackCreators #type:ignore
-from pyeq2orb.Numerical.LambdifyHelpers import OdeLambdifyHelperWithBoundaryConditions #type:ignore
 import pyeq2orb as pe2o #type:ignore
 import importlib
 from typing import List
 from pyeq2orb.Symbolics.SymbolicUtilities import SafeSubs #type:ignore
 from pyeq2orb.ProblemBase import Problem, ProblemVariable #type:ignore
-from pyeq2orb.Numerical.LambdifyHelpers import OdeLambdifyHelper, OdeLambdifyHelperWithBoundaryConditions
 
 def createZermelosProblem() :
     theProblem = Problem()

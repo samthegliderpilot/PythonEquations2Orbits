@@ -10,14 +10,14 @@ from pyeq2orb.Utilities.utilitiesForTest import assertAlmostEquals
 def testSolution() :
     oneDWorkProblem = OneDWorkProblem() # picking a larger steps size to get closer to ideal (but still not exact)
     n= 20
-    t=oneDWorkProblem.CreateTimeRange(n)
+    t=np.linspace(oneDWorkProblem.T0, oneDWorkProblem.Tf, num=n+1)
 
     truth = AnalyticalAnswerToProblem()
     evaledAns = truth.EvaluateAnswer(oneDWorkProblem, t)        
     interpTruth = interp1d(t, evaledAns[oneDWorkProblem.State[0]], kind='cubic')
 
     scipySolver = ScipyDiscretizationMinimizeWrapper(oneDWorkProblem)
-    ans = scipySolver.ScipyOptimize(n)
+    ans = scipySolver.ScipyOptimize(t)
     
     assert ans is not None, "answer is not None"
     
@@ -30,7 +30,7 @@ def testSolution() :
 def testCreateDiscretizedInitialGuess() :
     oneDWorkProblem = OneDWorkProblem()
     scipySolver = ScipyDiscretizationMinimizeWrapper(oneDWorkProblem)
-    initialGuess = scipySolver.CreateDiscretizedInitialGuess(oneDWorkProblem.CreateTimeRange(4))
+    initialGuess = scipySolver.CreateDiscretizedInitialGuess(np.linspace(oneDWorkProblem.T0, oneDWorkProblem.Tf, num=4+1))
     expected = [0.0, 0.25, 0.5, 0.75, 1.0,   0.0, 1.0, 1.0, -1.0, -1.0,   0.0, 0.1, 0.1, -0.1, 0.0]
     for i in range(0, len(expected))  :
         assert expected[i] == initialGuess[i], "value at " + str(i)
@@ -38,7 +38,8 @@ def testCreateDiscretizedInitialGuess() :
 def testConvertScipyOptimizerOutputToDictionary() :
     oneDWorkProblem = OneDWorkProblem()
     scipySolver = ScipyDiscretizationMinimizeWrapper(oneDWorkProblem)
-    ans = scipySolver.ScipyOptimize(4)
+    t = np.linspace(oneDWorkProblem.T0, oneDWorkProblem.Tf, num=4+1)
+    ans = scipySolver.ScipyOptimize(t)
     dictAnswer =scipySolver.ConvertScipyOptimizerOutputToDictionary(ans)
     assert 3== len(dictAnswer), "make sure we get 3 items back"
     assert 5== len(dictAnswer[oneDWorkProblem.State[0]]), "check x is there and is the right length"
@@ -53,7 +54,8 @@ def ConvertDiscretizedStateToDict() :
     #TODO: I don't like the copy/paste of the above test here, consider ways to really test this
     oneDWorkProblem = OneDWorkProblem(4)
     scipySolver = ScipyDiscretizationMinimizeWrapper(oneDWorkProblem)
-    ans = scipySolver.ScipyOptimize()
+    t = np.linspace(oneDWorkProblem.T0, oneDWorkProblem.Tf, 5)
+    ans = scipySolver.ScipyOptimize(t)
     dictAnswer =scipySolver.ConvertDiscretizedStateToDict(ans.x)
     assert 3== len(dictAnswer), "make sure we get 3 items back"
     assert 5== len(dictAnswer[oneDWorkProblem.State[0]]), "check x is there and is the right length"
@@ -93,14 +95,14 @@ def testCostFunctionInTermsOfZ() :
     oneDWorkProblem = OneDWorkProblem()
     scipySolver = ScipyDiscretizationMinimizeWrapper(oneDWorkProblem)
 
-    cost = scipySolver.CostFunctionInTermsOfZ(oneDWorkProblem.CreateTimeRange(3), [1.0, 1.0, 1.0, 1.0,   0.1, 0.1, 0.1, 0.1,   0.25, 0.25, 1.0, 1.0 ])
+    cost = scipySolver.CostFunctionInTermsOfZ(np.linspace(oneDWorkProblem.T0, oneDWorkProblem.Tf, num=3+1), [1.0, 1.0, 1.0, 1.0,   0.1, 0.1, 0.1, 0.1,   0.25, 0.25, 1.0, 1.0 ])
     assertAlmostEquals(0.5052083333333334 , cost, 0.000001, msg="cost")
 
 def testCreateIndividualColocationConstraints() :
     #TODO: Incomplete
     problem = OneDWorkProblem()
     scipySolver = ScipyDiscretizationMinimizeWrapper(problem)
-    t = problem.CreateTimeRange(4)
+    t = np.linspace(problem.T0, problem.Tf, num=4+1)
 
     constraints = scipySolver.CreateIndividualCollocationConstraints(t)
     assert 8== len(constraints), "8 constraints back"
@@ -131,7 +133,7 @@ def testColocationConstraintIntegrationRule() :
     problem = OneDWorkProblem()
     scipySolver = ScipyDiscretizationMinimizeWrapper(problem)
     n=4
-    t = problem.CreateTimeRange(n)
+    t = np.linspace(problem.T0, problem.Tf, num=n+1)
     z = OptimizerStateForExpectedAnswerFor4LengthConstraint()
     expectedAns = getExpectedAnswersFor4LengthConstraint()
     for i in range(0, 4) :

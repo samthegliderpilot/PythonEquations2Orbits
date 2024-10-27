@@ -15,11 +15,12 @@ conda create --name py310OptFun python=3.10
 conda activate py310OptFun
 conda install -c conda-forge sympy numpy pandas scipy plotly matplotlib jupyter pygmo pyomo cmake pytest plotly p2j pandoc networkx openpyxl pint pymysql pyodbc pyro4 xlrd cyipopt pandoc mypy vispy spiceypy setuptools mypy pylint czml3 dill
 pyomo download-extensions
+conda install -c conda-forge pynumero_libraries
 pyomo build-extensions
 python setup.py dependencies --extra optional 
 ```
 
-That last command is adding additional dependencies for pyomo, however it doesn't seem to work and probably isn't needed
+That last command is adding additional dependencies for pyomo, however it doesn't seem to work and probably isn't needed.  Note that the command installing pynumero_libraries may only be required for Windows.
 
 I find that for unit tests to properly work in VS Code, I need to in the conda console, activate the environment and then start code from that console.
 

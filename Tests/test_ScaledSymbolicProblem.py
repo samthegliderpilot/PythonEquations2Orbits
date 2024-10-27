@@ -13,8 +13,8 @@ def test_CreatingDifferentialTransversalityCondition() :
     orgProblem = ContinuousThrustCircularOrbitTransferProblem()
     mu = orgProblem.Mu
     t = orgProblem.TimeSymbol
-    newSvs = [sy.Function('rs')(t), sy.Function('rs')(t), sy.Function('vs')(t), sy.Function('lons')(t)]
-    subs = {orgProblem.StateSymbols[0]: 4.0*newSvs[0], orgProblem.StateSymbols[1]: 3.0*newSvs[1], orgProblem.StateSymbols[2]: 5.0*newSvs[2], orgProblem.StateSymbols[3]: 7.0*newSvs[3] }
+    newSvs = [sy.Function('rs')(t), sy.Function('us')(t), sy.Function('vs')(t), sy.Function('lons')(t)]
+    subs = {orgProblem.StateSymbols[0]: 4.0*newSvs[0], orgProblem.StateSymbols[1]: 3.0*newSvs[1], orgProblem.StateSymbols[2]: 7.0*newSvs[2], orgProblem.StateSymbols[3]: 1.0*newSvs[3] }
     problem = orgProblem.ScaleStateVariables(newSvs, subs)
     lambdas = Problem.CreateCostateVariables(problem.StateSymbols, 'L', problem.TimeFinalSymbol)
     r = problem.StateSymbols[0].subs(problem.TimeSymbol, problem.TimeFinalSymbol)
@@ -23,14 +23,14 @@ def test_CreatingDifferentialTransversalityCondition() :
     hamiltonian = problem.CreateHamiltonian(lambdas)
     transversality = problem.TransversalityConditionInTheDifferentialForm(hamiltonian, 0.0, SafeSubs(lambdas, {problem.TimeSymbol:problem.TimeFinalSymbol})) # not allowing final time to vary
 
-    zeroedOutCondition =(transversality[0]-(sy.sqrt(mu)*l_v/(2*(r*4.0)**(sy.Rational(3,2))) - l_r + 1)).expand().simplify()
+    zeroedOutCondition =(transversality[0]-(sy.sqrt(mu)*l_v/(4*(r)**(sy.Rational(3,2))) - l_r + 1)).expand().simplify()
     assert (zeroedOutCondition).is_zero, "first xvers cond"
     assert (transversality[1]+lambdas[-1]).is_zero, "lmd theta condition"
  
 def testCreatingAugmentedTransversalityCondition() :
     orgProblem = ContinuousThrustCircularOrbitTransferProblem()
     t = sy.Symbol('t')
-    newSvs = [sy.Function('rs')(t), sy.Function('rs')(t), sy.Function('vs')(t), sy.Function('lons')(t)]
+    newSvs = [sy.Function('rs')(t), sy.Function('us')(t), sy.Function('vs')(t), sy.Function('lons')(t)]
     subs = {orgProblem.StateSymbols[0]: 4.0*newSvs[0], orgProblem.StateSymbols[1]: 3.0*newSvs[1], orgProblem.StateSymbols[2]: 5.0*newSvs[2], orgProblem.StateSymbols[3]: 7.0*newSvs[3] }
     problem = orgProblem.ScaleStateVariables(newSvs, subs)
     lambdas = Problem.CreateCostateVariables(problem.StateSymbols, 'l', problem.TimeFinalSymbol)
