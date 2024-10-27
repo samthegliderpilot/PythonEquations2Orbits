@@ -459,10 +459,10 @@ class LambdifyHelperBoundaryConditions(LambdifyHelper):
     def BoundaryConditionExpressions(self) -> List[sy.Expr] :
         return self._boundaryConditions # must equal 0
     
-    def CreateCallbackForBoundaryConditionsWithFullState(self, stateForBoundaryConditions = None) ->Callable[..., float]: 
+    def CreateCallbackForBoundaryConditionsWithFullState(self, stateForBoundaryConditions = None, modulesDict = None) ->Callable[..., float]: 
         if stateForBoundaryConditions == None:
             stateForBoundaryConditions = self.CreateDefaultStateForBoundaryConditions()
-        boundaryConditionEvaluationCallbacks = LambdifyHelper.CreateLambdifiedExpressions(stateForBoundaryConditions, self.BoundaryConditionExpressions, self.SubstitutionDictionary)    
+        boundaryConditionEvaluationCallbacks = LambdifyHelper.CreateLambdifiedExpressions(stateForBoundaryConditions, self.BoundaryConditionExpressions, self.SubstitutionDictionary, modulesDict)    
         return boundaryConditionEvaluationCallbacks
     
     def CreateDefaultStateForBoundaryConditions(self)->List[SymbolOrNumber]:
@@ -484,3 +484,12 @@ class LambdifyHelperBoundaryConditions(LambdifyHelper):
             List[sy.Symbol]: The list of other arguments.
         """
         return self._otherArgs
+
+
+    def CreateCallbackForBoundaryConditionsWithFullStateAsList(self, stateForBoundaryConditions = None, modulesDict = None) ->List[Callable[..., float]]: 
+        cbs = []
+        if stateForBoundaryConditions == None:
+            stateForBoundaryConditions = self.CreateDefaultStateForBoundaryConditions()        
+        for expr in self.BoundaryConditionExpressions:
+            cbs.append(LambdifyHelper.CreateLambdifiedExpressions(stateForBoundaryConditions, [expr], self.SubstitutionDictionary, modulesDict))
+        return cbs

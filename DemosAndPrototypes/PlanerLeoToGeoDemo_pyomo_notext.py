@@ -95,6 +95,15 @@ lambdifyFunctionMap = {'sqrt': poenv.sqrt, 'sin': poenv.sin, 'cos':poenv.cos} #T
 from pyeq2orb.Numerical.ScalingHelpers import scaledEquationOfMotionHolder
 simpleThrustCallbackHelperScaled = OdeLambdifyHelper(tau, problem.StateSymbols, [equ.rhs for equ in problem.EquationsOfMotionAsEquations], [*problem.ControlSymbols, tfSym], constantsSubsDict)
 
+from pyeq2orb.Numerical.LambdifyHelpers import LambdifyHelperBoundaryConditions
+tau0 = sy.Symbol(r'tau_0')
+tauf = sy.Symbol(r'tau_f')
+bcCallbackHelper = LambdifyHelperBoundaryConditions(tau, tau0, tauf, [*problem.StateSymbolsInitial(), *[x.subs(tau, tau0) for x in problem.ControlSymbols]], [*problem.StateSymbolsFinal(), *[x.subs(tau, tauf) for x in problem.ControlSymbols]], problem.BoundaryConditions, [tfSym], constantsSubsDict)
+bcCallbacks = bcCallbackHelper.CreateCallbackForBoundaryConditionsWithFullStateAsList(modulesDict=lambdifyFunctionMap)
+
+
+#normalBcCallbacks = bcCallbackHelper.CreateCallbackForBoundaryConditionsWithFullStateAsList()
+# print(normalBcCallbacks[0](0.0,  6700.0, 0.0, 7.8, 0.0, 0.0,   440000,  42000.0, 0.1, 3.1, 24.4, 0.0, 440000))
 
 
 #%%
@@ -150,14 +159,17 @@ model.lonEom = poenv.Constraint(model.t, rule =lambda m, t2: m.lonDot[t2] == map
 
 
 def mapPyomoStateToProblemStateBc(m, t, expression) :
-    return expression([t, m.r[t], m.u[t], m.v[t], m.lon[t], m.control[t], m.tf])
+    t0 = t.first()
+    tf = t.last()
+    val = expression(t0, m.r[t0], m.u[t0], m.v[t0], m.lon[t0], m.control[t0],   tf, m.r[tf], m.u[tf], m.v[tf], m.lon[tf], m.control[tf], m.tf)
+    return val[0]
 
-model.bc1 = poenv.Constraint(rule = lambda mod1 : 0 == mapPyomoStateToProblemStateBc(mod1, 1.0, asNumericalProblem.BoundaryConditionCallbacks[0]))
-model.bc2 = poenv.Constraint(rule = lambda mod1 : 0 == mapPyomoStateToProblemState(mod1, 1.0, asNumericalProblem.BoundaryConditionCallbacks[1]))
+model.bc1 = poenv.Constraint(rule = lambda mod1 : 0.0 == mapPyomoStateToProblemStateBc(mod1, model.t, bcCallbacks[0]))
+model.bc2 = poenv.Constraint(rule = lambda mod1 : 0.0 == mapPyomoStateToProblemStateBc(mod1, model.t, bcCallbacks[1]))
 
-def singlePyomoArrayToTerminalCostCallback(m, t, expr) :
-    return expr(m.tf, [t, m.r[t], m.u[t], m.v[t], m.lon[t], m.control[t]])
-finalRadiusCallback = lambda m : singlePyomoArrayToTerminalCostCallback(m, 1.0, asNumericalProblem.TerminalCost)
+def singlePyomoArrayToTerminalCostCallback(m, t) : # keep it simple for this problem, but making a proper lambidified expression of the terminal cost would be good
+    return  m.r[t]# expr(m.tf, [t, m.r[t], m.u[t], m.v[t], m.lon[t], m.control[t]])
+finalRadiusCallback = lambda m : singlePyomoArrayToTerminalCostCallback(m, 1.0)
 model.radiusObjective = poenv.Objective(expr = finalRadiusCallback, sense=poenv.maximize)
 
 model.var_input = poenv.Suffix(direction=poenv.Suffix.LOCAL)
@@ -195,20 +207,20 @@ def plotPyomoSolution(model, stateSymbols):
     ansAsDict[stateSymbols[3]]=  lonSim
 
     return [tSpace, ansAsDict]
-
+#%%
 [tArray, solutionDictionary] = plotPyomoSolution(model, problem.StateSymbols)
 unscaledResults = problem.DescaleResults(solutionDictionary)
 baseProblem.PlotSolution(tArray, unscaledResults, "Leo to Geo")
 
 print("Tf = " + str(model.tf.value/86400))
-jh.showEquation("r_f", unscaledResults[baseProblem.StateSymbols[0]][-1]) 
-jh.showEquation("u_f", unscaledResults[baseProblem.StateSymbols[1]][-1]) 
-jh.showEquation("v_f", unscaledResults[baseProblem.StateSymbols[2]][-1])     
+jh.showEquation("r_f", unscaledResults[problem.StateSymbols[0]][-1]) 
+jh.showEquation("u_f", unscaledResults[problem.StateSymbols[1]][-1]) 
+jh.showEquation("v_f", unscaledResults[problem.StateSymbols[2]][-1])     
 
 xyz = np.zeros((len(tArray), 3))
-for i in range(0, len(unscaledResults[baseProblem.StateSymbols[0]])) :
-    r = unscaledResults[baseProblem.StateSymbols[0]][i]
-    theta = unscaledResults[baseProblem.StateSymbols[3]][i]
+for i in range(0, len(unscaledResults[problem.StateSymbols[0]])) :
+    r = unscaledResults[problem.StateSymbols[0]][i]
+    theta = unscaledResults[problem.StateSymbols[3]][i]
     x = r*math.cos(theta)
     y = r*math.sin(theta)
     xyz[i,0] = x
