@@ -126,7 +126,7 @@ def testScaledStateAndTimeAndAdjoinedTransversalityRegression() :
     assertAlmostEquals(finalState[2], 0.397980812304531, 1, msg="v check")
 
     values = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary([*problem.StateSymbols, *problem.CostateSymbols],  odeAns)
-    descaled = problem.DescaleResults(values)
+    descaled = problem.DescaleResults(values, problem.StateSymbols) #NOTE, non-test uses of this function should be passing in the symbols for the unscaled state variables
     assertAlmostEqualsDelta(descaled[problem.StateSymbols[0]][-1], 42162080.85814935, delta=50, msg="radius check descaled")
     assertAlmostEqualsDelta(descaled[problem.StateSymbols[1]][-1], 0.000, 0.003, msg="u check descaled")
     assertAlmostEquals(descaled[problem.StateSymbols[2]][-1], 3074.735, 1, msg="v check descaled")    

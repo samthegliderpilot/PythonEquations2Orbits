@@ -209,18 +209,18 @@ def plotPyomoSolution(model, stateSymbols):
     return [tSpace, ansAsDict]
 #%%
 [tArray, solutionDictionary] = plotPyomoSolution(model, problem.StateSymbols)
-unscaledResults = problem.DescaleResults(solutionDictionary)
+unscaledResults = problem.DescaleResults(solutionDictionary, baseProblem.StateSymbols)
 baseProblem.PlotSolution(tArray, unscaledResults, "Leo to Geo")
 
 print("Tf = " + str(model.tf.value/86400))
-jh.showEquation("r_f", unscaledResults[problem.StateSymbols[0]][-1]) 
-jh.showEquation("u_f", unscaledResults[problem.StateSymbols[1]][-1]) 
-jh.showEquation("v_f", unscaledResults[problem.StateSymbols[2]][-1])     
+jh.showEquation("r_f", unscaledResults[baseProblem.StateSymbols[0]][-1]) 
+jh.showEquation("u_f", unscaledResults[baseProblem.StateSymbols[1]][-1]) 
+jh.showEquation("v_f", unscaledResults[baseProblem.StateSymbols[2]][-1])     
 
 xyz = np.zeros((len(tArray), 3))
-for i in range(0, len(unscaledResults[problem.StateSymbols[0]])) :
-    r = unscaledResults[problem.StateSymbols[0]][i]
-    theta = unscaledResults[problem.StateSymbols[3]][i]
+for i in range(0, len(unscaledResults[baseProblem.StateSymbols[0]])) :
+    r = unscaledResults[baseProblem.StateSymbols[0]][i]
+    theta = unscaledResults[baseProblem.StateSymbols[3]][i]
     x = r*math.cos(theta)
     y = r*math.sin(theta)
     xyz[i,0] = x

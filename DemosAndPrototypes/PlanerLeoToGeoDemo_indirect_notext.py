@@ -232,7 +232,7 @@ solution = ans.EvaluatedAnswer.RawIntegratorOutput
 solutionDictionary = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(integrationVariables, solution)
 unscaledResults = solutionDictionary
 unscaledTArray = tArray
-unscaledResults = problem.DescaleResults(solutionDictionary)
+unscaledResults = problem.DescaleResults(solutionDictionary, baseProblem.StateSymbols)
 
 
 # and validation
@@ -248,7 +248,7 @@ handWrittenCallback = lambda t, y, args: handWrittenDiffeq.scaledDifferentialEqu
 validationAnswer = solve_ivp(handWrittenCallback, [tArray[0], tArray[-1]], initialStateForValidation, t_eval=tArray, dense_output=True, args=[tfOrg], method='LSODA', rtol=1.49012e-8, atol=1.49012e-11)
 validationSolutionDictionary = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(integrationVariables, validationAnswer)
 unscaledValidationResults = validationSolutionDictionary
-unscaledValidationResults = problem.DescaleResults(unscaledValidationResults)
+unscaledValidationResults = problem.DescaleResults(unscaledValidationResults, baseProblem.StateSymbols)
 
 
 

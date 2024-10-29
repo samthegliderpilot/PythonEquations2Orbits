@@ -621,12 +621,12 @@ class Problem(ABC) :
         
         return newProblem        
 
-    def DescaleResults(self, resultsDictionary : Dict[sy.Symbol, List[float]]) -> Dict[sy.Symbol, List[float]] :
+    def DescaleResults(self, resultsDictionary : Dict[sy.Symbol, List[float]], originalStateVariables : List[sy.Symbol]) -> Dict[sy.Symbol, List[float]] :
         """After evaluating the problem numerically, descale the results to be back in terms of the original units.
 
         Args:
             resultsDictionary (Dict[sy.Symbol, List[float]]): The results dictionary.
-
+            originalStateVariables (List[sy.Symbol]): The original state variable symbols in the same order as the state variables on this.
         Returns:
             Dict[sy.Symbol, List[float]]: A new dictionary where the values are descaled AND the keys are the wrappedProblems's 
             state variables.
@@ -645,7 +645,7 @@ class Problem(ABC) :
         for key, value in resultsDictionary.items() :
             sv = key
             if sv in self.StateSymbols and counter < len(self.StateSymbols):
-                originalSv = self.StateSymbols[self.StateSymbols.index(sv)]
+                originalSv = originalStateVariables[counter]
                 convertedArray = np.array(value, copy=True)/scalingFactors[sv]# SafeSubs(self._descaleDict[originalSv], self.SubstitutionDictionary) #TODO: This is probably a problem
                 returnDict[originalSv] = convertedArray
                 counter = counter+1

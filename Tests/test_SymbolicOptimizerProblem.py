@@ -185,7 +185,7 @@ def testDefaultDescaleResults() :
     barVars =  Problem.CreateBarVariables(originalProblem.StateSymbols, originalProblem.TimeSymbol)
     scalingExpressions = {originalProblem.StateSymbols[0]: barVars[0],originalProblem.StateSymbols[1]: barVars[1],originalProblem.StateSymbols[2]: barVars[2],originalProblem.StateSymbols[3]: barVars[3]}
     problem = originalProblem.ScaleStateVariables(barVars, scalingExpressions)
-    assert scalingExpressions== problem.DescaleResults(scalingExpressions)
+    assert scalingExpressions== problem.DescaleResults(scalingExpressions, originalProblem.StateSymbols)
 
 
 

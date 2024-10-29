@@ -187,7 +187,7 @@ def plotPyomoSolution(model, stateSymbols):
     return [tSpace, ansAsDict]
 
 [tArray, solutionDictionary] = plotPyomoSolution(model, problem.StateSymbols)
-unscaledResults = problem.DescaleResults(solutionDictionary)
+unscaledResults = problem.DescaleResults(solutionDictionary, baseProblem.StateSymbols)
 baseProblem.PlotSolution(tArray, unscaledResults, "Test")
 
 print("Tf = " + str(model.Tf.value/86400))
