@@ -1,5 +1,4 @@
 #%%
-import __init__ # type: ignore
 import sympy as sy
 import math
 import os
@@ -10,7 +9,9 @@ import scipyPaperPrinter as jh
 import numpy as np
 from sympy import ImmutableDenseMatrix
 from collections import OrderedDict
-
+from typing import Optional, List, Dict
+from pyeq2orb.Utilities.Typing import SymbolOrNumber
+from IPython.display import display
 def lunarPosition(t)-> np.array:
     return np.array([1, 2, 3])
 
@@ -42,32 +43,85 @@ class lunarPositionHelper:
         self._lastSeveralResults[t] = newAnswer
         return newAnswer[i]
 
-t = sy.Symbol('t')
-x = sy.Function('x')(t)
-y = sy.Function('y')(t)
-z = sy.Function('z')(t)
+    def cartesianTwoBodyAcceleration(mu : sy.Symbol, x : sy.Symbol, y : sy.Symbol, z : sy.Symbol, subsDict= Optional[Dict[sy.Expr, SymbolOrNumber]]):
+        rSatMag = sy.sqrt(x**2 + y**2+z**2)
+        rSatVec = sy.Matrix([[x], [y], [z]])
+        
+        if subsDict is not None:
+            deepRSatMag = rSatMag
+            rSatMag = sy.Symbol(r'r_{sat}', real=True, positive=True)
+            
+            deepRSat = rSatVec
+            rSatVec = sy.MatrixSymbol("\hat{r}_{sat}", 3, 1)
+            
+            subsDict[rSatMag] = deepRSatMag
+            subsDict[rSatVec] = deepRSat
+        
+        accel = mu*rSatVec/(rSatMag**3)
+        return -1*accel
+
+    @staticmethod    
+    def simpleThreeBodyAcceleration(muPrime : sy.Symbol, muThirdBody : sy.Symbol, xSat : sy.Symbol, ySat : sy.Symbol, zSat : sy.Symbol, xThirdBody : sy.Symbol, yThirdBody : sy.Symbol, zThirdBody : sy.Symbol, subsDict = Optional[Dict[sy.Expr, SymbolOrNumber]]) -> sy.Matrix:
+        rSatMag = sy.sqrt(xSat**2 + ySat**2+zSat**2)
+        rSatVec = sy.Matrix([[xSat], [ySat], [zSat]])
+        
+        rThirdBodyMag = sy.sqrt(xThirdBody**2 + yThirdBody**2+zThirdBody**2)
+        rThirdBodyVec = sy.Matrix([[xThirdBody], [yThirdBody], [zThirdBody]])
+        if subsDict is not None:
+            deepRSatMag = rSatMag
+            rSatMag = sy.Symbol(r'r_{sat}', real=True, positive=True)
+            
+            deepRSat = rSatVec
+            rSatVec = sy.MatrixSymbol("\hat{r}_{sat}", 3, 1)
+            
+            deepRThirdBodyMag = rThirdBodyMag
+            rThirdBodyMag = sy.Symbol(r'r_{3}', real=True, positive=True)
+
+            deepRThirdBody = rThirdBodyVec
+            rThirdBodyVec = sy.MatrixSymbol("\hat{r}_{3}", 3, 1)
+            
+            subsDict[rSatMag] = deepRSatMag
+            subsDict[rSatVec] = deepRSat
+            subsDict[rThirdBodyMag] = deepRThirdBodyMag
+            subsDict[rThirdBodyVec] = deepRThirdBody
+            
+
+        term1 = -1*muPrime*rSatVec/(rSatMag**3)
+        term2 = muThirdBody*(rSatVec/(rSatMag**3)- (rThirdBodyVec/rThirdBodyMag**3)) # Vallado's equation is confusing here...
+        return term1+term2
+
+t = sy.Symbol('t', real=True)
+x = sy.Function('x', real=True)(t)
+y = sy.Function('y', real=True)(t)
+z = sy.Function('z', real=True)(t)
 
 xDot = x.diff(t)
 yDot = y.diff(t)
 zDot = z.diff(t)
 satVec = sy.Matrix([x,y,z])
 
-muEarth = sy.Symbol(r'\mu_e')
-muMoon = sy.Symbol(r'\mu_l')
+muEarth = sy.Symbol(r'\mu_e', real=True, positive=True)
+muMoon = sy.Symbol(r'\mu_l', real=True, positive=True)
 
 rEarth2 = x*x+y*y+z*z
 
-moonX = sy.Function('x_l')(t)#moonLoc[0]
-moonY = sy.Function('y_l')(t)#moonLoc[1]
-moonZ = sy.Function('z_l')(t)#moonLoc[2]
+moonX = sy.Function('x_l', real=True)(t)#moonLoc[0]
+moonY = sy.Function('y_l', real=True)(t)#moonLoc[1]
+moonZ = sy.Function('z_l', real=True)(t)#moonLoc[2]
 moonVec = sy.Matrix([moonX, moonY, moonZ]) # will be column
 relToMoon = moonVec - satVec
 
-rSatToMoon2 = xRelativeToMoon**2+yRelativeToMoon**2+zRelativeToMoon**2
 
+subsDict = {}
+matrixThirdBodyAcceleration = lunarPositionHelper.simpleThreeBodyAcceleration(muEarth, muMoon, x, y, z, moonX, moonY, moonZ, subsDict)
+matrixTwoBodyAcceleration = lunarPositionHelper.cartesianTwoBodyAcceleration(muEarth, x, y, z, subsDict)
 
-
-eom = [xDot, yDot, zDot, muEarth*x/rEarth2 + muMoon*moonX/rSatToMoon2, muEarth*y/rEarth2*moonY/rSatToMoon2, muEarth*z/rEarth2*moonZ/rSatToMoon2]
+eom = [xDot, yDot, zDot, matrixTwoBodyAcceleration[0]+matrixThirdBodyAcceleration[0], matrixTwoBodyAcceleration[1]+matrixThirdBodyAcceleration[1], matrixTwoBodyAcceleration[2]+matrixThirdBodyAcceleration[2]]
+jh.showEquation(sy.MatrixSymbol(r'\ddot{r_{E}}', 3, 1), matrixTwoBodyAcceleration)
+jh.showEquation(sy.MatrixSymbol(r'\ddot{r_{3}}', 3, 1), matrixThirdBodyAcceleration)
+display(matrixTwoBodyAcceleration)
+display(matrixTwoBodyAcceleration[0])
+#display(matrixThirdBodyAcceleration)
 #jh.showEquation("Z", eom)
 initialState = [7000.0, 6000.0, 0.0, 0.0, 7.0, 5.0]
 muEarthValue = 3.344*10**5 #TOOD: Look up
