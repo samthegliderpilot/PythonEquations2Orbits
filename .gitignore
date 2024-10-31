@@ -54,3 +54,6 @@ docs/_build/
 
 # vscode files
 .vscode
+
+# machine-specific files
+demoSettings.json

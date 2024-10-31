@@ -136,3 +136,61 @@ print(cb(0.0, *initialState, muEarthValue, muMoonValue))
 
 
 # %%
+import spiceypy as spice
+import json
+from typing import List
+settings = json.loads(open("demoSettings.json", "r").read())
+
+
+kernelPath = settings["kernelsDirectory"]
+
+def getCriticalKernelsRelative()-> List[str]:
+    criticalKernels = []
+    criticalKernels.append("lsk/naif0012.tls")
+    criticalKernels.append("pck/gm_de440.tpc")
+    criticalKernels.append("pck/earth_latest_high_prec.cmt")
+    criticalKernels.append("pck/earth_latest_high_prec.bpc")
+    criticalKernels.append("pck/pck00010.tpc")
+
+    return criticalKernels
+
+
+def currentLunarFixedFrameKernelsRelative() ->List[str]:
+    return ['pck/moon_pa_de440_200625.cmt', 'pck/moon_pa_de440_200625.bpc']
+
+class spiceScope:
+    #_standardGregorianFormat = "DD Mon YYYY-HH:MM:SC.######"
+
+    def __init__(self, kernelPaths : List[str], baseDirectory : Optional[str]):
+        self._kernelPaths :List[str] = []
+        self._baseDirectory = baseDirectory
+        if self._baseDirectory is not None:
+            for partialPath in self._kernelPaths:
+                self._kernelPaths.append(os.path.join(self._baseDirectory, partialPath))
+        else:
+            self._kernelPaths = kernelPaths
+
+    def __enter__(self):
+        for kernel in self._kernelPaths:
+            spice.furnsh(kernel)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        for kernel in self._kernelPaths:
+            spice.unload(kernel)
+
+    @staticmethod
+    def etToUtc(et: float)->str:
+        return spice.et2utc(et, 'C', 6)
+
+    @staticmethod
+    def utcToEt(utc : str)->float:
+        return spice.utc2et(utc)
+
+allMyKernels = getCriticalKernels(kernelPath)
+allMyKernels.append("spk/planets/de440s.bsp") # big one here...
+with spiceScope(allMyKernels, kernelPath) as scope:
+    moonPos = spice.spkpos("Moon", 0.0, "J2000", 'NONE', 'EARTH BARYCENTER')
+    print(moonPos)
+    print(spiceScope.etToUtc(5.0))
+    print(str(spiceScope.utcToEt("1 Jul 2025 12:14:16.123456")))
