@@ -11,7 +11,15 @@ from sympy import ImmutableDenseMatrix
 from collections import OrderedDict
 from typing import Optional, List, Dict
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
+from pyeq2orb.Numerical.LambdifyHelpers import OdeLambdifyHelper
 from IPython.display import display
+from scipy.integrate import solve_ivp #type: ignore
+from pyeq2orb.Numerical import ScipyCallbackCreators #type: ignore
+from pyeq2orb.Graphics.Primitives import EphemerisArrays #type: ignore
+import pyeq2orb.Graphics.Primitives as prim #type: ignore
+from pyeq2orb.Graphics.PlotlyUtilities import PlotAndAnimatePlanetsWithPlotly
+from pyeq2orb.Coordinates.RotationMatrix import RotAboutZ #type: ignore
+import math
 def lunarPosition(t)-> np.array:
     return np.array([1, 2, 3])
 
@@ -87,7 +95,7 @@ class lunarPositionHelper:
             
 
         term1 = -1*muPrime*rSatVec/(rSatMag**3)
-        term2 = muThirdBody*(rSatVec/(rSatMag**3)- (rThirdBodyVec/rThirdBodyMag**3)) # Vallado's equation is confusing here...
+        term2 = muThirdBody*(rSatVec/(rSatMag**3)-(rThirdBodyVec/(rThirdBodyMag**3))) # Vallado's equation is confusing here...
         return term1+term2
 
 t = sy.Symbol('t', real=True)
@@ -95,9 +103,9 @@ x = sy.Function('x', real=True)(t)
 y = sy.Function('y', real=True)(t)
 z = sy.Function('z', real=True)(t)
 
-xDot = x.diff(t)
-yDot = y.diff(t)
-zDot = z.diff(t)
+vx = x.diff(t)
+vy = y.diff(t)
+vz = z.diff(t)
 satVec = sy.Matrix([x,y,z])
 
 muEarth = sy.Symbol(r'\mu_e', real=True, positive=True)
@@ -111,28 +119,93 @@ moonZ = sy.Function('z_l', real=True)(t)#moonLoc[2]
 moonVec = sy.Matrix([moonX, moonY, moonZ]) # will be column
 relToMoon = moonVec - satVec
 
+muVal = 0.01215
+subsDict = {muMoon: muVal, muEarth:1.0-muVal}
+def moonXVal(t):
+    return math.cos(t)
 
-subsDict = {}
+def moonYVal(t):
+    return math.sin(t)    
+
+def moonZVal(t):
+    return 0.0
+
+
 matrixThirdBodyAcceleration = lunarPositionHelper.simpleThreeBodyAcceleration(muEarth, muMoon, x, y, z, moonX, moonY, moonZ, subsDict)
-matrixTwoBodyAcceleration = lunarPositionHelper.cartesianTwoBodyAcceleration(muEarth, x, y, z, subsDict)
+matrixTwoBodyAcceleration = sy.Matrix([[0],[0],[0]])#lunarPositionHelper.cartesianTwoBodyAcceleration(muEarth, x, y, z, subsDict)
+eom = [vx, vy, vz, matrixTwoBodyAcceleration[0]+matrixThirdBodyAcceleration[0], matrixTwoBodyAcceleration[1]+matrixThirdBodyAcceleration[1], matrixTwoBodyAcceleration[2]+matrixThirdBodyAcceleration[2]]
 
-eom = [xDot, yDot, zDot, matrixTwoBodyAcceleration[0]+matrixThirdBodyAcceleration[0], matrixTwoBodyAcceleration[1]+matrixThirdBodyAcceleration[1], matrixTwoBodyAcceleration[2]+matrixThirdBodyAcceleration[2]]
+helper = OdeLambdifyHelper(t, [x,y,z,vx,vy,vz], eom, [], subsDict)
+helper.FunctionRedirectionDictionary["x_l"] = moonXVal
+helper.FunctionRedirectionDictionary["y_l"] = moonYVal
+helper.FunctionRedirectionDictionary["z_l"] = moonZVal
+integratorCallback = helper.CreateSimpleCallbackForSolveIvp()
+tArray = np.linspace(0.0, 10.0, 1000)
+# values were found on degenerate conic blog, but are originally from are from https://figshare.com/articles/thesis/Trajectory_Design_and_Targeting_For_Applications_to_the_Exploration_Program_in_Cislunar_Space/14445717/1
+nhrlState = [ 	1.0277926091, 0.0, -0.1858044184, 0.0, -0.1154896637, 0.0]
+ipvResults = solve_ivp(integratorCallback, [tArray[0], tArray[-1]], nhrlState, t_eval=tArray)
+solutionDictionary = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(helper.NonTimeLambdifyArguments, ipvResults)
+satEphemeris = EphemerisArrays()
+satEphemeris.ExtendValues(ipvResults.t, solutionDictionary[x], solutionDictionary[y], solutionDictionary[z]) #type: ignore
+satPath = prim.PathPrimitive(satEphemeris, "#ff00ff")
+
+moonResults = solve_ivp(integratorCallback, [tArray[0], tArray[-1]], [ 1.0, 0.0, 0.0, 0.0, 0.1, 0.0], t_eval=tArray, method='DOP853')
+moonSolutionDictionary = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(helper.NonTimeLambdifyArguments, moonResults)
+moonEphemeris = EphemerisArrays()
+
+
+
+# cheat for the moon position in the rotating frame
+x_2 = np.linspace(1.0, 1.0, 1000)
+y_2 = np.linspace(0.0, 0.0, 1000)
+moonEphemeris.ExtendValues(tArray, x_2, y_2, moonSolutionDictionary[z]) #type: ignore
+moonPath = prim.PathPrimitive(moonEphemeris, "#000000")
+
+fig = PlotAndAnimatePlanetsWithPlotly("NHRL in Rotation Frame", [satPath, moonPath], tArray, None)
+fig.update_layout(
+     margin=dict(l=20, r=20, t=20, b=20))
+
+fig.show()  
+
+
+inertialEphemeris = EphemerisArrays()
+moonInertialEphemeris = EphemerisArrays()
+moonPos = sy.Matrix([[1.0],[0.0],[0.0]])
+for i in range(0, len(tArray)):
+    tNow = tArray[i]
+    rotMat = RotAboutZ(tNow).evalf()
+    newXyz = rotMat*sy.Matrix([[satEphemeris.X[i]],[satEphemeris.Y[i]],[satEphemeris.Z[i]]])
+    inertialEphemeris.AppendValues(tNow, float(newXyz[0]), float(newXyz[1]), float(newXyz[2]))
+    newMoonXyz = rotMat*moonPos
+    moonInertialEphemeris.AppendValues(tNow, float(newMoonXyz[0]), float(newMoonXyz[1]), float(newMoonXyz[2]))
+
+fig = PlotAndAnimatePlanetsWithPlotly("NHRL In Inertial Frame", [prim.PathPrimitive(inertialEphemeris, "#ff00ff", 3), prim.PathPrimitive(moonInertialEphemeris, "#000000", 3)], tArray, None)
+fig.update_layout(
+     margin=dict(l=20, r=20, t=20, b=20))
+
+fig.show()  
+
+
 jh.showEquation(sy.MatrixSymbol(r'\ddot{r_{E}}', 3, 1), matrixTwoBodyAcceleration)
 jh.showEquation(sy.MatrixSymbol(r'\ddot{r_{3}}', 3, 1), matrixThirdBodyAcceleration)
 display(matrixTwoBodyAcceleration)
 display(matrixTwoBodyAcceleration[0])
+#%%
 #display(matrixThirdBodyAcceleration)
 #jh.showEquation("Z", eom)
 initialState = [7000.0, 6000.0, 0.0, 0.0, 7.0, 5.0]
 muEarthValue = 3.344*10**5 #TOOD: Look up
 muMoonValue = 1.123*10**5 #TODO: Look up
-lambdifyState = [t, *[x, y, z, xDot, yDot, zDot],muEarth, muMoon]
+lambdifyState = [t, *[x, y, z, vx, vy, vz],muEarth, muMoon]
 
-lunarWrapper = lunarPositionHelper(20)
+sy.lambdify()
 
-cb = sy.lambdify(lambdifyState, eom, modules={"x_l":lambda tf : lunarWrapper.cachingAndIndexing(tf, 0), "y_l":lambda tf:lunarWrapper.cachingAndIndexing(tf, 0), "z_l":lambda tf: lunarWrapper.cachingAndIndexing(tf, 0)})
+#lunarWrapper = lunarPositionHelper(20)
+
+#cb = sy.lambdify(lambdifyState, eom, modules={"x_l":lambda tf : lunarWrapper.cachingAndIndexing(tf, 0), "y_l":lambda tf:lunarWrapper.cachingAndIndexing(tf, 0), "z_l":lambda tf: lunarWrapper.cachingAndIndexing(tf, 0)})
 
 print(cb(0.0, *initialState, muEarthValue, muMoonValue))
+#%%
 
 
 # %%
@@ -194,3 +267,4 @@ with spiceScope(allMyKernels, kernelPath) as scope:
     print(moonPos)
     print(spiceScope.etToUtc(5.0))
     print(str(spiceScope.utcToEt("1 Jul 2025 12:14:16.123456")))
+

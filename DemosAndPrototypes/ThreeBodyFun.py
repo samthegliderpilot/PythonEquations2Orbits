@@ -83,7 +83,9 @@ for i in range(0, len(tArray)):
     inertialEphemeris.AppendValues(tNow, float(newXyz[0]), float(newXyz[1]), float(newXyz[2]))
     newMoonXyz = rotMat*moonPos
     moonInertialEphemeris.AppendValues(tNow, float(newMoonXyz[0]), float(newMoonXyz[1]), float(newMoonXyz[2]))
-
+print(inertialEphemeris.X[0])
+print(inertialEphemeris.Y[0])
+print(inertialEphemeris.Z[0])
 fig = PlotAndAnimatePlanetsWithPlotly("NHRL In Inertial Frame", [prim.PathPrimitive(inertialEphemeris, "#ff00ff", 3), prim.PathPrimitive(moonInertialEphemeris, "#000000", 3)], tArray, None)
 fig.update_layout(
      margin=dict(l=20, r=20, t=20, b=20))
