@@ -45,7 +45,7 @@ subsDict = {mu: muVal}
 helper = OdeLambdifyHelper(t, [x,y,z,vx,vy,vz], [xEom.rhs, yEom.rhs, zEom.rhs, vxEom.rhs, vyEom.rhs, vzEom.rhs], [], subsDict)
 
 integratorCallback = helper.CreateSimpleCallbackForSolveIvp()
-tArray = np.linspace(0.0, 10.0, 1000)
+tArray = np.linspace(0.0, 5.0, 1000)
 # values were found on degenerate conic blog, but are originally from are from https://figshare.com/articles/thesis/Trajectory_Design_and_Targeting_For_Applications_to_the_Exploration_Program_in_Cislunar_Space/14445717/1
 nhrlState = [ 	1.0277926091, 0.0, -0.1858044184, 0.0, -0.1154896637, 0.0]
 ipvResults = solve_ivp(integratorCallback, [tArray[0], tArray[-1]], nhrlState, t_eval=tArray)

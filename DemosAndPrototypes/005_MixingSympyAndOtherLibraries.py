@@ -20,18 +20,6 @@ import pyeq2orb.Graphics.Primitives as prim #type: ignore
 from pyeq2orb.Graphics.PlotlyUtilities import PlotAndAnimatePlanetsWithPlotly
 from pyeq2orb.Coordinates.RotationMatrix import RotAboutZ #type: ignore
 import math
-def lunarPosition(t)-> np.array:
-    return np.array([1, 2, 3])
-
-def lunarPositionX(t)-> np.array:
-    return 1.0
-def lunarPositionY(t)-> np.array:
-    return 2.0
-def lunarPositionZ(t)-> np.array:
-    return 3.0
-
-def evaluateRotationMatrix(t)-> np.matrix:
-    return np.matrix([[math.cos(t), math.sin(t), 0.0],[math.sin(t), -1*math.cos(t), 0.0], [0.0,0.0,1.0]])
 
 class lunarPositionHelper:
     def __init__(self, cacheSize):
@@ -69,12 +57,16 @@ class lunarPositionHelper:
         return -1*accel
 
     @staticmethod    
-    def simpleThreeBodyAcceleration(muPrime : sy.Symbol, muThirdBody : sy.Symbol, xSat : sy.Symbol, ySat : sy.Symbol, zSat : sy.Symbol, xThirdBody : sy.Symbol, yThirdBody : sy.Symbol, zThirdBody : sy.Symbol, subsDict = Optional[Dict[sy.Expr, SymbolOrNumber]]) -> sy.Matrix:
+    def simpleThreeBodyAcceleration(muPrime : sy.Symbol, muThirdBody : sy.Symbol, xSat : sy.Symbol, ySat : sy.Symbol, zSat : sy.Symbol, xThirdBody : sy.Symbol, yThirdBody : sy.Symbol, zThirdBody : sy.Symbol, subsDict : Optional[Dict[sy.Expr, SymbolOrNumber]] = None) -> sy.Matrix:
         rSatMag = sy.sqrt(xSat**2 + ySat**2+zSat**2)
         rSatVec = sy.Matrix([[xSat], [ySat], [zSat]])
         
         rThirdBodyMag = sy.sqrt(xThirdBody**2 + yThirdBody**2+zThirdBody**2)
         rThirdBodyVec = sy.Matrix([[xThirdBody], [yThirdBody], [zThirdBody]])
+        
+        rSatVecFromThirdBody = rThirdBodyVec- rSatVec
+        rSatFromThirdBodyMag = sy.sqrt(rSatVecFromThirdBody[0]**2 + rSatVecFromThirdBody[1]**2+rSatVecFromThirdBody[2]**2)
+
         if subsDict is not None:
             deepRSatMag = rSatMag
             rSatMag = sy.Symbol(r'r_{sat}', real=True, positive=True)
@@ -87,15 +79,22 @@ class lunarPositionHelper:
 
             deepRThirdBody = rThirdBodyVec
             rThirdBodyVec = sy.MatrixSymbol("\hat{r}_{3}", 3, 1)
-            
+
+            deepRSatVecFromThirdBody = rSatVecFromThirdBody
+            rSatVecFromThirdBody = sy.MatrixSymbol("\hat{r}_{s-3}", 3, 1)
+
+            deepRSatMagFromThirdBody = rSatFromThirdBodyMag
+            rSatFromThirdBodyMag= sy.Symbol(r'r_{s-3}', real=True, positive=True)
+
             subsDict[rSatMag] = deepRSatMag
             subsDict[rSatVec] = deepRSat
             subsDict[rThirdBodyMag] = deepRThirdBodyMag
             subsDict[rThirdBodyVec] = deepRThirdBody
-            
+            subsDict[rSatVecFromThirdBody] = deepRSatVecFromThirdBody
+            subsDict[rSatFromThirdBodyMag] = deepRSatMagFromThirdBody
 
         term1 = -1*muPrime*rSatVec/(rSatMag**3)
-        term2 = muThirdBody*(rSatVec/(rSatMag**3)-(rThirdBodyVec/(rThirdBodyMag**3))) # Vallado's equation is confusing here...
+        term2 = muThirdBody*(rSatVecFromThirdBody/(rSatFromThirdBodyMag**3)) # Vallado's equation is confusing here...
         return term1+term2
 
 t = sy.Symbol('t', real=True)
@@ -132,64 +131,53 @@ def moonZVal(t):
 
 
 matrixThirdBodyAcceleration = lunarPositionHelper.simpleThreeBodyAcceleration(muEarth, muMoon, x, y, z, moonX, moonY, moonZ, subsDict)
-matrixTwoBodyAcceleration = sy.Matrix([[0],[0],[0]])#lunarPositionHelper.cartesianTwoBodyAcceleration(muEarth, x, y, z, subsDict)
-eom = [vx, vy, vz, matrixTwoBodyAcceleration[0]+matrixThirdBodyAcceleration[0], matrixTwoBodyAcceleration[1]+matrixThirdBodyAcceleration[1], matrixTwoBodyAcceleration[2]+matrixThirdBodyAcceleration[2]]
+eom = [vx, vy, vz, matrixThirdBodyAcceleration[0], matrixThirdBodyAcceleration[1], matrixThirdBodyAcceleration[2]]
 
 helper = OdeLambdifyHelper(t, [x,y,z,vx,vy,vz], eom, [], subsDict)
 helper.FunctionRedirectionDictionary["x_l"] = moonXVal
 helper.FunctionRedirectionDictionary["y_l"] = moonYVal
 helper.FunctionRedirectionDictionary["z_l"] = moonZVal
 integratorCallback = helper.CreateSimpleCallbackForSolveIvp()
-tArray = np.linspace(0.0, 10.0, 1000)
+tArray = np.linspace(0.0, 5.0, 1000)
 # values were found on degenerate conic blog, but are originally from are from https://figshare.com/articles/thesis/Trajectory_Design_and_Targeting_For_Applications_to_the_Exploration_Program_in_Cislunar_Space/14445717/1
-nhrlState = [ 	1.0277926091, 0.0, -0.1858044184, 0.0, -0.1154896637, 0.0]
-ipvResults = solve_ivp(integratorCallback, [tArray[0], tArray[-1]], nhrlState, t_eval=tArray)
+nhrlState = [ 	1.0277926091, 0.0, -0.1858044184, 0.0, -0.1154896637+1.0277926091, 0.0]
+ipvResults = solve_ivp(integratorCallback, [tArray[0], tArray[-1]], nhrlState, t_eval=tArray, method='DOP853')
 solutionDictionary = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(helper.NonTimeLambdifyArguments, ipvResults)
 satEphemeris = EphemerisArrays()
 satEphemeris.ExtendValues(ipvResults.t, solutionDictionary[x], solutionDictionary[y], solutionDictionary[z]) #type: ignore
 satPath = prim.PathPrimitive(satEphemeris, "#ff00ff")
 
-moonResults = solve_ivp(integratorCallback, [tArray[0], tArray[-1]], [ 1.0, 0.0, 0.0, 0.0, 0.1, 0.0], t_eval=tArray, method='DOP853')
-moonSolutionDictionary = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(helper.NonTimeLambdifyArguments, moonResults)
-moonEphemeris = EphemerisArrays()
-
-
-
-# cheat for the moon position in the rotating frame
-x_2 = np.linspace(1.0, 1.0, 1000)
-y_2 = np.linspace(0.0, 0.0, 1000)
-moonEphemeris.ExtendValues(tArray, x_2, y_2, moonSolutionDictionary[z]) #type: ignore
-moonPath = prim.PathPrimitive(moonEphemeris, "#000000")
-
-fig = PlotAndAnimatePlanetsWithPlotly("NHRL in Rotation Frame", [satPath, moonPath], tArray, None)
-fig.update_layout(
-     margin=dict(l=20, r=20, t=20, b=20))
-
-fig.show()  
-
 
 inertialEphemeris = EphemerisArrays()
 moonInertialEphemeris = EphemerisArrays()
 moonPos = sy.Matrix([[1.0],[0.0],[0.0]])
+satEphemerisRotatingFrame = EphemerisArrays()
 for i in range(0, len(tArray)):
     tNow = tArray[i]
     rotMat = RotAboutZ(tNow).evalf()
-    newXyz = rotMat*sy.Matrix([[satEphemeris.X[i]],[satEphemeris.Y[i]],[satEphemeris.Z[i]]])
-    inertialEphemeris.AppendValues(tNow, float(newXyz[0]), float(newXyz[1]), float(newXyz[2]))
+    inverseRotMat = RotAboutZ(tNow).inv().evalf()
+    newXyz = inverseRotMat*sy.Matrix([[satEphemeris.X[i]],[satEphemeris.Y[i]],[satEphemeris.Z[i]]])
+    satEphemerisRotatingFrame.AppendValues(tNow, float(newXyz[0]), float(newXyz[1]), float(newXyz[2]))
     newMoonXyz = rotMat*moonPos
     moonInertialEphemeris.AppendValues(tNow, float(newMoonXyz[0]), float(newMoonXyz[1]), float(newMoonXyz[2]))
-
-fig = PlotAndAnimatePlanetsWithPlotly("NHRL In Inertial Frame", [prim.PathPrimitive(inertialEphemeris, "#ff00ff", 3), prim.PathPrimitive(moonInertialEphemeris, "#000000", 3)], tArray, None)
+fig = PlotAndAnimatePlanetsWithPlotly("NHRL In Inertial Frame", [prim.PathPrimitive(satEphemeris, "#ff00ff", 3), prim.PathPrimitive(moonInertialEphemeris, "#000000", 3)], tArray, None)
 fig.update_layout(
      margin=dict(l=20, r=20, t=20, b=20))
-
 fig.show()  
 
+x_2 = np.linspace(1.0, 1.0, 1000)
+y_2 = np.linspace(0.0, 0.0, 1000)
+moonRotatingEphemeris = EphemerisArrays()
+moonRotatingEphemeris.ExtendValues(tArray, x_2, y_2, y_2) #type: ignore
 
-jh.showEquation(sy.MatrixSymbol(r'\ddot{r_{E}}', 3, 1), matrixTwoBodyAcceleration)
+fig = PlotAndAnimatePlanetsWithPlotly("NHRL In Rotating Frame", [prim.PathPrimitive(satEphemerisRotatingFrame, "#ff00ff", 3), prim.PathPrimitive(moonRotatingEphemeris, "#000000", 3)], tArray, None)
+fig.update_layout(
+     margin=dict(l=20, r=20, t=20, b=20))
+fig.show()  
+
 jh.showEquation(sy.MatrixSymbol(r'\ddot{r_{3}}', 3, 1), matrixThirdBodyAcceleration)
-display(matrixTwoBodyAcceleration)
-display(matrixTwoBodyAcceleration[0])
+display(matrixThirdBodyAcceleration)
+display(matrixThirdBodyAcceleration[0])
 #%%
 #display(matrixThirdBodyAcceleration)
 #jh.showEquation("Z", eom)
