@@ -97,6 +97,28 @@ class lunarPositionHelper:
         term2 = muThirdBody*(rSatVecFromThirdBody/(rSatFromThirdBodyMag**3)) # Vallado's equation is confusing here...
         return term1+term2
 
+
+class gravationalBody:
+    def __init__(self, x, y, z, mu):
+        self.x = x
+        self.y = y
+        self.z = z
+        self.mu = mu
+
+def nBodyDifferentialEquation(x, y, z, listOfNBodies : List[gravationalBody]) -> sy.Matrix:
+    sum = sy.Matrix([[0.0], [0.0], [0.0]])
+    for i in range(0, len(listOfNBodies)):
+        cb = listOfNBodies[i]
+        mu = cb.mu
+        xcb = cb.x
+        ycb = cb.y
+        zcb = cb.z
+        rVector = sy.Matrix([[x-xcb], [y-ycb], [z-zcb]])
+        rMag = sy.sqrt(rVector[0]**2 + rVector[1]**2+rVector[2]**2)
+        term = -1*mu*rVector/(rMag**3)
+        sum = sum + term
+    return sum
+
 t = sy.Symbol('t', real=True)
 x = sy.Function('x', real=True)(t)
 y = sy.Function('y', real=True)(t)
@@ -115,33 +137,53 @@ rEarth2 = x*x+y*y+z*z
 moonX = sy.Function('x_l', real=True)(t)#moonLoc[0]
 moonY = sy.Function('y_l', real=True)(t)#moonLoc[1]
 moonZ = sy.Function('z_l', real=True)(t)#moonLoc[2]
+
+earthX = sy.Function('x_e', real=True)(t)#moonLoc[0]
+earthY = sy.Function('y_e', real=True)(t)#moonLoc[1]
+earthZ = sy.Function('z_e', real=True)(t)#moonLoc[2]
+
 moonVec = sy.Matrix([moonX, moonY, moonZ]) # will be column
 relToMoon = moonVec - satVec
 
 muVal = 0.01215
 subsDict = {muMoon: muVal, muEarth:1.0-muVal}
 def moonXVal(t):
-    return math.cos(t)
+    return math.cos(t)*(1-muVal)
 
 def moonYVal(t):
-    return math.sin(t)    
+    return math.sin(t)*(1-muVal)
 
 def moonZVal(t):
     return 0.0
 
+def earthXVal(t):
+    return -1*math.cos(t)*(muVal)
 
-matrixThirdBodyAcceleration = lunarPositionHelper.simpleThreeBodyAcceleration(muEarth, muMoon, x, y, z, moonX, moonY, moonZ, subsDict)
+def earthYVal(t):
+    return -1*math.sin(t)*(muVal)
+
+def earthZVal(t):
+    return 0.0
+    
+
+#matrixThirdBodyAcceleration = lunarPositionHelper.simpleThreeBodyAcceleration(muEarth, muMoon, x, y, z, moonX, moonY, moonZ, subsDict)
+matrixThirdBodyAcceleration = nBodyDifferentialEquation(x, y, z, [gravationalBody(moonX, moonY, moonZ, muVal), gravationalBody(earthX, earthY, earthZ, (1-muVal)) ])
 eom = [vx, vy, vz, matrixThirdBodyAcceleration[0], matrixThirdBodyAcceleration[1], matrixThirdBodyAcceleration[2]]
 
 helper = OdeLambdifyHelper(t, [x,y,z,vx,vy,vz], eom, [], subsDict)
 helper.FunctionRedirectionDictionary["x_l"] = moonXVal
 helper.FunctionRedirectionDictionary["y_l"] = moonYVal
 helper.FunctionRedirectionDictionary["z_l"] = moonZVal
+
+helper.FunctionRedirectionDictionary["x_e"] = earthXVal
+helper.FunctionRedirectionDictionary["y_e"] = earthYVal
+helper.FunctionRedirectionDictionary["z_e"] = earthZVal
+
 integratorCallback = helper.CreateSimpleCallbackForSolveIvp()
-tArray = np.linspace(0.0, 5.0, 1000)
+tArray = np.linspace(0.0, 10.0, 1000)
 # values were found on degenerate conic blog, but are originally from are from https://figshare.com/articles/thesis/Trajectory_Design_and_Targeting_For_Applications_to_the_Exploration_Program_in_Cislunar_Space/14445717/1
-nhrlState = [ 	1.0277926091, 0.0, -0.1858044184, 0.0, -0.1154896637+1.0277926091, 0.0]
-ipvResults = solve_ivp(integratorCallback, [tArray[0], tArray[-1]], nhrlState, t_eval=tArray, method='DOP853')
+nhrlState = [1.02134, 0, -0.18162, 0, -0.10176+1.02134, 9.76561e-07] #[ 	1.0277926091, 0.0, -0.1858044184, 0.0, -0.1154896637+1.0277926091, 0.0]
+ipvResults = solve_ivp(integratorCallback, [tArray[0], tArray[-1]], nhrlState, t_eval=tArray, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
 solutionDictionary = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(helper.NonTimeLambdifyArguments, ipvResults)
 satEphemeris = EphemerisArrays()
 satEphemeris.ExtendValues(ipvResults.t, solutionDictionary[x], solutionDictionary[y], solutionDictionary[z]) #type: ignore

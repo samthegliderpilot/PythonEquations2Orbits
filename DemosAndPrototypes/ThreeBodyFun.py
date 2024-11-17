@@ -45,16 +45,16 @@ subsDict = {mu: muVal}
 helper = OdeLambdifyHelper(t, [x,y,z,vx,vy,vz], [xEom.rhs, yEom.rhs, zEom.rhs, vxEom.rhs, vyEom.rhs, vzEom.rhs], [], subsDict)
 
 integratorCallback = helper.CreateSimpleCallbackForSolveIvp()
-tArray = np.linspace(0.0, 5.0, 1000)
+tArray = np.linspace(0.0, 10.0, 1000)
 # values were found on degenerate conic blog, but are originally from are from https://figshare.com/articles/thesis/Trajectory_Design_and_Targeting_For_Applications_to_the_Exploration_Program_in_Cislunar_Space/14445717/1
-nhrlState = [ 	1.0277926091, 0.0, -0.1858044184, 0.0, -0.1154896637, 0.0]
+nhrlState = [1.02134, 0, -0.18162, 0, -0.10176, 9.76561e-07]# [ 	1.0277926091, 0.0, -0.1858044184, 0.0, -0.1154896637, 0.0]
 ipvResults = solve_ivp(integratorCallback, [tArray[0], tArray[-1]], nhrlState, t_eval=tArray)
 solutionDictionary = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(helper.NonTimeLambdifyArguments, ipvResults)
 satEphemeris = EphemerisArrays()
 satEphemeris.ExtendValues(ipvResults.t, solutionDictionary[x], solutionDictionary[y], solutionDictionary[z]) #type: ignore
 satPath = prim.PathPrimitive(satEphemeris, "#ff00ff")
 
-moonResults = solve_ivp(integratorCallback, [tArray[0], tArray[-1]], [ 1.0, 0.0, 0.0, 0.0, 0.1, 0.0], t_eval=tArray, method='DOP853')
+moonResults = solve_ivp(integratorCallback, [tArray[0], tArray[-1]], [ 1.0, 0.0, 0.0, 0.0, 0.1, 0.0], t_eval=tArray, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
 moonSolutionDictionary = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(helper.NonTimeLambdifyArguments, moonResults)
 moonEphemeris = EphemerisArrays()
 
