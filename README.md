@@ -18,6 +18,7 @@ pyomo download-extensions
 conda install -c conda-forge pynumero_libraries
 pyomo build-extensions
 python setup.py dependencies --extra optional 
+pip install pyomo[Optional]
 ```
 
 That last command is adding additional dependencies for pyomo, however it doesn't seem to work and probably isn't needed.  Note that the command installing pynumero_libraries may only be required for Windows.

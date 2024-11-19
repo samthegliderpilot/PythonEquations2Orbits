@@ -9,7 +9,7 @@ import scipyPaperPrinter as jh
 import numpy as np
 from sympy import ImmutableDenseMatrix
 from collections import OrderedDict
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Tuple
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
 from pyeq2orb.Numerical.LambdifyHelpers import OdeLambdifyHelper
 from IPython.display import display
@@ -20,7 +20,7 @@ import pyeq2orb.Graphics.Primitives as prim #type: ignore
 from pyeq2orb.Graphics.PlotlyUtilities import PlotAndAnimatePlanetsWithPlotly
 from pyeq2orb.Coordinates.RotationMatrix import RotAboutZ #type: ignore
 import math
-
+#%%
 class lunarPositionHelper:
     def __init__(self, cacheSize):
         self._lastSeveralResults = OrderedDict()
@@ -39,65 +39,6 @@ class lunarPositionHelper:
         self._lastSeveralResults[t] = newAnswer
         return newAnswer[i]
 
-    def cartesianTwoBodyAcceleration(mu : sy.Symbol, x : sy.Symbol, y : sy.Symbol, z : sy.Symbol, subsDict= Optional[Dict[sy.Expr, SymbolOrNumber]]):
-        rSatMag = sy.sqrt(x**2 + y**2+z**2)
-        rSatVec = sy.Matrix([[x], [y], [z]])
-        
-        if subsDict is not None:
-            deepRSatMag = rSatMag
-            rSatMag = sy.Symbol(r'r_{sat}', real=True, positive=True)
-            
-            deepRSat = rSatVec
-            rSatVec = sy.MatrixSymbol("\hat{r}_{sat}", 3, 1)
-            
-            subsDict[rSatMag] = deepRSatMag
-            subsDict[rSatVec] = deepRSat
-        
-        accel = mu*rSatVec/(rSatMag**3)
-        return -1*accel
-
-    @staticmethod    
-    def simpleThreeBodyAcceleration(muPrime : sy.Symbol, muThirdBody : sy.Symbol, xSat : sy.Symbol, ySat : sy.Symbol, zSat : sy.Symbol, xThirdBody : sy.Symbol, yThirdBody : sy.Symbol, zThirdBody : sy.Symbol, subsDict : Optional[Dict[sy.Expr, SymbolOrNumber]] = None) -> sy.Matrix:
-        rSatMag = sy.sqrt(xSat**2 + ySat**2+zSat**2)
-        rSatVec = sy.Matrix([[xSat], [ySat], [zSat]])
-        
-        rThirdBodyMag = sy.sqrt(xThirdBody**2 + yThirdBody**2+zThirdBody**2)
-        rThirdBodyVec = sy.Matrix([[xThirdBody], [yThirdBody], [zThirdBody]])
-        
-        rSatVecFromThirdBody = rThirdBodyVec- rSatVec
-        rSatFromThirdBodyMag = sy.sqrt(rSatVecFromThirdBody[0]**2 + rSatVecFromThirdBody[1]**2+rSatVecFromThirdBody[2]**2)
-
-        if subsDict is not None:
-            deepRSatMag = rSatMag
-            rSatMag = sy.Symbol(r'r_{sat}', real=True, positive=True)
-            
-            deepRSat = rSatVec
-            rSatVec = sy.MatrixSymbol("\hat{r}_{sat}", 3, 1)
-            
-            deepRThirdBodyMag = rThirdBodyMag
-            rThirdBodyMag = sy.Symbol(r'r_{3}', real=True, positive=True)
-
-            deepRThirdBody = rThirdBodyVec
-            rThirdBodyVec = sy.MatrixSymbol("\hat{r}_{3}", 3, 1)
-
-            deepRSatVecFromThirdBody = rSatVecFromThirdBody
-            rSatVecFromThirdBody = sy.MatrixSymbol("\hat{r}_{s-3}", 3, 1)
-
-            deepRSatMagFromThirdBody = rSatFromThirdBodyMag
-            rSatFromThirdBodyMag= sy.Symbol(r'r_{s-3}', real=True, positive=True)
-
-            subsDict[rSatMag] = deepRSatMag
-            subsDict[rSatVec] = deepRSat
-            subsDict[rThirdBodyMag] = deepRThirdBodyMag
-            subsDict[rThirdBodyVec] = deepRThirdBody
-            subsDict[rSatVecFromThirdBody] = deepRSatVecFromThirdBody
-            subsDict[rSatFromThirdBodyMag] = deepRSatMagFromThirdBody
-
-        term1 = -1*muPrime*rSatVec/(rSatMag**3)
-        term2 = muThirdBody*(rSatVecFromThirdBody/(rSatFromThirdBodyMag**3)) # Vallado's equation is confusing here...
-        return term1+term2
-
-
 class gravationalBody:
     def __init__(self, x, y, z, mu):
         self.x = x
@@ -105,7 +46,7 @@ class gravationalBody:
         self.z = z
         self.mu = mu
 
-def nBodyDifferentialEquation(x, y, z, listOfNBodies : List[gravationalBody]) -> sy.Matrix:
+def nBodyDifferentialEquation(x : sy.Symbol, y: sy.Symbol, z: sy.Symbol, listOfNBodies : List[gravationalBody]) -> sy.Matrix:
     sum = sy.Matrix([[0.0], [0.0], [0.0]])
     for i in range(0, len(listOfNBodies)):
         cb = listOfNBodies[i]
@@ -123,32 +64,29 @@ t = sy.Symbol('t', real=True)
 x = sy.Function('x', real=True)(t)
 y = sy.Function('y', real=True)(t)
 z = sy.Function('z', real=True)(t)
-
 vx = x.diff(t)
 vy = y.diff(t)
 vz = z.diff(t)
 satVec = sy.Matrix([x,y,z])
 
 muEarth = sy.Symbol(r'\mu_e', real=True, positive=True)
+earthX = sy.Function('x_e', real=True)(t)
+earthY = sy.Function('y_e', real=True)(t)
+earthZ = sy.Function('z_e', real=True)(t)
+
 muMoon = sy.Symbol(r'\mu_l', real=True, positive=True)
+moonX = sy.Function('x_l', real=True)(t)
+moonY = sy.Function('y_l', real=True)(t)
+moonZ = sy.Function('z_l', real=True)(t)
+matrixThirdBodyAcceleration = nBodyDifferentialEquation(x, y, z, [gravationalBody(moonX, moonY, moonZ, muMoon), gravationalBody(earthX, earthY, earthZ, muEarth) ])
+eom = [vx, vy, vz, matrixThirdBodyAcceleration[0], matrixThirdBodyAcceleration[1], matrixThirdBodyAcceleration[2]]
 
-rEarth2 = x*x+y*y+z*z
-
-moonX = sy.Function('x_l', real=True)(t)#moonLoc[0]
-moonY = sy.Function('y_l', real=True)(t)#moonLoc[1]
-moonZ = sy.Function('z_l', real=True)(t)#moonLoc[2]
-
-earthX = sy.Function('x_e', real=True)(t)#moonLoc[0]
-earthY = sy.Function('y_e', real=True)(t)#moonLoc[1]
-earthZ = sy.Function('z_e', real=True)(t)#moonLoc[2]
-
-moonVec = sy.Matrix([moonX, moonY, moonZ]) # will be column
-relToMoon = moonVec - satVec
 
 muVal = 0.01215
 subsDict = {muMoon: muVal, muEarth:1.0-muVal}
+
 def moonXVal(t):
-    return math.cos(t)*(1-muVal)
+    return math.cos(t)*(1-muVal) # bigger mu value here...
 
 def moonYVal(t):
     return math.sin(t)*(1-muVal)
@@ -165,11 +103,6 @@ def earthYVal(t):
 def earthZVal(t):
     return 0.0
     
-
-#matrixThirdBodyAcceleration = lunarPositionHelper.simpleThreeBodyAcceleration(muEarth, muMoon, x, y, z, moonX, moonY, moonZ, subsDict)
-matrixThirdBodyAcceleration = nBodyDifferentialEquation(x, y, z, [gravationalBody(moonX, moonY, moonZ, muVal), gravationalBody(earthX, earthY, earthZ, (1-muVal)) ])
-eom = [vx, vy, vz, matrixThirdBodyAcceleration[0], matrixThirdBodyAcceleration[1], matrixThirdBodyAcceleration[2]]
-
 helper = OdeLambdifyHelper(t, [x,y,z,vx,vy,vz], eom, [], subsDict)
 helper.FunctionRedirectionDictionary["x_l"] = moonXVal
 helper.FunctionRedirectionDictionary["y_l"] = moonYVal
@@ -220,40 +153,75 @@ fig.show()
 jh.showEquation(sy.MatrixSymbol(r'\ddot{r_{3}}', 3, 1), matrixThirdBodyAcceleration)
 display(matrixThirdBodyAcceleration)
 display(matrixThirdBodyAcceleration[0])
+
 #%%
-#display(matrixThirdBodyAcceleration)
-#jh.showEquation("Z", eom)
-initialState = [7000.0, 6000.0, 0.0, 0.0, 7.0, 5.0]
-muEarthValue = 3.344*10**5 #TOOD: Look up
-muMoonValue = 1.123*10**5 #TODO: Look up
-lambdifyState = [t, *[x, y, z, vx, vy, vz],muEarth, muMoon]
+import functools
 
-sy.lambdify()
+# convert that to spice-backed orbit
+class spiceMoonCalculator:
+    def __init__(self):
+        pass
 
-#lunarWrapper = lunarPositionHelper(20)
+    @functools.lru_cache
+    def lunarPosition(self, et:float)->Tuple[float, float, float]:
+        moonPos = spice.spkpos("Moon", et, "J2000", 'NONE', 'EARTH BARYCENTER')
+        return (moonPos[0][0], moonPos[0][1], moonPos[0][2])
 
-#cb = sy.lambdify(lambdifyState, eom, modules={"x_l":lambda tf : lunarWrapper.cachingAndIndexing(tf, 0), "y_l":lambda tf:lunarWrapper.cachingAndIndexing(tf, 0), "z_l":lambda tf: lunarWrapper.cachingAndIndexing(tf, 0)})
+    def lunarX(self, et)->float:
+        return self.lunarPosition(et)[0]
 
-print(cb(0.0, *initialState, muEarthValue, muMoonValue))
-#%%
+    def lunarY(self, et)->float:
+        return self.lunarPosition(et)[1]
+
+    def lunarZ(self, et)->float:
+        return self.lunarPosition(et)[2]
+
+    def lunarOrbitalRadius(self, et)->float:
+        pos = self.lunarPosition(et)
+        return math.sqrt(pos[0]**2+pos[1]**2+pos[2]**2)
+
+    @functools.lru_cache
+    def earthPosition(self, et:float)->Tuple[float, float, float]:
+        earthPos = spice.spkpos("Earth", et, "J2000", 'NONE', 'EARTH BARYCENTER')
+        return (earthPos[0][0], earthPos[0][1], earthPos[0][2])
+
+    def earthX(self, et)->float:
+        return self.earthPosition(et)[0]
+
+    def earthY(self, et)->float:
+        return self.earthPosition(et)[1]
+
+    def earthZ(self, et)->float:
+        return self.earthPosition(et)[2]
+
+    @functools.cached_property
+    def earthMu(self) -> float:
+        return spice.bodvrd("EARTH", "GM", 1)[1][0]
+
+    @functools.cached_property
+    def moonMu(self) -> float:
+        return spice.bodvrd("MOON", "GM", 1)[1][0]
+
+    def earthOrbitalRadius(self, et)->float:
+        pos = self.earthPosition(et)
+        return math.sqrt(pos[0]**2+pos[1]**2+pos[2]**2)
 
 
-# %%
 import spiceypy as spice
 import json
 from typing import List
 settings = json.loads(open("demoSettings.json", "r").read())
-
+print(settings)
 
 kernelPath = settings["kernelsDirectory"]
 
 def getCriticalKernelsRelative()-> List[str]:
     criticalKernels = []
     criticalKernels.append("lsk/naif0012.tls")
-    criticalKernels.append("pck/gm_de440.tpc")
     criticalKernels.append("pck/earth_latest_high_prec.cmt")
     criticalKernels.append("pck/earth_latest_high_prec.bpc")
     criticalKernels.append("pck/pck00010.tpc")
+    criticalKernels.append("pck/gm_de440.tpc")
 
     return criticalKernels
 
@@ -268,7 +236,7 @@ class spiceScope:
         self._kernelPaths :List[str] = []
         self._baseDirectory = baseDirectory
         if self._baseDirectory is not None:
-            for partialPath in self._kernelPaths:
+            for partialPath in kernelPaths:
                 self._kernelPaths.append(os.path.join(self._baseDirectory, partialPath))
         else:
             self._kernelPaths = kernelPaths
@@ -290,11 +258,14 @@ class spiceScope:
     def utcToEt(utc : str)->float:
         return spice.utc2et(utc)
 
-allMyKernels = getCriticalKernels(kernelPath)
+allMyKernels = getCriticalKernelsRelative()
 allMyKernels.append("spk/planets/de440s.bsp") # big one here...
 with spiceScope(allMyKernels, kernelPath) as scope:
     moonPos = spice.spkpos("Moon", 0.0, "J2000", 'NONE', 'EARTH BARYCENTER')
     print(moonPos)
     print(spiceScope.etToUtc(5.0))
     print(str(spiceScope.utcToEt("1 Jul 2025 12:14:16.123456")))
+
+    calc = spiceMoonCalculator()
+    print(str(calc.earthMu))
 
