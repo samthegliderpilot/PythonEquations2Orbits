@@ -206,6 +206,33 @@ class spiceMoonCalculator:
         pos = self.earthPosition(et)
         return math.sqrt(pos[0]**2+pos[1]**2+pos[2]**2)
 
+    @staticmethod
+    def convertRotationalCr3bpStateToInertial(t, x, y, z, vx, vy, vz) ->Tuple[float, float, float, float, float, float]:
+        ct = sy.cos(t)
+        st = sy.sin(t)
+        xi = ct*x+st*y
+        yi = -1*st*x + ct*y
+        zi = z
+
+        vxi = (vx-y)*ct+st*(vy+x)
+        vyi = -1*(vx-y)*st+ct*(vy+x)
+        vzi = vz
+
+        return (xi, yi, zi, vxi, vyi, vzi)
+
+    @staticmethod
+    def convertInertialToRotationalCr3bpState(t, x, y, z, vx, vy, vz) ->Tuple[float, float, float, float, float, float]:
+        ct = sy.cos(-1*t)
+        st = sy.sin(-1*t)
+        xi = ct*x+st*y
+        yi = -1*st*x + ct*y
+        zi = z
+
+        vxi = (vx+y)*ct+st*(vy-x)
+        vyi = -1*(vx+y)*st+ct*(vy-x)
+        vzi = vz
+
+        return (xi, yi, zi, vxi, vyi, vzi)
 
 import spiceypy as spice
 import json
@@ -264,7 +291,7 @@ with spiceScope(allMyKernels, kernelPath) as scope:
     moonPos = spice.spkpos("Moon", 0.0, "J2000", 'NONE', 'EARTH BARYCENTER')
     print(moonPos)
     print(spiceScope.etToUtc(5.0))
-    print(str(spiceScope.utcToEt("1 Jul 2025 12:14:16.123456")))
+    print(str(spiceScope.utcToEt("1 Jul 2025 12:34:36.123456")))
 
     calc = spiceMoonCalculator()
     print(str(calc.earthMu))
