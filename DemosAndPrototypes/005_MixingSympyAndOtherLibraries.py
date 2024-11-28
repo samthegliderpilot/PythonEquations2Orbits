@@ -20,45 +20,7 @@ import pyeq2orb.Graphics.Primitives as prim #type: ignore
 from pyeq2orb.Graphics.PlotlyUtilities import PlotAndAnimatePlanetsWithPlotly
 from pyeq2orb.Coordinates.RotationMatrix import RotAboutZ #type: ignore
 import math
-#%%
-class lunarPositionHelper:
-    def __init__(self, cacheSize):
-        self._lastSeveralResults = OrderedDict()
-        self._cacheSize = cacheSize
-
-    @staticmethod
-    def simpleLunarPosition(t):
-        return [1, 2, 3]
-
-    def cachingAndIndexing(self, t, i):
-        if t in self._lastSeveralResults.keys():
-            return self._lastSeveralResults[t][i]
-        if len(self._lastSeveralResults.keys()) >self._cacheSize:
-            self._lastSeveralResults.popitem(False)
-        newAnswer = lunarPositionHelper.simpleLunarPosition(t)
-        self._lastSeveralResults[t] = newAnswer
-        return newAnswer[i]
-
-class gravationalBody:
-    def __init__(self, x, y, z, mu):
-        self.x = x
-        self.y = y
-        self.z = z
-        self.mu = mu
-
-def nBodyDifferentialEquation(x : sy.Symbol, y: sy.Symbol, z: sy.Symbol, listOfNBodies : List[gravationalBody]) -> sy.Matrix:
-    sum = sy.Matrix([[0.0], [0.0], [0.0]])
-    for i in range(0, len(listOfNBodies)):
-        cb = listOfNBodies[i]
-        mu = cb.mu
-        xcb = cb.x
-        ycb = cb.y
-        zcb = cb.z
-        rVector = sy.Matrix([[x-xcb], [y-ycb], [z-zcb]])
-        rMag = sy.sqrt(rVector[0]**2 + rVector[1]**2+rVector[2]**2)
-        term = -1*mu*rVector/(rMag**3)
-        sum = sum + term
-    return sum
+from pyeq2orb.ForceModels.NBodyEquations import nBodyDifferentialEquation, gravationalBody, cr3bpPlanetCallbacks
 
 t = sy.Symbol('t', real=True)
 x = sy.Function('x', real=True)(t)
@@ -69,48 +31,28 @@ vy = y.diff(t)
 vz = z.diff(t)
 satVec = sy.Matrix([x,y,z])
 
-muEarth = sy.Symbol(r'\mu_e', real=True, positive=True)
+mu = sy.Symbol(r'\mu', real=True, positive=True)
 earthX = sy.Function('x_e', real=True)(t)
 earthY = sy.Function('y_e', real=True)(t)
 earthZ = sy.Function('z_e', real=True)(t)
 
-muMoon = sy.Symbol(r'\mu_l', real=True, positive=True)
 moonX = sy.Function('x_l', real=True)(t)
 moonY = sy.Function('y_l', real=True)(t)
 moonZ = sy.Function('z_l', real=True)(t)
-matrixThirdBodyAcceleration = nBodyDifferentialEquation(x, y, z, [gravationalBody(moonX, moonY, moonZ, muMoon), gravationalBody(earthX, earthY, earthZ, muEarth) ])
+matrixThirdBodyAcceleration = nBodyDifferentialEquation(x, y, z, [gravationalBody(moonX, moonY, moonZ, mu), gravationalBody(earthX, earthY, earthZ, 1-mu) ])
 eom = [vx, vy, vz, matrixThirdBodyAcceleration[0], matrixThirdBodyAcceleration[1], matrixThirdBodyAcceleration[2]]
 
-
 muVal = 0.01215
-subsDict = {muMoon: muVal, muEarth:1.0-muVal}
+subsDict = {mu: muVal}
 
-def moonXVal(t):
-    return math.cos(t)*(1-muVal) # bigger mu value here...
-
-def moonYVal(t):
-    return math.sin(t)*(1-muVal)
-
-def moonZVal(t):
-    return 0.0
-
-def earthXVal(t):
-    return -1*math.cos(t)*(muVal)
-
-def earthYVal(t):
-    return -1*math.sin(t)*(muVal)
-
-def earthZVal(t):
-    return 0.0
-    
 helper = OdeLambdifyHelper(t, [x,y,z,vx,vy,vz], eom, [], subsDict)
-helper.FunctionRedirectionDictionary["x_l"] = moonXVal
-helper.FunctionRedirectionDictionary["y_l"] = moonYVal
-helper.FunctionRedirectionDictionary["z_l"] = moonZVal
+helper.FunctionRedirectionDictionary["x_l"] = cr3bpPlanetCallbacks.secondaryXCallbackOfTime(t, muVal)
+helper.FunctionRedirectionDictionary["y_l"] = cr3bpPlanetCallbacks.secondaryYCallbackOfTime(t, muVal)
+helper.FunctionRedirectionDictionary["z_l"] = cr3bpPlanetCallbacks.secondaryZCallbackOfTime(t, muVal)
 
-helper.FunctionRedirectionDictionary["x_e"] = earthXVal
-helper.FunctionRedirectionDictionary["y_e"] = earthYVal
-helper.FunctionRedirectionDictionary["z_e"] = earthZVal
+helper.FunctionRedirectionDictionary["x_e"] = cr3bpPlanetCallbacks.primaryXCallbackOfTime(t, muVal)
+helper.FunctionRedirectionDictionary["y_e"] = cr3bpPlanetCallbacks.primaryYCallbackOfTime(t, muVal)
+helper.FunctionRedirectionDictionary["z_e"] = cr3bpPlanetCallbacks.primaryZCallbackOfTime(t, muVal)
 
 integratorCallback = helper.CreateSimpleCallbackForSolveIvp()
 tArray = np.linspace(0.0, 10.0, 1000)
@@ -121,7 +63,6 @@ solutionDictionary = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDicti
 satEphemeris = EphemerisArrays()
 satEphemeris.ExtendValues(ipvResults.t, solutionDictionary[x], solutionDictionary[y], solutionDictionary[z]) #type: ignore
 satPath = prim.PathPrimitive(satEphemeris, "#ff00ff")
-
 
 inertialEphemeris = EphemerisArrays()
 moonInertialEphemeris = EphemerisArrays()
