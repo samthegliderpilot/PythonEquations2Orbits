@@ -11,14 +11,15 @@ This is clearly a work in progress, interfaces will almost certainly change and 
 I have tried to make a virtual environment, however it is still something I'm figuring out.  If you want to make the environment from scratch... the way I've been setting up my environments has been with these conda/pip commands.  Note that in all cases, I have a C++ compiler on my computer (Visual Studio 2022 Community is installed on Windows, gcc on Linux).  Cmake can find it, and it is probably required for setting up pyomo all the way:
 
 ```
-conda create --name py310OptFun python=3.10
-conda activate py310OptFun
+conda create --name py312OptFun python=3.12
+conda activate py312OptFun
 conda install -c conda-forge sympy numpy pandas scipy plotly matplotlib jupyter pygmo pyomo cmake pytest plotly p2j pandoc networkx openpyxl pint pymysql pyodbc pyro4 xlrd cyipopt pandoc mypy vispy spiceypy setuptools mypy pylint czml3 dill
 pyomo download-extensions
+pip install pyomo[Optional]
 conda install -c conda-forge pynumero_libraries
 pyomo build-extensions
 python setup.py dependencies --extra optional 
-pip install pyomo[Optional]
+
 ```
 
 That last command is adding additional dependencies for pyomo, however it doesn't seem to work and probably isn't needed.  Note that the command installing pynumero_libraries may only be required for Windows.

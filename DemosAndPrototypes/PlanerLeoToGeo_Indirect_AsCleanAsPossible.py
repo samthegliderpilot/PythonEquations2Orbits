@@ -90,10 +90,10 @@ controlSymbols = [alpSy]
 
 # this is the code I need to write/refactor to be this simple/general
 costateVariables = Problem.CreateCostateVariables(x) #type: Vector
-hamiltonian = Problem.CreateHamiltonianStatic(tSy, eoms[0:4], unintegratedPathCost, costateVariables) #type: sy.Expr
+hamiltonian = Problem.CreateHamiltonianStatic(tSy, sy.Matrix([x.rhs for x in eoms[0:4]]), unintegratedPathCost, costateVariables) #type: sy.Expr
 optimalControl = Problem.CreateControlExpressionsFromHamiltonian(hamiltonian, controlSymbols) # an expression for the control variables
 substitutionDictionary[alpSy] = optimalControl[alpSy] # loop
-createCostateDifferentialEquations = Problem.CreateLambdaDotEquationsStatic(hamiltonian,t, x[0:4], costateVariables) #type: sy.Eq
+createCostateDifferentialEquations = Problem.CreateLambdaDotEquationsStatic(hamiltonian,tSy, x[0:4], costateVariables) #type: sy.Eq
 
 costateBoundaryConditions = Problem.CreateLambdaDotConditionStatic(hamiltonian, xf[0:4])
 [transversalityCondition, extraEndSymbols] = Problem.TransversalityConditionInTheDifferentialForm(terminalCost, bcs, tfSy)

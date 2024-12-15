@@ -184,7 +184,8 @@ poenv.TransformationFactory('dae.collocation').apply_to(model, wrt=model.t, nfe=
 #['LAGRANGE-RADAU', 'LAGRANGE-LEGENDRE']
 sim.initialize_model()
 solver = poenv.SolverFactory('cyipopt')
-solver.solve(model, tee=True)
+sol = solver.solve(model, tee=True)
+print(sol)
 
 def plotPyomoSolution(model, stateSymbols):
     tSpace =np.array( [t for t in model.t]) * model.tf.value
