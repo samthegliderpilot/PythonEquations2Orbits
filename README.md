@@ -8,7 +8,9 @@ The goal with this project is to create an easy-to-understand set of types to as
 
 This is clearly a work in progress, interfaces will almost certainly change and there is no real verification or validation.  Some of the tests are pretty weak and I have a list of things to refactor after rushing to get this good enough for a release by my personal deadline.
 
-I have tried to make a virtual environment, however it is still something I'm figuring out.  If you want to make the environment from scratch... the way I've been setting up my environments has been with these conda/pip commands.  Note that in all cases, I have a C++ compiler on my computer (Visual Studio 2022 Community is installed on Windows, gcc on Linux).  Cmake can find it, and it is probably required for setting up pyomo all the way:
+I have tried to make a virtual environment, however it is still something I'm figuring out.  If you want to make the environment from scratch... the way I've been setting up my environments has been with these conda/pip commands.  
+
+Note that in all cases, I have a C++ compiler on my computer (Visual Studio 2022 Community is installed on Windows, gcc on Linux).  Cmake can find it, and it is probably required for setting up pyomo all the way:
 
 ```
 conda create --name py312OptFun python=3.12
@@ -45,3 +47,5 @@ But I want to do things that interest me, and I want to spend more time on resea
 - CisLunar Toolbox
  - Derive analytical earth-and-moon 3BP equations
 
+# NOTE
+I used to do all my development on Windows.  However, with the same computer dual-booting into Linux (specifically Fedora 41), the scripts are absurdly faster.  Printing equations to the screen, optimization routines (not just faster, but taking fewer iterations), are human-noticable faster in Linux than Windows.  Not sure why...

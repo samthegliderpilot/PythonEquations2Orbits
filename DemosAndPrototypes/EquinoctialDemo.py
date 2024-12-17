@@ -222,7 +222,7 @@ tSim, profiles = sim.simulate(numpoints=n, varying_inputs=model.var_input, integ
 
 #poenv.TransformationFactory('dae.finite_difference').apply_to(model, wrt=model.t, nfe=n, scheme='BACKWARD')
 print("transforming pyomo")
-poenv.TransformationFactory('dae.collocation').apply_to(model, wrt=model.t, nfe=n, ncp=3, scheme='LAGRANGE-RADAU')
+poenv.TransformationFactory('dae.collocation').apply_to(model, wrt=model.t, nfe=n, ncp=5, scheme='LAGRANGE-RADAU')
 #['LAGRANGE-RADAU', 'LAGRANGE-LEGENDRE']
 print("initializing the pyomo model")
 sim.initialize_model()
@@ -230,10 +230,11 @@ sim.initialize_model()
 print("running the pyomo model")
 solver = poenv.SolverFactory('cyipopt')
 solver.config.options['tol'] = 1e-6
-solver.config.options['max_iter'] = 2000
+solver.config.options['max_iter'] = 5000
 
 try :
-    solver.solve(model, tee=True)
+    ans = solver.solve(model, tee=True)
+    print(ans)
 except Exception as ex:
     print("Whop whop" + str(ex))
 #%%

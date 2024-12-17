@@ -82,7 +82,7 @@ class ContinuousThrustCircularOrbitTransferProblem(Problem) :
     def __init__(self) :
         """Initializes a new instance.  The equations of motion will be set in the order [r, u, v, longitude].
         """
-        super().__init__()
+        Problem.__init__(self)
 
         self._constantSymbols = []
         mu = sy.Symbol(r'\mu', real=True, positive=True)

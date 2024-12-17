@@ -33,6 +33,9 @@ vz = aState.Velocity.Z
 
 d = sy.sqrt((x+mu)**2 + y**2 + z**2)
 r = sy.sqrt((x-1+mu)**2+y**2+z**2)
+mu1 = 1-mu
+mu2 = mu
+
 u = 0.5*(x**2+y**2)+(1-mu)/d+mu/r
 xEom = sy.Eq(sy.diff(x, t), vx)
 yEom = sy.Eq(sy.diff(y, t), vy)
@@ -40,7 +43,12 @@ zEom = sy.Eq(sy.diff(z, t), vz)
 vxEom = sy.Eq(sy.diff(vx, t), u.diff(x)+2*vy)
 vyEom = sy.Eq(sy.diff(vy, t), u.diff(y)-2*vx)
 vzEom = sy.Eq(sy.diff(vz, t), u.diff(z))
-
+#r1sq = (x+mu2)**2 + y**2 + z**2
+#r2sq = (x-mu1)**2 + y**2 + z**2
+#u = (-1.0/2.0)*(mu1*r1sq+mu2*r2sq)-mu1/sy.sqrt(r1sq)-mu2/sy.sqrt(r2sq)
+#vxEom = sy.Eq(sy.diff(vx, t), x-(1-mu)*(x+mu)/(sy.sqrt(r1sq)**3) - mu*(x-1+mu)/(sy.sqrt(r2sq)**3) + 2*vy)
+#vyEom = sy.Eq(sy.diff(vy, t), y-(1-mu)*y/(sy.sqrt(r1sq)**3) - mu*y/(sy.sqrt(r2sq)**3) - 2*vx)
+#vzEom = sy.Eq(sy.diff(vz, t), -(1-mu)*z/(sy.sqrt(r1sq)**3) - mu*z/(sy.sqrt(r2sq)**3))
 subsDict = {mu: muVal}
 helper = OdeLambdifyHelper(t, [x,y,z,vx,vy,vz], [xEom.rhs, yEom.rhs, zEom.rhs, vxEom.rhs, vyEom.rhs, vzEom.rhs], [], subsDict)
 
@@ -48,7 +56,7 @@ integratorCallback = helper.CreateSimpleCallbackForSolveIvp()
 tArray = np.linspace(0.0, 10.0, 1000)
 # values were found on degenerate conic blog, but are originally from are from https://figshare.com/articles/thesis/Trajectory_Design_and_Targeting_For_Applications_to_the_Exploration_Program_in_Cislunar_Space/14445717/1
 nhrlState = [1.02134, 0, -0.18162, 0, -0.10176, 9.76561e-07]# [ 	1.0277926091, 0.0, -0.1858044184, 0.0, -0.1154896637, 0.0]
-ipvResults = solve_ivp(integratorCallback, [tArray[0], tArray[-1]], nhrlState, t_eval=tArray)
+ipvResults = solve_ivp(integratorCallback, [tArray[0], tArray[-1]], nhrlState, t_eval=tArray, method="LSODA", rtol=1.49012e-8, atol=1.49012e-11)
 solutionDictionary = ScipyCallbackCreators.ConvertEitherIntegratorResultsToDictionary(helper.NonTimeLambdifyArguments, ipvResults)
 satEphemeris = EphemerisArrays()
 satEphemeris.ExtendValues(ipvResults.t, solutionDictionary[x], solutionDictionary[y], solutionDictionary[z]) #type: ignore

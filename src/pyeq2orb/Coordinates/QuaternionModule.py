@@ -13,7 +13,7 @@ class Quaternion(sy.Matrix) :
         matrix._y=matrix[1]
         matrix._z=matrix[2]
 
-    """Represents a Quaternion (x,y,z) position in space in some reference frame or vector in 
+    """Represents a Quaternion (w, x,y,z) orientation in space in some reference frame or vector in 
     some axes that are tracked separately.
     
     Intended to be immutable.

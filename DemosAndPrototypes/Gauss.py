@@ -1,5 +1,4 @@
 #%%
-import __init__ # type: ignore
 import sympy as sy
 import math
 import os

@@ -2,6 +2,7 @@ import sympy as sy
 from typing import Union
 from numbers import Real
 from pyeq2orb.Utilities.Typing import SymbolOrNumber
+
 def RotAboutZValladoConvention(rotationAngle : SymbolOrNumber) ->sy.Matrix :
     """Creates a 3x3 sympy Matrix representing the rotation about Z of the provided value.
 
