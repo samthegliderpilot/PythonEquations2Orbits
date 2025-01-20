@@ -14,7 +14,7 @@ import math as math
 from scipy.integrate import solve_ivp
 from typing import Dict, Union
 from IPython.display import display# import everything
-from typing import List
+from typing import List, Optional
 # form equi elements
 # build 2-body equations
 # buuld perturbation stack
@@ -65,10 +65,12 @@ jh.showEquation("R", inertial_r/r_mag)
 #%%
 # earth to fixed matrix
 
-FK = sy.MatrixSymbol("FK", 3, 3)
+FK = sy.MatrixSymbol("F", 3, 3)
 FK_full = sy.Matrix([[FK[0,0], FK[0,1],FK[0,2]],[FK[1,0], FK[1,1], FK[1,2]],[FK[2,0], FK[2,1],FK[2,2]]])
 jh.display(FK)
 jh.display(FK_full)
+
+rFixedSy = sy.Matrix([[sy.Symbol(r'r_{fx}', real=True)], [sy.Symbol(r'r_{fy}', real=True)], [sy.Symbol(r'r_{fz}', real=True)]])
 
 r_fixed = FK_full*(inertial_r/r_mag) #TODO: Check order and alignment
 jh.display(r_fixed)
@@ -95,112 +97,36 @@ rE = sy.Symbol("R_e", real=True, positive=True, communitive=False)
 mu = sy.Symbol(r'\mu', real=True, positive=True)
 #%%
 lat = sy.Symbol(r'\phi', real=True)
-def legendre_functions_vallado(expr, gma, lBound):
-    P = []
-    p0_0 = 1.0
-    p1_0 = expr
-    p1_1 = expr.diff(gma)
-
-    P.append([p0_0])
-    P.append([p1_0, p1_1])
-
-    for l in range(2, lBound):
-        pArray = []
-        pl_0 = (2*l-1)*gma*P[l-1][0]-(l-1)*P[l-2][0]
-        pArray.append(pl_0)
-        for m in range(1, l):
-            pl_m = P[l-1][m]+(2*l-1)*p1_1*P[l-1][m-1]
-            pArray.append(pl_m)
-        pl_l = (2*l-1)*p1_1*P[l-1][l-1]
-        pArray.append(pl_l)
-
-        p0_0 = pl_0
-        # p1_0 = pArray[1]
-        # p1_1 = pArray[-1]
-
-        P.append(pArray)
-    return P
 
 
-def legendre_functions2(expr, gma, lBound):
-    P = []
-    # p0_0 = 1.0
-    # p1_0 = expr
-    # p1_1 = expr.diff(gma)
-
-    # P.append([p0_0])
-    # P.append([p1_0, p1_1])
-
-    for l in range(0, lBound+1):
-        pArray = []
-        for m in range(0, l+1):
-            pl_m = (((-1)**m)/(sy.factorial(l)* 2**l)) *(1-expr**2)**(m/2) * ((expr**2-1)**l).diff(gma, m)#  (1-expr**2)**(m/2)*P[l][0].diff(gma, m)
-            pArray.append(pl_m.simplify().trigsimp(deep=True))
-        P.append(pArray)
-    return P
-
-
-def legendre_functions_goddard(expr, gma, lBound):
-    P = []
-    p0_0 = 1.0
-    p1_0 = expr
-    p1_1 = expr.diff(gma)
-
-    P.append([p0_0, 0])
-    P.append([p1_0, p1_1, 0])
-
-    for l in range(2, lBound):
-        pArray = []
-        pl_0 = ((2*l-1)*expr*P[l-1][0]-(l-1)*P[l-2][0])/l
-        pArray.append(pl_0)
-        for m in range(1, l):
-            pl_m = P[l-2][m]+(2*l-1)*p1_1*P[l-1][m-1]
-            pArray.append(pl_m)
-        pl_l = (2*l-1)*p1_1*P[l-1][l-1]
-        pArray.append(pl_l)
-
-        #p0_0 = pl_0
-        # p1_0 = pArray[1]
-        # p1_1 = pArray[-1]
-
-        P.append(pArray)
-    return P
-
-
-def legendre_functions_goddard_single(expr, gma, n, m, PCache):
-    if n == 2 and m==0:
-        PCache = []
-        PCache.append([1.0])
-        PCache.append([expr, expr.diff(gma)])
-
-    # p0_0 = 1.0
-    # p1_0 = expr
-    # p1_1 = expr.diff(gma)
-
-    if len(PCache) != n:
-        PCache.append([0]*n)
-    if m == 0:
-        pVal= ((2*n-1)*expr*PCache[n-1][0]-(n-1)*PCache[n-2][0])/n
-    elif n != m:
-        pVal= 2.0#PCache[n-2][m]+(2*n-1)*PCache[n-1][m-1]
-    else:
-        pVal= (2*n-1)*PCache[n-1][n-1]
-    #PCache[-1][m] = pVal
-    print(str(n) + " and " + str(m))
-    return pVal
         
 #%%
-class gravityField:
-    def __init__(self, expr, gma):
+class potentialFieldExpressionBuilder:
+    def __init__(self, expr, gma, rNormFixed, simpleTrigTerms = False):
         self._ps = []
+        self.rNormFixed = rNormFixed
+        self._cosMLons = []
+        self._cosMLons.append(1.0) # cos(0*lon) = cos(0) = 1
+        self._cosMLons.append(self.rNormFixed[0] / (sy.sqrt(self.rNormFixed[0]**2 + self.rNormFixed[1]**2)))
+        
+        self._sinMLons = []
+        self._sinMLons.append(0.0) # sin(0*lon) = sin(0) = 0.0
+        self._sinMLons.append(self.rNormFixed[1] / (sy.sqrt(self.rNormFixed[0]**2 + self.rNormFixed[1]**2)))
+
+        self._sinMLats = []
+        self._sinMLats.append(0.0) # sin(0*lon) = sin(0) = 0.0
+        self._sinMLats.append(self.rNormFixed[2])
+
         self.expr = expr
         self.gma = gma
         self.coefficientCache = {}
+        self.simpleTrigTerms = simpleTrigTerms
+        
 
     def makeConstant(self, name, n, m):
         if not name in self.coefficientCache:
             self.coefficientCache[name] = []
-        coef = sy.Symbol(name + "{^{" + str(m) + "}_" + str(n) + "}")#, commutative=False)
+        coef = sy.Symbol(name + "{^{" + str(m) + "}_" + str(n) + "}", real=True)#, commutative=False)
         self.coefficientCache[name].append(coef)
         return coef
 
@@ -227,10 +153,12 @@ class gravityField:
                 pNM = self.legendre_functions_goddard_single(n, m)
                 sNM = self.makeConstant("S", n, m)
                 cNM = self.makeConstant("C", n, m)
-                innerTerm = rCbDivRToN * pNM * (sNM* sy.sin(m*lonSy)+cNM*sy.cos(m*lonSy))
+                innerTerm = rCbDivRToN * pNM * (sNM* self.sinMLon(m, lonSy)+cNM*self.cosMLon(m, lonSy))
                 mTerms.append(innerTerm)
             mTerms.reverse()
             totalTerm = firstTerm + sum(mTerms)
+            if not self.simpleTrigTerms:
+                totalTerm = totalTerm.subs(sy.sin(lat), self.rNormFixed[2])
             overallTerms.append(totalTerm)
         overallTerms.reverse()
         return mu/rSy * sum(overallTerms)
@@ -248,16 +176,45 @@ class gravityField:
         #     pVal= (2*n-1)*self.expr.diff(self.gma)*PCache[n-1][n-1]
         PCache[-1].append(pVal.doit())
         return pVal
+    
+    def cosMLon(self, m, lonSy : Optional[sy.Symbol]):
+        if self.simpleTrigTerms:
+            return sy.cos(m*lonSy)
+        if m < len(self._cosMLons):
+            return self._cosMLons[m]
+        cosLon = self._cosMLons[1]
+        return 2*cosLon*self.cosMLon(m-1) - self.cosMLon(m-2)
+
+    def sinMLon(self, m, lonSy : Optional[sy.Symbol]):
+        if self.simpleTrigTerms:
+            return sy.sin(m*lonSy)
+        if m < len(self._sinMLons):
+            return self._sinMLons[m]
+        cosLon = self._cosMLons[1] # yes, Vallado says cos lon here
+        return 2*cosLon*self.sinMLon(m-1) - self.sinMLon(m-2)
+
+    def sinMLat(self, m, latSy : Optional[sy.Symbol]):
+        if self.simpleTrigTerms:
+            return sy.sin(m*latSy)
+        if m < len(self._sinMLats):
+            return self._sinMLats[m]
+        cosLat = sy.sqrt(self.rNormFixed[0]**2+self.rNormFixed[1]**2)
+        return 2*cosLat*self.sinMLat(m-1) - self.sinMLat(m-2)
 
 
-builder = gravityField(sy.sin(lat), lat)
-potential = builder.makeIt(2, 0, mu, rSy, rE, lat, lon)#.subs(sy.sin(lat), sy.Symbol('r_k', real=True)/rSy)
-print(dir(potential))
+builder = potentialFieldExpressionBuilder(sy.sin(lat), lat, rFixedSy, True)
+potential = builder.makeIt(2, 2, mu, rSy, rE, lat, lon).simplify()
+display(potential)
+
+builder = potentialFieldExpressionBuilder(sy.sin(lat), lat, rFixedSy, False)
+potential = builder.makeIt(2, 2, mu, rSy, rE, lat, lon).simplify()
+display(potential)
+#%%
 
 display(potential.simplify())
 
 # note that C = -J, so vallado has a negative here that I do not
-fromVallado = 3*builder.makeConstant("C", 2, 0) * (mu/(2*rSy)) * ((rE/rSy)**2) * (sy.sin(lat)**2 - sy.Rational(1,3))
+fromVallado = 3*builder.makeConstant("C", 2, 2) * (mu/(2*rSy)) * ((rE/rSy)**2) * (sy.sin(lat)**2 - sy.Rational(1,3))
 display(fromVallado.simplify())
 display((fromVallado-potential).simplify())
 display(sy.assoc_legendre(2, 0, sy.sin(lat)))
@@ -368,7 +325,3 @@ print(lambidified.__doc__)
 pCache = []
 potential = lambidified(.5, 6378.137, 7000.000, 3.986004418e5)
 display(potential)
-#%%
-# read coefficients into an array so I can start trying to lambdify things
-c_coefficients = []
-s_coefficients = []

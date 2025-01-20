@@ -21,6 +21,7 @@ from pyeq2orb.Graphics.PlotlyUtilities import PlotAndAnimatePlanetsWithPlotly
 from pyeq2orb.Coordinates.RotationMatrix import RotAboutZ #type: ignore
 import math
 from pyeq2orb.ForceModels.NBodyEquations import nBodyDifferentialEquation, gravationalBody, cr3bpPlanetCallbacks
+from pyeq2orb.Spice.spiceScope import spiceScope
 
 t = sy.Symbol('t', real=True)
 x = sy.Function('x', real=True)(t)
@@ -197,34 +198,6 @@ def getCriticalKernelsRelative()-> List[str]:
 def currentLunarFixedFrameKernelsRelative() ->List[str]:
     return ['pck/moon_pa_de440_200625.cmt', 'pck/moon_pa_de440_200625.bpc']
 
-class spiceScope:
-    #_standardGregorianFormat = "DD Mon YYYY-HH:MM:SC.######"
-
-    def __init__(self, kernelPaths : List[str], baseDirectory : Optional[str]):
-        self._kernelPaths :List[str] = []
-        self._baseDirectory = baseDirectory
-        if self._baseDirectory is not None:
-            for partialPath in kernelPaths:
-                self._kernelPaths.append(os.path.join(self._baseDirectory, partialPath))
-        else:
-            self._kernelPaths = kernelPaths
-
-    def __enter__(self):
-        for kernel in self._kernelPaths:
-            spice.furnsh(kernel)
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        for kernel in self._kernelPaths:
-            spice.unload(kernel)
-
-    @staticmethod
-    def etToUtc(et: float)->str:
-        return spice.et2utc(et, 'C', 6)
-
-    @staticmethod
-    def utcToEt(utc : str)->float:
-        return spice.utc2et(utc)
 
 allMyKernels = getCriticalKernelsRelative()
 allMyKernels.append("spk/planets/de440s.bsp") # big one here...
