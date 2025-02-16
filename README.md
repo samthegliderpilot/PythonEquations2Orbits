@@ -15,7 +15,7 @@ Note that in all cases, I have a C++ compiler on my computer (Visual Studio 2022
 ```
 conda create --name py312OptFun python=3.12
 conda activate py312OptFun
-conda install -c conda-forge sympy numpy pandas scipy plotly matplotlib jupyter pygmo pyomo cmake pytest plotly p2j pandoc networkx openpyxl pint pymysql pyodbc pyro4 xlrd cyipopt pandoc mypy vispy spiceypy setuptools mypy pylint czml3 dill
+conda install -c conda-forge sympy numpy pandas scipy plotly matplotlib jupyter pygmo pyomo cmake pytest plotly p2j pandoc networkx openpyxl pint pymysql pyodbc pyro4 xlrd cyipopt pandoc mypy vispy spiceypy setuptools mypy pylint czml3 dill oem
 pyomo download-extensions
 pip install pyomo[Optional]
 conda install -c conda-forge pynumero_libraries

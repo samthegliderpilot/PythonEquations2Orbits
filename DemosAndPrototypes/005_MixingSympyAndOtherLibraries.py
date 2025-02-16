@@ -184,7 +184,12 @@ print(settings)
 
 kernelPath = settings["kernelsDirectory"]
 
-def getCriticalKernelsRelative()-> List[str]:
+def currentLunarFixedFrameKernelsRelative() ->List[str]:
+    return ['pck/moon_pa_de440_200625.cmt', 'pck/moon_pa_de440_200625.bpc']
+
+
+
+def getCriticalKernelsRelativePaths()-> List[str]:
     criticalKernels = []
     criticalKernels.append("lsk/naif0012.tls")
     criticalKernels.append("pck/earth_latest_high_prec.cmt")
@@ -195,11 +200,8 @@ def getCriticalKernelsRelative()-> List[str]:
     return criticalKernels
 
 
-def currentLunarFixedFrameKernelsRelative() ->List[str]:
-    return ['pck/moon_pa_de440_200625.cmt', 'pck/moon_pa_de440_200625.bpc']
 
-
-allMyKernels = getCriticalKernelsRelative()
+allMyKernels = getCriticalKernelsRelativePaths()
 allMyKernels.append("spk/planets/de440s.bsp") # big one here...
 with spiceScope(allMyKernels, kernelPath) as scope:
     moonPos = spice.spkpos("Moon", 0.0, "J2000", 'NONE', 'EARTH BARYCENTER')

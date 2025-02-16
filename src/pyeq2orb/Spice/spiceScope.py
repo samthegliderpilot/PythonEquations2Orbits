@@ -1,5 +1,6 @@
 from typing import List, Optional
 import os
+import spiceypy as spice
 
 class spiceScope:
     #_standardGregorianFormat = "DD Mon YYYY-HH:MM:SC.######"

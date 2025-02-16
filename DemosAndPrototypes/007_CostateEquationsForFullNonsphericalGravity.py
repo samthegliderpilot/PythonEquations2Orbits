@@ -15,6 +15,8 @@ from scipy.integrate import solve_ivp
 from typing import Dict, Union
 from IPython.display import display# import everything
 from typing import List, Optional
+from pyeq2orb.ForceModels.GravityField import gravityField, makeAccelerationMatrixFromPotential, createSphericalHarmonicGravityAcceleration, makeConstantForSphericalHarmonicCoefficient, makeOverallAccelerationExpression, makePotential
+
 # form equi elements
 # build 2-body equations
 # buuld perturbation stack
@@ -101,116 +103,61 @@ lat = sy.Symbol(r'\phi', real=True)
 
         
 #%%
-class potentialFieldExpressionBuilder:
-    def __init__(self, expr, gma, rNormFixed, simpleTrigTerms = False):
-        self._ps = []
-        self.rNormFixed = rNormFixed
-        self._cosMLons = []
-        self._cosMLons.append(1.0) # cos(0*lon) = cos(0) = 1
-        self._cosMLons.append(self.rNormFixed[0] / (sy.sqrt(self.rNormFixed[0]**2 + self.rNormFixed[1]**2)))
-        
-        self._sinMLons = []
-        self._sinMLons.append(0.0) # sin(0*lon) = sin(0) = 0.0
-        self._sinMLons.append(self.rNormFixed[1] / (sy.sqrt(self.rNormFixed[0]**2 + self.rNormFixed[1]**2)))
+c00 = makeConstantForSphericalHarmonicCoefficient("C", 0,0)
+c10 = makeConstantForSphericalHarmonicCoefficient("C", 1,0)
+c11 = makeConstantForSphericalHarmonicCoefficient("C", 1,1)
+c20 = makeConstantForSphericalHarmonicCoefficient("C", 2,0)
+c21 = makeConstantForSphericalHarmonicCoefficient("C", 2,1)
 
-        self._sinMLats = []
-        self._sinMLats.append(0.0) # sin(0*lon) = sin(0) = 0.0
-        self._sinMLats.append(self.rNormFixed[2])
+s00 = makeConstantForSphericalHarmonicCoefficient("S", 0,0)
+s10 = makeConstantForSphericalHarmonicCoefficient("S", 1,0)
+s11 = makeConstantForSphericalHarmonicCoefficient("S", 1,1)
+s20 = makeConstantForSphericalHarmonicCoefficient("S", 2,0)
+s21 = makeConstantForSphericalHarmonicCoefficient("S", 2,1)
+s22 = makeConstantForSphericalHarmonicCoefficient("S", 2,2)
 
-        self.expr = expr
-        self.gma = gma
-        self.coefficientCache = {}
-        self.simpleTrigTerms = simpleTrigTerms
-        
+rFixedSy = sy.Matrix([[sy.Symbol('r_{fx}', real=True)], [sy.Symbol('r_{fy}', real=True)],[sy.Symbol('r_{fz}', real=True)]])
+accelerationDerivative = makeAccelerationMatrixFromPotential(2, 0, mu, rSy, rE, lat, lon).subs({c00:0, c10:0, c11:0, c20:0, c21:0,   s00:0, s10:0, s11:0, s20:0, s21:0, s22:0}).subs(sy.sin(lat), rFixedSy[2]/rSy).subs(lon, 0)
 
-    def makeConstant(self, name, n, m):
-        if not name in self.coefficientCache:
-            self.coefficientCache[name] = []
-        coef = sy.Symbol(name + "{^{" + str(m) + "}_" + str(n) + "}", real=True)#, commutative=False)
-        self.coefficientCache[name].append(coef)
-        return coef
+display(accelerationDerivative[0])
+display(accelerationDerivative[0].simplify())
+display(accelerationDerivative[0].simplify().trigsimp(deep=True))
+c2 = makeConstantForSphericalHarmonicCoefficient("C", 2,2)
 
-    def makeIt(self, n_max: int, m_max :int, muSy : sy.Symbol, rSy : sy.Expr, rCbSy :sy.Symbol, latSy : sy.Symbol, lonSy :sy.Expr):
-        n_max+=1
-        m_max+=1
-        self._ps = []
-        self._ps.append([1.0, 0.0])
-        self._ps.append([self.expr, self.expr.diff(self.gma)])
+expected_accel_ai_22 = (3*c2*mu*(rE**2)/(2*rSy**4))*(1-5*rFixedSy[2]**2/(rSy**2))*(rFixedSy[0]/rSy)
+jh.showEquation("ai_{c2_v}", expected_accel_ai_22)
+display(sy.Eq(0, (expected_accel_ai_22-accelerationDerivative[0].simplify().trigsimp(deep=True)).simplify().simplify()))
 
-        overallTerms = []
-        rCbDivR = rCbSy/rSy
-        rCbDivRToN = rCbDivR
-        
-        for n in range(2, n_max):
-            self._ps.append([])    
-            mTerms = []
-            rCbDivRToN=rCbDivRToN*rCbDivR
-            pN0 = self.legendre_functions_goddard_single(n, 0)
-            c = self.makeConstant("C", n, 0)
-            firstTerm = c *rCbDivRToN * pN0
-            for m in range(0, n): # M may start at 1, but it terms in Pcache start at 0
-                s = self.makeConstant("S", n, m)
-                pNM = self.legendre_functions_goddard_single(n, m)
-                sNM = self.makeConstant("S", n, m)
-                cNM = self.makeConstant("C", n, m)
-                innerTerm = rCbDivRToN * pNM * (sNM* self.sinMLon(m, lonSy)+cNM*self.cosMLon(m, lonSy))
-                mTerms.append(innerTerm)
-            mTerms.reverse()
-            totalTerm = firstTerm + sum(mTerms)
-            if not self.simpleTrigTerms:
-                totalTerm = totalTerm.subs(sy.sin(lat), self.rNormFixed[2])
-            overallTerms.append(totalTerm)
-        overallTerms.reverse()
-        return mu/rSy * sum(overallTerms)
-        #return  sum(overallTerms)
-
-
-    def legendre_functions_goddard_single(self, n, m):
-        PCache = self._ps
-        pVal = sy.assoc_legendre(n, m, self.expr)
-        # if m == 0:
-        #     pVal= ((2*n-1)*self.expr*PCache[n-1][0]-(n-1)*PCache[n-2][0])/n
-        # elif n-1 != m:
-        #     pVal= PCache[n-2][m]+(2*n-1)*self.expr.diff(self.gma)*PCache[n-1][m-1]
-        # else:
-        #     pVal= (2*n-1)*self.expr.diff(self.gma)*PCache[n-1][n-1]
-        PCache[-1].append(pVal.doit())
-        return pVal
-    
-    def cosMLon(self, m, lonSy : Optional[sy.Symbol]):
-        if self.simpleTrigTerms:
-            return sy.cos(m*lonSy)
-        if m < len(self._cosMLons):
-            return self._cosMLons[m]
-        cosLon = self._cosMLons[1]
-        return 2*cosLon*self.cosMLon(m-1) - self.cosMLon(m-2)
-
-    def sinMLon(self, m, lonSy : Optional[sy.Symbol]):
-        if self.simpleTrigTerms:
-            return sy.sin(m*lonSy)
-        if m < len(self._sinMLons):
-            return self._sinMLons[m]
-        cosLon = self._cosMLons[1] # yes, Vallado says cos lon here
-        return 2*cosLon*self.sinMLon(m-1) - self.sinMLon(m-2)
-
-    def sinMLat(self, m, latSy : Optional[sy.Symbol]):
-        if self.simpleTrigTerms:
-            return sy.sin(m*latSy)
-        if m < len(self._sinMLats):
-            return self._sinMLats[m]
-        cosLat = sy.sqrt(self.rNormFixed[0]**2+self.rNormFixed[1]**2)
-        return 2*cosLat*self.sinMLat(m-1) - self.sinMLat(m-2)
-
-
-builder = potentialFieldExpressionBuilder(sy.sin(lat), lat, rFixedSy, True)
-potential = builder.makeIt(2, 2, mu, rSy, rE, lat, lon).simplify()
-display(potential)
-
-builder = potentialFieldExpressionBuilder(sy.sin(lat), lat, rFixedSy, False)
-potential = builder.makeIt(2, 2, mu, rSy, rE, lat, lon).simplify()
-display(potential)
 #%%
 
+pot = makePotential(2, 2, mu, rSy, rFixedSy, rE, lat, lon)*rSy/mu
+display(pot)
+display(pot.diff(lat))
+
+x = sy.Symbol('x', real=True)
+p21 = sy.assoc_legendre(2, 1, x)
+diffp21 = p21.diff(x)
+p22 = sy.assoc_legendre(2, 2, x)
+display(p21)
+
+display((diffp21 - (sy.sqrt(1-x*x)*p22+x*p21)/(x*x-1)).simplify())
+
+
+#%%
+x = sy.Symbol('x', real=True)
+p21_x = sy.assoc_legendre(2, 1, x)
+
+display(p21_x)
+display(p21_x.diff(x))
+lhs = ((x**2)-1) * p21_x.diff(x)
+rhs = sy.sqrt(1-x**2) * sy.assoc_legendre(2, 2, x) + 1*x*p21_x
+display(lhs)
+display(rhs)
+display((lhs-rhs).simplify().replace(sy.Abs(sy.cos(lat)), sy.cos(lat)).trigsimp(deep=True))
+
+
+
+#%%
 display(potential.simplify())
 
 # note that C = -J, so vallado has a negative here that I do not
