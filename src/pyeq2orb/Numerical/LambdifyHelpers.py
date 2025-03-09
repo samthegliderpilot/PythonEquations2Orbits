@@ -218,7 +218,7 @@ class OdeLambdifyHelper(LambdifyHelper):
             # eom's could be constant equations.  Check, add if it doesn't have subs
             if(hasattr(thisEom, "subs")) :
                 thisEom = SafeSubs(thisEom, self.SubstitutionDictionary).doit(deep=True)
-                thisEom = SafeSubs(thisEom, self.SubstitutionDictionary).doit(deep=True).trigsimp(deep=True)  
+                thisEom = SafeSubs(thisEom, self.SubstitutionDictionary).doit(deep=True)#.trigsimp(deep=True)  
             eomList.append(thisEom)   
         odeArgs = self.BuildLambdifyingState()
         
@@ -226,7 +226,7 @@ class OdeLambdifyHelper(LambdifyHelper):
         if self.FunctionRedirectionDictionary != None and len(self.FunctionRedirectionDictionary) > 0:
             modules = [self.FunctionRedirectionDictionary, 'numpy']
 
-        eomCallback = sy.lambdify(odeArgs, eomList, modules=modules, dummify=True)
+        eomCallback = sy.lambdify(odeArgs, eomList, modules=modules, dummify=True, cse=True, docstring_limit=None)
         #TODO: This shouldn't call lambdify directly, it should call base class?
         
         #Remember, the calling code is responsible for telling LambidfyHelper what the state is
@@ -282,10 +282,12 @@ class OdeLambdifyHelper(LambdifyHelper):
         if self.OtherArguments == None or len(self.OtherArguments) == 0 :            
             def switchTimeOrderCallback(y, t) :
                 return originalCallback(t, y)
+            switchTimeOrderCallback.__doc__ = originalCallback.__doc__
             return switchTimeOrderCallback
         #else...        
         def switchTimeOrderCallback2(y, t, args) :
             return originalCallback(t, y, args)
+        switchTimeOrderCallback2.__doc__ = originalCallback.__doc__        
         return switchTimeOrderCallback2   
     
     @property
