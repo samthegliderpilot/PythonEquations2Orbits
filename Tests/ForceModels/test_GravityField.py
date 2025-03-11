@@ -124,7 +124,8 @@ def testValidation():
     testDataFilePath = os.path.join(os.path.dirname(__file__), "../testSettings.json")
     settings = json.loads(open(testDataFilePath, "r").read())
     kernelPath = settings["kernelsDirectory"]
-    
+    spiceBasePath =r'C:\Programs\GMAT\data'# r'/home/sam/Desktop/GMAT/R2022a/data/planetary_coeff/'
+
     def getCriticalKernelsRelativePaths()-> List[str]:
         criticalKernels = []
         # criticalKernels.append("lsk/naif0012.tls")
@@ -132,20 +133,25 @@ def testValidation():
         # criticalKernels.append("pck/earth_latest_high_prec.bpc")
         # criticalKernels.append("pck/pck00010.tpc")
         # criticalKernels.append("pck/gm_de440.tpc")
-        
-        criticalKernels.append(os.path.join(r'/home/sam/Desktop/GMAT/R2022a/data/planetary_coeff/', "SPICEEarthPredictedKernel.bpc"))
-        criticalKernels.append(os.path.join(r'/home/sam/Desktop/GMAT/R2022a/data/planetary_coeff/', "SPICEEarthCurrentKernel.bpc"))
-        criticalKernels.append(os.path.join(r'/home/sam/Desktop/GMAT/R2022a/data/planetary_coeff/', "earth_latest_high_prec.bpc"))
-        criticalKernels.append(os.path.join(r'/home/sam/Desktop/GMAT/R2022a/data/planetary_coeff/', "SPICEPlanetaryConstantsKernel.tpc"))
-        criticalKernels.append(os.path.join(r'/home/sam/Desktop/GMAT/R2022a/data/planetary_coeff/', "NUTATION.DAT"))
-        criticalKernels.append(os.path.join(r'/home/sam/Desktop/GMAT/R2022a/data/planetary_coeff/', "earth_latest_high_prec.bpc"))
+        criticalKernels.append(os.path.join(spiceBasePath, "time/SPICELeapSecondKernel.tls"))
+        criticalKernels.append(os.path.join(spiceBasePath, "time/tai-utc.dat"))        
+        criticalKernels.append(os.path.join(spiceBasePath, "planetary_coeff/SPICEEarthPredictedKernel.bpc"))
+        criticalKernels.append(os.path.join(spiceBasePath, "planetary_coeff/SPICEEarthCurrentKernel.bpc"))
+        criticalKernels.append(os.path.join(spiceBasePath, "planetary_coeff/earth_latest_high_prec.bpc"))
+        criticalKernels.append(os.path.join(spiceBasePath, "planetary_coeff/SPICEPlanetaryConstantsKernel.tpc"))
+        #criticalKernels.append(os.path.join(spiceBasePath, "planetary_coeff/NUTATION.DAT"))
+        #criticalKernels.append(os.path.join(spiceBasePath, "planetary_coeff/eopc04_08.62-now"))
+        criticalKernels.append(r'Y:\kernels\pck\pck00011.tpc')
+        criticalKernels.append(r'Y:\kernels\spk\planets\de440.bsp')
+
         return criticalKernels
 
 
 
     allMyKernels = getCriticalKernelsRelativePaths()
-    allMyKernels.append("/home/sam/Desktop/GMAT/R2022a/data/planetary_ephem/spk/DE405AllPlanets.bsp")
-    allMyKernels.append("/home/sam/Desktop/GMAT/R2022a/data/planetary_ephem/spk/DE405AllPlanets.bsp") # big one here...
+    #allMyKernels.append(os.path.join(spiceBasePath, "planetary_ephem/spk/DE405AllPlanets.bsp"))
+    #allMyKernels.append(os.path.join(spiceBasePath, "planetary_ephem/spk/DE405AllPlanets.bsp"))
+    #allMyKernels.append(os.path.join(spiceBasePath, "planetary_ephem/de/leDE1941.405")) # big one here...
     
     with spiceScope(allMyKernels, kernelPath) as scope:
         t =sy.Symbol('t', real=True)
@@ -154,6 +160,7 @@ def testValidation():
         etEpoch = 0.0 # TAI at 0.0
         # rk4 at 60 second step
         #4x4 gravity
+        
         fileToRead = os.path.normpath(os.path.join(os.path.dirname(__file__), "../testData/JGM2.cof"))
         data = nsGravity.gravityField.readFromCoefFile(fileToRead)    
         nVal = 4
@@ -161,7 +168,7 @@ def testValidation():
         muVal = data._mu # m^3/sec^2
         x,y,z,vx,vy,vz = sy.symbols('x,y,z,vx,vy,vz', real=True)
         xf,yf,zf = sy.symbols('x_f,y_f,z_f', real=True)
-        timeVaryingInertialToFixedMatrix = lambda t : spice.pxform("J2000", "ITRF93", t) #I think gmat is using ITRF93 as their ECEF
+        timeVaryingInertialToFixedMatrix = lambda t : spice.sxform("J2000", "ITRF93", t)[0:3,0:3] #I think gmat is using ITRF93 as their ECEF
         i2fSymbol = sy.Matrix([[sy.Function('Rxx', real=True)(t), sy.Function('Rxy', real=True)(t), sy.Function('Rxz', real=True)(t)],
                                [sy.Function('Ryx', real=True)(t), sy.Function('Ryy', real=True)(t), sy.Function('Ryz', real=True)(t)],
                                [sy.Function('Rzx', real=True)(t), sy.Function('Rzy', real=True)(t), sy.Function('Rzz', real=True)(t)]])
@@ -170,9 +177,12 @@ def testValidation():
         fixedPositionVectorSy = [xf, yf, zf]
         
         ans = timeVaryingInertialToFixedMatrix(etEpoch)*sy.Matrix([[x],[y],[z]])
-        ans2 =(timeVaryingInertialToFixedMatrix(etEpoch)*sy.Matrix([[initialPosVel[0]],[initialPosVel[1]],[initialPosVel[2]]]))
-        ans2 = ans2/ans2.norm()
+        ans1point5 =(timeVaryingInertialToFixedMatrix(etEpoch)@np.array([initialPosVel[0],initialPosVel[1],initialPosVel[2]]))
+        norm = math.sqrt(initialPosVel[0]**2+initialPosVel[1]**2+initialPosVel[2]**2)
+        ans2 = ans1point5/norm
         lat = math.asin(ans2[2])
+
+
         display(ans2)
         display("lat: " + str(180.0*lat/math.pi))
         display("lon: " + str(180.0*math.acos(ans2[0]/math.cos(lat))/math.pi))
