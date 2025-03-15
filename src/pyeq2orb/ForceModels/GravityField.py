@@ -163,7 +163,7 @@ def makeDerivativeOfAccelerationTerms(n_max: int, m_max :int, mu : sy.Symbol, rS
             # del_psi/del_lat, we can use sympy to evaluate del_psi/del_lat with del_psi/del_x * del_x/del_lat and it will match
             dpmn_dx = legendre_functions_goddard_single(n, m, legrande_dummy_variable).diff(legrande_dummy_variable)
             dSinLat_dLat = cosLat
-            dpmn_dLat = dpmn_dx.subs(legrande_dummy_variable, sinLat)#*dSinLat_dLat
+            dpmn_dLat = dpmn_dx.subs(legrande_dummy_variable, sinLat)*dSinLat_dLat
             sNM = makeConstantForSphericalHarmonicCoefficient("S", n, m)
             cNM = makeConstantForSphericalHarmonicCoefficient("C", n, m)
             
@@ -234,8 +234,8 @@ def createSphericalHarmonicGravityAcceleration(diffPotentialMatrix : sy.Matrix, 
     xyMag = xb**2 + yb**2
 
     # Vallado has an extra term that looks like, but isn't, 2 body gravity at the end?!?
-    accelxb = ((1.0/rSy) * delPhiDelR  - delPhiDelLat*zb/((rSy**2) * sy.sqrt(xyMag)))*xb - (1.0/xyMag)* delPhiDelLon*yb# - mu/(rSy**2)
-    accelyb = ((1.0/rSy) * delPhiDelR  - delPhiDelLat*zb/((rSy**2) * sy.sqrt(xyMag)))*yb + (1.0/xyMag)* delPhiDelLon*zb# - mu/(rSy**2)
+    accelxb = ((1.0/rSy) * delPhiDelR  - zb*delPhiDelLat/((rSy**2) * sy.sqrt(xyMag))) * xb - (1.0/xyMag)* delPhiDelLon*yb# - mu/(rSy**2)
+    accelyb = ((1.0/rSy) * delPhiDelR  - zb*delPhiDelLat/((rSy**2) * sy.sqrt(xyMag))) * yb + (1.0/xyMag)* delPhiDelLon*zb# - mu/(rSy**2)
     accelzb =  (1.0/rSy) * delPhiDelR*zb + sy.sqrt(xyMag)*delPhiDelLat/(rSy**2)# - mu/(rSy**2)
 
     accelVector = sy.Matrix([[accelxb], [accelyb], [accelzb]])

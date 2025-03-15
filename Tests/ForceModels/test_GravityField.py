@@ -189,7 +189,7 @@ def testValidation():
         muVal = data._mu # m^3/sec^2
         x,y,z,vx,vy,vz = sy.symbols('x,y,z,vx,vy,vz', real=True)
         xf,yf,zf = sy.symbols('x_f,y_f,z_f', real=True)
-        timeVaryingInertialToFixedMatrix = lambda t : spice.sxform("J2000", "FK4", t)[0:3,0:3] #I think gmat is using ITRF93 as their ECEF
+        timeVaryingInertialToFixedMatrix = lambda t : spice.sxform("J2000", "ITRF93", t)[0:3,0:3] #I think gmat is using ITRF93 as their ECEF
         i2fSymbol = sy.Matrix([[sy.Function('Rxx', real=True)(t), sy.Function('Rxy', real=True)(t), sy.Function('Rxz', real=True)(t)],
                                [sy.Function('Ryx', real=True)(t), sy.Function('Ryy', real=True)(t), sy.Function('Ryz', real=True)(t)],
                                [sy.Function('Rzx', real=True)(t), sy.Function('Rzy', real=True)(t), sy.Function('Rzz', real=True)(t)]])
@@ -214,6 +214,8 @@ def testValidation():
         rSy = sy.Symbol(r'r', real=True, positive=True)
         latSy =sy.Symbol(r'\gamma', real=True)
         lonSy =sy.Symbol(r'\lambda', real=True)
+        #latSy =sy.Function(r'gamma', real=True)(t, x, y, z)
+        #lonSy =sy.Function(r'lon', real=True)(t, x, y, z)
 
         fixedPositionVectorNorm = fixedPositionVector /rSy
         subsDict[mu] = muVal
@@ -231,9 +233,6 @@ def testValidation():
         subsDict[rSy] = sy.sqrt(x**2 +y**2 +z**2)
         twoBodyAccelerationMatrix = TwoBodyAccelerationDifferentialExpression(x,y,z,muVal)
         twoBodyFullOemMatrix = sy.Matrix([[vx, vy, vz, twoBodyAccelerationMatrix[0], twoBodyAccelerationMatrix[1], twoBodyAccelerationMatrix[2]]]).transpose()
-        #sphericalHarmonicGravity = nsGravity.makeOverallAccelerationExpression(4,4, mu, sy.sqrt(x*x+y*y+z*z), rCb, )
-
-        #functionsMap = {}
 
         for n in range(0, nVal+1):
             for m in range(0, n+1):
@@ -248,6 +247,31 @@ def testValidation():
 
         rotHelper = RotationMatrixFunction()
         rotHelper.populateRedirectionDictWithCallbacks(i2fSymbol, helper.FunctionRedirectionDictionary)
+
+        # def evalLat(t, x, y, z)->float:
+        #     from_frame = "J2000"        # Inertial frame (e.g., J2000)
+        #     to_frame = "ITRF93"  # Earth-fixed frame
+            
+        #     # Get the rotation matrix from Earth-fixed to inertial frame
+        #     rotation_matrix = spice.pxform(from_frame, to_frame, t)
+        #     fixed = rotation_matrix@[x, y, z]
+        #     recGeo = spice.recgeo(fixed, 6378136.3, 0.0033527)
+            
+        #     return recGeo[1]
+
+        # def evalLon(t, x, y, z) ->float:
+        #     from_frame = "J2000"        # Inertial frame (e.g., J2000)
+        #     to_frame = "ITRF93"  # Earth-fixed frame
+            
+        #     # Get the rotation matrix from Earth-fixed to inertial frame
+        #     rotation_matrix = spice.pxform(from_frame, to_frame, t)
+        #     fixed = rotation_matrix@[x, y, z]
+        #     recGeo = spice.recgeo(fixed, 6378136.3, 0.0033527)
+            
+        #     return recGeo[0]
+
+        # helper.FunctionRedirectionDictionary["gamma"] = evalLat
+        # helper.FunctionRedirectionDictionary["lon"] = evalLon
         odeCallback = helper.CreateSimpleCallbackForSolveIvp()
                 
         twoBodyHelper = OdeLambdifyHelper(t, [x,y,z,vx,vy,vz], twoBodyFullOemMatrix, [], subsDict)
