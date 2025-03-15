@@ -234,9 +234,9 @@ def createSphericalHarmonicGravityAcceleration(diffPotentialMatrix : sy.Matrix, 
     xyMag = xb**2 + yb**2
 
     # Vallado has an extra term that looks like, but isn't, 2 body gravity at the end?!?
-    accelxb = ((1.0/rSy) *delPhiDelR  - delPhiDelLat*zb/((rSy**2) * sy.sqrt(xyMag)))*xb - (1.0/xyMag)* delPhiDelLon*yb# - mu/(rSy**2)
-    accelyb = ((1.0/rSy) *delPhiDelR  - delPhiDelLat*zb/((rSy**2) * sy.sqrt(xyMag)))*yb + (1.0/xyMag)* delPhiDelLon*zb# - mu/(rSy**2)
-    accelzb = (1.0/rSy)*delPhiDelR*zb + sy.sqrt(xyMag)*delPhiDelLat/(rSy**2)# - mu/(rSy**2)
+    accelxb = ((1.0/rSy) * delPhiDelR  - delPhiDelLat*zb/((rSy**2) * sy.sqrt(xyMag)))*xb - (1.0/xyMag)* delPhiDelLon*yb# - mu/(rSy**2)
+    accelyb = ((1.0/rSy) * delPhiDelR  - delPhiDelLat*zb/((rSy**2) * sy.sqrt(xyMag)))*yb + (1.0/xyMag)* delPhiDelLon*zb# - mu/(rSy**2)
+    accelzb =  (1.0/rSy) * delPhiDelR*zb + sy.sqrt(xyMag)*delPhiDelLat/(rSy**2)# - mu/(rSy**2)
 
     accelVector = sy.Matrix([[accelxb], [accelyb], [accelzb]])
     return accelVector

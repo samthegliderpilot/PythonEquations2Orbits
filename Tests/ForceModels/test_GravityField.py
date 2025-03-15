@@ -119,41 +119,62 @@ class RotationMatrixFunction:
         #         dict[str(symbolicMatrix[i,j]).replace("(t)", "")] = lambda t : this_function(self, t)
 
 
+testDataFilePath = os.path.join(os.path.dirname(__file__), "../testSettings.json")
+settings = json.loads(open(testDataFilePath, "r").read())
+kernelPath = settings["kernelsDirectory"]
+spiceBasePath =r'C:\Programs\GMAT\data'# r'/home/sam/Desktop/GMAT/R2022a/data/planetary_coeff/'
+
+def getCriticalKernelsRelativePaths()-> List[str]:
+    criticalKernels = []
+    # # criticalKernels.append("lsk/naif0012.tls")
+    # # criticalKernels.append("pck/earth_latest_high_prec.cmt")
+    # # criticalKernels.append("pck/earth_latest_high_prec.bpc")
+    # # criticalKernels.append("pck/pck00010.tpc")
+    # # criticalKernels.append("pck/gm_de440.tpc")
+    # criticalKernels.append(os.path.join(spiceBasePath, "time/SPICELeapSecondKernel.tls"))
+    # criticalKernels.append(os.path.join(spiceBasePath, "time/tai-utc.dat"))        
+    #criticalKernels.append(r'Y:\kernels\spk\planets\de440.bsp')
+    criticalKernels.append(os.path.join(spiceBasePath, "planetary_coeff/SPICEEarthPredictedKernel.bpc"))
+    criticalKernels.append(os.path.join(spiceBasePath, "planetary_coeff/SPICEEarthCurrentKernel.bpc"))
+    criticalKernels.append(os.path.join(spiceBasePath, "planetary_coeff/earth_latest_high_prec.bpc"))
+    criticalKernels.append(os.path.join(spiceBasePath, "planetary_coeff/SPICEPlanetaryConstantsKernel.tpc"))
+    criticalKernels.append(os.path.join(spiceBasePath, "planetary_coeff/NUTATION.DAT"))
+    criticalKernels.append(os.path.join(spiceBasePath, "planetary_coeff/eopc04_08.62-now"))
+    
+    # criticalKernels.append(r'Y:\kernels\pck\pck00011.tpc')
+    
+    # criticalKernels.append(r'Y:\kernels\pck\earth_latest_high_prec.bpc')
+    # criticalKernels.append(r'Y:\kernels\pck\earth_latest_high_prec.cmt')
+
+    # criticalKernels.append(r'Y:\kernels\lsk\naif0012.tls')
+    # criticalKernels.append(r'Y:\kernels\spk\planets\de441_part-1.bsp')
+    # criticalKernels.append(r'Y:\kernels\spk\planets\de441_part-2.bsp')
+    # criticalKernels.append(r'Y:\kernels\spk\stations\earthstns_itrf93_201023.bsp')
+    # criticalKernels.append(r'Y:\kernels\fk\stations\earth_topo_201023.tf')
+    # criticalKernels.append(r'Y:\kernels\pck\pck00010.tpc')       
+    # criticalKernels.append(r'Y:\kernels\pck\earth_1962_240827_2124_combined.bpc')
+    # criticalKernels.append(r'C:\Users\enfor\Downloads\spice_lessons_c_win\lessons\binary_pck\kernels\fk\earth_assoc_itrf93.tf')
+    
+    #criticalKernels.append(r'Y:\kernels\fk\planets\earth_assoc_itrf93.tf')
+
+    return criticalKernels
+
+
+
+allMyKernels = getCriticalKernelsRelativePaths()
+
 def testValidation():
     subsDict = {}
-    testDataFilePath = os.path.join(os.path.dirname(__file__), "../testSettings.json")
-    settings = json.loads(open(testDataFilePath, "r").read())
-    kernelPath = settings["kernelsDirectory"]
-    spiceBasePath =r'C:\Programs\GMAT\data'# r'/home/sam/Desktop/GMAT/R2022a/data/planetary_coeff/'
-
-    def getCriticalKernelsRelativePaths()-> List[str]:
-        criticalKernels = []
-        # criticalKernels.append("lsk/naif0012.tls")
-        # criticalKernels.append("pck/earth_latest_high_prec.cmt")
-        # criticalKernels.append("pck/earth_latest_high_prec.bpc")
-        # criticalKernels.append("pck/pck00010.tpc")
-        # criticalKernels.append("pck/gm_de440.tpc")
-        criticalKernels.append(os.path.join(spiceBasePath, "time/SPICELeapSecondKernel.tls"))
-        criticalKernels.append(os.path.join(spiceBasePath, "time/tai-utc.dat"))        
-        criticalKernels.append(os.path.join(spiceBasePath, "planetary_coeff/SPICEEarthPredictedKernel.bpc"))
-        criticalKernels.append(os.path.join(spiceBasePath, "planetary_coeff/SPICEEarthCurrentKernel.bpc"))
-        criticalKernels.append(os.path.join(spiceBasePath, "planetary_coeff/earth_latest_high_prec.bpc"))
-        criticalKernels.append(os.path.join(spiceBasePath, "planetary_coeff/SPICEPlanetaryConstantsKernel.tpc"))
-        #criticalKernels.append(os.path.join(spiceBasePath, "planetary_coeff/NUTATION.DAT"))
-        #criticalKernels.append(os.path.join(spiceBasePath, "planetary_coeff/eopc04_08.62-now"))
-        criticalKernels.append(r'Y:\kernels\pck\pck00011.tpc')
-        criticalKernels.append(r'Y:\kernels\spk\planets\de440.bsp')
-
-        return criticalKernels
+    
 
 
-
-    allMyKernels = getCriticalKernelsRelativePaths()
     #allMyKernels.append(os.path.join(spiceBasePath, "planetary_ephem/spk/DE405AllPlanets.bsp"))
     #allMyKernels.append(os.path.join(spiceBasePath, "planetary_ephem/spk/DE405AllPlanets.bsp"))
     #allMyKernels.append(os.path.join(spiceBasePath, "planetary_ephem/de/leDE1941.405")) # big one here...
     
     with spiceScope(allMyKernels, kernelPath) as scope:
+        for kernel in allMyKernels:
+            spice.furnsh(kernel)
         t =sy.Symbol('t', real=True)
         # an ephemeris file was made from GMAT with the below settings.
         initialPosVel = [7100000.0, 0.0, 1300000.0,   0.0, 7350.0, 1000.0] # m and m/sec, LEO
@@ -168,7 +189,7 @@ def testValidation():
         muVal = data._mu # m^3/sec^2
         x,y,z,vx,vy,vz = sy.symbols('x,y,z,vx,vy,vz', real=True)
         xf,yf,zf = sy.symbols('x_f,y_f,z_f', real=True)
-        timeVaryingInertialToFixedMatrix = lambda t : spice.sxform("J2000", "ITRF93", t)[0:3,0:3] #I think gmat is using ITRF93 as their ECEF
+        timeVaryingInertialToFixedMatrix = lambda t : spice.sxform("J2000", "FK4", t)[0:3,0:3] #I think gmat is using ITRF93 as their ECEF
         i2fSymbol = sy.Matrix([[sy.Function('Rxx', real=True)(t), sy.Function('Rxy', real=True)(t), sy.Function('Rxz', real=True)(t)],
                                [sy.Function('Ryx', real=True)(t), sy.Function('Ryy', real=True)(t), sy.Function('Ryz', real=True)(t)],
                                [sy.Function('Rzx', real=True)(t), sy.Function('Rzy', real=True)(t), sy.Function('Rzz', real=True)(t)]])
@@ -297,5 +318,77 @@ def testValidation():
         fig.savefig("test.png")
         plt.show()
 
+import matplotlib
+import spiceypy as spice
 if __name__ == "__main__":
+    # for kernel in getCriticalKernelsRelativePaths():
+    #     spice.furnsh(kernel)
+    #     print(kernel)
+
+    # # Define the frames and the time (UTC or TDB)
+    # time = 0.0# spice.str2et("2001-01-01T12:00:00.000:TDB")  # Example time
+    # to_frame = "ITRF93"  # Earth-fixed frame
+    # from_frame = "J2000"        # Inertial frame (e.g., J2000)
+
+    # # Get the rotation matrix from Earth-fixed to inertial frame
+    # rotation_matrix = spice.pxform(from_frame, to_frame, time)
+    # fixed = rotation_matrix@[7100*1000, 0.0, 1300*1000]
+    # fixed_norm = math.sqrt(fixed[0]**2+fixed[1]**2+fixed[2]**2)
+    # print(str(180*math.asin(1300000/fixed_norm)/math.pi))
+    # print(str(180*math.asin(fixed[2]/fixed_norm)/math.pi))
+    # #rotation_matrix = spice.tipbod(to_frame, 399, 0.0)
+    
+    # # rotation_matrix is a 3x3 matrix
+    # print(rotation_matrix)
+    # recGeo = spice.recgeo(fixed, 6378.1363, 0.0033527)
+    # print(recGeo)
+    # print(str(180*recGeo[1]/math.pi))
+
+    # recLat = spice.reclat(fixed)
+    # print(recLat)
+    # print(str(180*recLat[2]/math.pi))
+
+    # minAngle = 0
+    # maxAngle = 2*math.pi
+    # rad = 7000000.0
+    # numSteps = 100
+    # step = (maxAngle-minAngle)/numSteps
+    # angles = []
+    # lats = []
+    
+
+    # radii = spice.bodvrd("EARTH", "RADII", 3)[1]
+    # re = radii[0]
+    # rp = radii[2]
+    # f = (re-rp)/re
+    # geodeticLat = math.asin(spice.recgeo(fixed, re, f)[1])*180.0/math.pi
+    # print(str(geodeticLat))
+
+    # for i in range(0, 100):
+    #     angle = i*step
+    #     x = rad*math.cos(angle)
+    #     y = rad*math.sin(angle)
+    
+    #     fixed = rotation_matrix@[x, y, 0.0]
+        
+    #     lat = 180*math.asin(fixed[2]/fixed_norm)/math.pi
+    
+    #     angles.append(angle*180.0/math.pi)
+    #     lats.append(lat)
+
+    # plt.plot(angles, lats)  
+        
+    # # naming the x axis  
+    # plt.xlabel('inertial angle')  
+    # # naming the y axis  
+    # plt.ylabel('latitude')  
+        
+    # # giving a title to my graph  
+    # plt.title('Around')  
+        
+    # # function to show the plot  
+    # plt.show()  
+    # spice.kclear()
+
+    # print(spice.spkezr( "Earth", 0, "IAU_Earth", 'NONE', "301" ))
     testValidation()
