@@ -17,6 +17,7 @@ import oem
 import matplotlib.pyplot as plt
 import numpy as np
 from IPython.display import display
+from pyeq2orb.Spice.rotationMatrixWrapper import rotationMatrixFunction
 
 def testReadingInFile():
     fileToRead = os.path.normpath(os.path.join(os.path.dirname(__file__), "../testData/EGM96.cof"))
@@ -79,44 +80,7 @@ def rk4(f, y0,  times):
     return usol, times
 
 
-class RotationMatrixFunction:
 
-    _instance :"RotationMatrixFunction" = None
-
-    def __init__(self):
-        self._lastMatrix = None
-        self._lastEt = None
-        RotationMatrixFunction._instance = self
-    
-    def evaluateMatrix(self, t):
-        if self._lastEt == t:
-            return self._lastMatrix
-
-        self._lastMatrix = spice.sxform("J2000", "ITRF93", t)[0:3,0:3]
-        self._lastEt = t
-        return self._lastMatrix
-
-    def callbackForElement(self, m, n, t):
-        return self.evaluateMatrix(t)[m,n]
-
-    def populateRedirectionDictWithCallbacks(self, symbolicMatrix : sy.Matrix, dict):
-        dict[str(symbolicMatrix[0,0]).replace("(t)", "")] = lambda t : self.callbackForElement(0, 0, t)
-        dict[str(symbolicMatrix[0,1]).replace("(t)", "")] = lambda t : self.callbackForElement(0, 1, t)
-        dict[str(symbolicMatrix[0,2]).replace("(t)", "")] = lambda t : self.callbackForElement(0, 2, t)
-        dict[str(symbolicMatrix[1,0]).replace("(t)", "")] = lambda t : self.callbackForElement(1, 0, t)
-        dict[str(symbolicMatrix[1,1]).replace("(t)", "")] = lambda t : self.callbackForElement(1, 1, t)
-        dict[str(symbolicMatrix[1,2]).replace("(t)", "")] = lambda t : self.callbackForElement(1, 2, t)
-        dict[str(symbolicMatrix[2,0]).replace("(t)", "")] = lambda t : self.callbackForElement(2, 0, t)
-        dict[str(symbolicMatrix[2,1]).replace("(t)", "")] = lambda t : self.callbackForElement(2, 1, t)
-        dict[str(symbolicMatrix[2,2]).replace("(t)", "")] = lambda t : self.callbackForElement(2, 2, t)
-        # for i in range(0, 3):
-        #     for j in range(0, 3):
-        #         #dict[f"symbolicMatrix[{i},{j}]"] = parameterName + f".callbackForElement({str(i)}, {str(j)})"
-        #         def this_function(me, t):
-        #             nonlocal i
-        #             nonlocal j
-        #             return me.callbackForElement(i, j, t)
-        #         dict[str(symbolicMatrix[i,j]).replace("(t)", "")] = lambda t : this_function(self, t)
 
 
 testDataFilePath = os.path.join(os.path.dirname(__file__), "../testSettings.json")
@@ -184,15 +148,16 @@ def testValidation():
         
         fileToRead = os.path.normpath(os.path.join(os.path.dirname(__file__), "../testData/JGM2.cof"))
         data = nsGravity.gravityField.readFromCoefFile(fileToRead)    
-        nVal = 4
-        mVal = 4
+        nVal = 2
+        mVal = 2
         muVal = data._mu # m^3/sec^2
         x,y,z,vx,vy,vz = sy.symbols('x,y,z,vx,vy,vz', real=True)
         xf,yf,zf = sy.symbols('x_f,y_f,z_f', real=True)
         timeVaryingInertialToFixedMatrix = lambda t : spice.sxform("J2000", "ITRF93", t)[0:3,0:3] #I think gmat is using ITRF93 as their ECEF
-        i2fSymbol = sy.Matrix([[sy.Function('Rxx', real=True)(t), sy.Function('Rxy', real=True)(t), sy.Function('Rxz', real=True)(t)],
-                               [sy.Function('Ryx', real=True)(t), sy.Function('Ryy', real=True)(t), sy.Function('Ryz', real=True)(t)],
-                               [sy.Function('Rzx', real=True)(t), sy.Function('Rzy', real=True)(t), sy.Function('Rzz', real=True)(t)]])
+        i2fSymbol = rotationMatrixFunction.makeSymbolicMatrix("R", rotationMatrixFunction.matrixNameMode.xyz, [t])
+        # sy.Matrix([[sy.Function('Rxx', real=True)(t), sy.Function('Rxy', real=True)(t), sy.Function('Rxz', real=True)(t)],
+        #                        [sy.Function('Ryx', real=True)(t), sy.Function('Ryy', real=True)(t), sy.Function('Ryz', real=True)(t)],
+        #                        [sy.Function('Rzx', real=True)(t), sy.Function('Rzy', real=True)(t), sy.Function('Rzz', real=True)(t)]])
 
         fixedPositionVector = i2fSymbol*sy.Matrix([[x], [y], [z]])
         fixedPositionVectorSy = [xf, yf, zf]
@@ -240,13 +205,16 @@ def testValidation():
                 subsDict[nsGravity.makeConstantForSphericalHarmonicCoefficient("S", n, m)] = data.getS(n, m)
                 
         fixToInertial = i2fSymbol.transpose()
-        nsGravityExpression = fixToInertial*nsGravity.makeOverallAccelerationExpression(nVal, mVal, mu, rSy, rCbSy, latSy, lonSy, fixedPositionVectorSy)
+        nsGravityInFixed = nsGravity.makeOverallAccelerationExpression(nVal, mVal, mu, rSy, rCbSy, latSy, lonSy, fixedPositionVectorSy)
+        # toDisplay = SafeSubs(nsGravityInFixed, subsDict)
+        # display(toDisplay)
+        nsGravityExpression = fixToInertial*nsGravityInFixed 
         fullNsGravity = twoBodyFullOemMatrix+sy.Matrix([[0.0, 0.0, 0.0,nsGravityExpression[0], nsGravityExpression[1], nsGravityExpression[2]]]).transpose()
         #display(fullNsGravity[3])
         helper = OdeLambdifyHelper(t, [x,y,z,vx,vy,vz], fullNsGravity, [], subsDict)
 
-        rotHelper = RotationMatrixFunction()
-        rotHelper.populateRedirectionDictWithCallbacks(i2fSymbol, helper.FunctionRedirectionDictionary)
+        rotHelper = rotationMatrixFunction("J2000", "ITRF93")
+        rotHelper.populateRedirectionDictWithCallbacks(i2fSymbol, helper.FunctionRedirectionDictionary, subsDict)
 
         # def evalLat(t, x, y, z)->float:
         #     from_frame = "J2000"        # Inertial frame (e.g., J2000)

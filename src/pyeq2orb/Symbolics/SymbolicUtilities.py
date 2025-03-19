@@ -17,7 +17,7 @@ def MakeMatrixOfSymbols(baseString : str, rows: int, cols : int,funcArgs : Optio
     return mat
 
 
-def SafeSubs(thingWithSymbols, substitutionDictionary : Dict) :
+def SafeSubs(thingWithSymbols, substitutionDictionary : Dict) ->sy.Expr:
     """Safely substitute a dictionary into something with sympy expressions returning 
     the same type as thingsWithSymbols.
 

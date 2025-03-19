@@ -91,7 +91,7 @@ def _mTanLat(m, lat):
 
 
 
-def makePotential(n_max: int, m_max :int, muSy : sy.Symbol, rSy : sy.Expr, r_vec : sy.Matrix, rCbSy :sy.Symbol, lat : sy.Symbol, lon :sy.Expr):
+def makePotential(n_max: int, m_max :int, muSy : sy.Symbol, rSy : sy.Expr, rCbSy :sy.Symbol, lat : sy.Symbol, lon :sy.Expr):
     overallTerms = []
     rCbDivR = rCbSy/rSy
     rCbDivRToN = rCbDivR
@@ -192,6 +192,8 @@ def makeDerivativeOfAccelerationTerms(n_max: int, m_max :int, mu : sy.Symbol, rS
         
 def makeAccelerationMatrixFromPotential(n_max: int, m_max :int, mu : sy.Symbol, rSy : sy.Expr, rCbSy :sy.Symbol, lat : sy.Symbol, lon :sy.Expr)->sy.Matrix:
     diffPotentialTerms = makeDerivativeOfAccelerationTerms(n_max, m_max, mu, rSy, rCbSy, lat, lon)
+
+
     termsForMatrix = []
     for list in diffPotentialTerms:
         thisExpr = 0
@@ -244,5 +246,12 @@ def createSphericalHarmonicGravityAcceleration(diffPotentialMatrix : sy.Matrix, 
 
 
 def makeOverallAccelerationExpression(n_max: int, m_max :int, mu : sy.Symbol, rSy : sy.Expr, rCbSy :sy.Symbol, lat : sy.Symbol, lon :sy.Expr, r_fixed : sy.Matrix)->sy.Matrix:
-    accelMatrix = makeAccelerationMatrixFromPotential(n_max, m_max, mu, rSy, rCbSy, lat, lon)
+    #accelMatrix = makeAccelerationMatrixFromPotential(n_max, m_max, mu, rSy, rCbSy, lat, lon)
+
+    potential =makePotential(n_max, m_max, mu, rSy, rCbSy, lat, lon)
+    dPotdr = potential.diff(rSy)
+    dPotdLat = potential.diff(lat)
+    dPotDLon = potential.diff(lon)
+    accelMatrix = sy.Matrix([[dPotdr, dPotdLat, dPotDLon]]).transpose()
+
     return createSphericalHarmonicGravityAcceleration(accelMatrix, r_fixed, rSy, mu)
