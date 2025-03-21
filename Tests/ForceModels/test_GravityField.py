@@ -201,8 +201,11 @@ def testValidation():
 
         for n in range(0, nVal+1):
             for m in range(0, n+1):
-                subsDict[nsGravity.makeConstantForSphericalHarmonicCoefficient("C", n, m)] = data.getC(n, m)
-                subsDict[nsGravity.makeConstantForSphericalHarmonicCoefficient("S", n, m)] = data.getS(n, m)
+                k = 2
+                if m == 0:
+                    k = 1
+                subsDict[nsGravity.makeConstantForSphericalHarmonicCoefficient("C", n, m)] = data.getC(n, m) / (math.sqrt(math.factorial(n+m)/(math.factorial(n-m)*k*(2*n+1))))
+                subsDict[nsGravity.makeConstantForSphericalHarmonicCoefficient("S", n, m)] = data.getS(n, m)/ (math.sqrt(math.factorial(n+m)/(math.factorial(n-m)*k*(2*n+1))))
                 
         fixToInertial = i2fSymbol.transpose()
         nsGravityInFixed = nsGravity.makeOverallAccelerationExpression(nVal, mVal, mu, rSy, rCbSy, latSy, lonSy, fixedPositionVectorSy)
@@ -299,8 +302,8 @@ def testValidation():
         ax.plot(ts, zDiff, label="Z (km)")
         #ax.plot(ts, velDiff, label="Velocity (m/sec)")
 
-        ax.plot(ts, twoBodyPosDiff, label="2B Position (km)")
-        ax.plot(ts, twoBodyVelDiff, label="2B Velocity (m/sec)")
+        # ax.plot(ts, twoBodyPosDiff, label="2B Position (km)")
+        # ax.plot(ts, twoBodyVelDiff, label="2B Velocity (m/sec)")
 
 
         ax.set(xlabel='time (s)', ylabel='Difference',

@@ -163,6 +163,8 @@ def makeDerivativeOfAccelerationTerms(n_max: int, m_max :int, mu : sy.Symbol, rS
             # del_psi/del_lat, we can use sympy to evaluate del_psi/del_lat with del_psi/del_x * del_x/del_lat and it will match
             dpmn_dx = legendre_functions_goddard_single(n, m, legrande_dummy_variable).diff(legrande_dummy_variable)
             dSinLat_dLat = cosLat
+            if n == m:
+                dSinLat_dLat=0
             dpmn_dLat = dpmn_dx.subs(legrande_dummy_variable, sinLat)*dSinLat_dLat
             sNM = makeConstantForSphericalHarmonicCoefficient("S", n, m)
             cNM = makeConstantForSphericalHarmonicCoefficient("C", n, m)

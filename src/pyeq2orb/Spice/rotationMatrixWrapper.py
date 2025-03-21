@@ -23,13 +23,19 @@ class rotationMatrixFunction:
         elif subscriptMode == rotationMatrixFunction.matrixNameMode.OneTwoThree:
             subScripts = ["1", "2", "3"]
 
-        symbolicMatrix = sy.Matrix([[sy.Function(base + '_{' + subScripts[0] + subScripts[0] + "}", real=True)(*args), sy.Function(base + '_{' + subScripts[0] + subScripts[1] + "}", real=True)(*args), sy.Function(base + '_{' + subScripts[0] + subScripts[2] + "}", real=True)(*args)],
-                               [sy.Function(base + '_{' + subScripts[1] + subScripts[0] + "}", real=True)(*args), sy.Function(base + '_{' + subScripts[1] + subScripts[1] + "}", real=True)(*args), sy.Function(base + '_{' + subScripts[1] + subScripts[2] + "}", real=True)(*args)],
-                               [sy.Function(base + '_{' + subScripts[2] + subScripts[0] + "}", real=True)(*args), sy.Function(base + '_{' + subScripts[2] + subScripts[1] + "}", real=True)(*args), sy.Function(base + '_{' + subScripts[2] + subScripts[2] + "}", real=True)(*args)]])        
+        # symbolicMatrix = sy.Matrix([[sy.Function(base + '_{' + subScripts[0] + subScripts[0] + "}", real=True)(*args), sy.Function(base + '_{' + subScripts[0] + subScripts[1] + "}", real=True)(*args), sy.Function(base + '_{' + subScripts[0] + subScripts[2] + "}", real=True)(*args)],
+        #                        [sy.Function(base + '_{' + subScripts[1] + subScripts[0] + "}", real=True)(*args), sy.Function(base + '_{' + subScripts[1] + subScripts[1] + "}", real=True)(*args), sy.Function(base + '_{' + subScripts[1] + subScripts[2] + "}", real=True)(*args)],
+        #                        [sy.Function(base + '_{' + subScripts[2] + subScripts[0] + "}", real=True)(*args), sy.Function(base + '_{' + subScripts[2] + subScripts[1] + "}", real=True)(*args), sy.Function(base + '_{' + subScripts[2] + subScripts[2] + "}", real=True)(*args)]])        
         
+        symbolicMatrix = sy.Matrix([[sy.Function(base + '_' + subScripts[0] + subScripts[0] + "", real=True)(*args), sy.Function(base + '_' + subScripts[0] + subScripts[1] + "", real=True)(*args), sy.Function(base + '_' + subScripts[0] + subScripts[2] + "", real=True)(*args)],
+                        [sy.Function(base + '_' + subScripts[1] + subScripts[0] + "", real=True)(*args), sy.Function(base + '_' + subScripts[1] + subScripts[1] + "", real=True)(*args), sy.Function(base + '_' + subScripts[1] + subScripts[2] + "", real=True)(*args)],
+                        [sy.Function(base + '_' + subScripts[2] + subScripts[0] + "", real=True)(*args), sy.Function(base + '_' + subScripts[2] + subScripts[1] + "", real=True)(*args), sy.Function(base + '_' + subScripts[2] + subScripts[2] + "", real=True)(*args)]])        
+
         return symbolicMatrix
 
     def __init__(self, from_frame : str, to_frame  :str):
+        self._lastEt = None
+        self._lastMatrix = None
         self._from_frame = from_frame
         self._to_frame = to_frame
         rotationMatrixFunction._instance = self
