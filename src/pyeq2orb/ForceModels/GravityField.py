@@ -163,9 +163,14 @@ def makeDerivativeOfAccelerationTerms(n_max: int, m_max :int, mu : sy.Symbol, rS
             # del_psi/del_lat, we can use sympy to evaluate del_psi/del_lat with del_psi/del_x * del_x/del_lat and it will match
             dpmn_dx = legendre_functions_goddard_single(n, m, legrande_dummy_variable).diff(legrande_dummy_variable)
             dSinLat_dLat = cosLat
-            if n == m:
-                dSinLat_dLat=0
             dpmn_dLat = dpmn_dx.subs(legrande_dummy_variable, sinLat)*dSinLat_dLat
+            #dpmn_dLat_alt=dpmn_dLat
+            #if n == m:
+            #    dpmn_dLat=0
+            
+            #dpmn_dLat = legendre_functions_goddard_single(n, m+1, sinLat) -m*sy.tan(lat)*pNM
+                           
+            
             sNM = makeConstantForSphericalHarmonicCoefficient("S", n, m)
             cNM = makeConstantForSphericalHarmonicCoefficient("C", n, m)
             
@@ -203,7 +208,7 @@ def makeAccelerationMatrixFromPotential(n_max: int, m_max :int, mu : sy.Symbol, 
             for term in innerList:
                 thisExpr=thisExpr+term
         termsForMatrix.append(thisExpr)
-    return sy.Matrix([[*termsForMatrix]]).transpose()
+    return sy.Matrix([termsForMatrix]).transpose()
 
 def createSphericalHarmonicGravityAcceleration_org(diffPotentialMatrix : sy.Matrix, r_fixed : sy.Matrix, rSy : sy.Symbol):#, lat : sy.Symbol, lon : sy.Symbol):
     delXbDelRb = sy.Matrix([[1,0,0]])
@@ -239,7 +244,7 @@ def createSphericalHarmonicGravityAcceleration(diffPotentialMatrix : sy.Matrix, 
 
     # Vallado has an extra term that looks like, but isn't, 2 body gravity at the end?!?
     accelxb = ((1.0/rSy) * delPhiDelR  - zb*delPhiDelLat/((rSy**2) * sy.sqrt(xyMag))) * xb - (1.0/xyMag)* delPhiDelLon*yb# - mu/(rSy**2)
-    accelyb = ((1.0/rSy) * delPhiDelR  - zb*delPhiDelLat/((rSy**2) * sy.sqrt(xyMag))) * yb + (1.0/xyMag)* delPhiDelLon*zb# - mu/(rSy**2)
+    accelyb = ((1.0/rSy) * delPhiDelR  - zb*delPhiDelLat/((rSy**2) * sy.sqrt(xyMag))) * yb + (1.0/xyMag)* delPhiDelLon*xb# - mu/(rSy**2)
     accelzb =  (1.0/rSy) * delPhiDelR*zb + sy.sqrt(xyMag)*delPhiDelLat/(rSy**2)# - mu/(rSy**2)
 
     accelVector = sy.Matrix([[accelxb], [accelyb], [accelzb]])
@@ -248,12 +253,12 @@ def createSphericalHarmonicGravityAcceleration(diffPotentialMatrix : sy.Matrix, 
 
 
 def makeOverallAccelerationExpression(n_max: int, m_max :int, mu : sy.Symbol, rSy : sy.Expr, rCbSy :sy.Symbol, lat : sy.Symbol, lon :sy.Expr, r_fixed : sy.Matrix)->sy.Matrix:
-    #accelMatrix = makeAccelerationMatrixFromPotential(n_max, m_max, mu, rSy, rCbSy, lat, lon)
+    accelMatrix = makeAccelerationMatrixFromPotential(n_max, m_max, mu, rSy, rCbSy, lat, lon)
 
-    potential =makePotential(n_max, m_max, mu, rSy, rCbSy, lat, lon)
-    dPotdr = potential.diff(rSy)
-    dPotdLat = potential.diff(lat)
-    dPotDLon = potential.diff(lon)
-    accelMatrix = sy.Matrix([[dPotdr, dPotdLat, dPotDLon]]).transpose()
+    # potential =makePotential(n_max, m_max, mu, rSy, rCbSy, lat, lon)
+    # dPotdr = potential.diff(rSy)
+    # dPotdLat = potential.diff(lat)
+    # dPotDLon = potential.diff(lon)
+    # accelMatrix = sy.Matrix([[dPotdr, dPotdLat, dPotDLon]]).transpose()
 
     return createSphericalHarmonicGravityAcceleration(accelMatrix, r_fixed, rSy, mu)

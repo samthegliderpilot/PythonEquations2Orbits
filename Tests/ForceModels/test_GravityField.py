@@ -148,8 +148,8 @@ def testValidation():
         
         fileToRead = os.path.normpath(os.path.join(os.path.dirname(__file__), "../testData/JGM2.cof"))
         data = nsGravity.gravityField.readFromCoefFile(fileToRead)    
-        nVal = 2
-        mVal = 2
+        nVal = 4
+        mVal = 4
         muVal = data._mu # m^3/sec^2
         x,y,z,vx,vy,vz = sy.symbols('x,y,z,vx,vy,vz', real=True)
         xf,yf,zf = sy.symbols('x_f,y_f,z_f', real=True)
@@ -187,15 +187,20 @@ def testValidation():
         subsDict[rCbSy] = rCb
         subsDict[sy.sin(latSy)] = fixedPositionVectorNorm[2]
         subsDict[sy.cos(latSy)] = sy.sqrt(fixedPositionVectorNorm[0]**2 + fixedPositionVectorNorm[1]**2)
+        subsDict[sy.tan(latSy)] = fixedPositionVectorNorm[2]/sy.sqrt(fixedPositionVectorNorm[0]**2 + fixedPositionVectorNorm[1]**2)
 
         subsDict[sy.cos(lonSy)] = fixedPositionVectorNorm[0] / (sy.cos(latSy))
         subsDict[sy.sin(lonSy)] = fixedPositionVectorNorm[1] / (sy.cos(latSy))
+        #subsDict[sy.Abs(sy.sin(lat))]=sy.sin(lat)
+        subsDict[sy.Abs(sy.cos(lat))]=sy.cos(lat)
+        #subsDict[sy.Abs(sy.tan(lat))]=sy.tan(lat)
+        
 
         subsDict[xf] = fixedPositionVector[0]
         subsDict[yf] = fixedPositionVector[1]
         subsDict[zf] = fixedPositionVector[2]
 
-        subsDict[rSy] = sy.sqrt(x**2 +y**2 +z**2)
+        subsDict[rSy] = sy.sqrt(xf**2 +yf**2 +zf**2)
         twoBodyAccelerationMatrix = TwoBodyAccelerationDifferentialExpression(x,y,z,muVal)
         twoBodyFullOemMatrix = sy.Matrix([[vx, vy, vz, twoBodyAccelerationMatrix[0], twoBodyAccelerationMatrix[1], twoBodyAccelerationMatrix[2]]]).transpose()
 
@@ -204,8 +209,8 @@ def testValidation():
                 k = 2
                 if m == 0:
                     k = 1
-                subsDict[nsGravity.makeConstantForSphericalHarmonicCoefficient("C", n, m)] = data.getC(n, m) / (math.sqrt(math.factorial(n+m)/(math.factorial(n-m)*k*(2*n+1))))
-                subsDict[nsGravity.makeConstantForSphericalHarmonicCoefficient("S", n, m)] = data.getS(n, m)/ (math.sqrt(math.factorial(n+m)/(math.factorial(n-m)*k*(2*n+1))))
+                subsDict[nsGravity.makeConstantForSphericalHarmonicCoefficient("C", n, m)] = data.getC(n, m) / (math.sqrt(math.factorial(n+m)/(math.factorial(n-m) *k* (2*n+1))))
+                subsDict[nsGravity.makeConstantForSphericalHarmonicCoefficient("S", n, m)] = data.getS(n, m) / (math.sqrt(math.factorial(n+m)/(math.factorial(n-m) *k* (2*n+1))))
                 
         fixToInertial = i2fSymbol.transpose()
         nsGravityInFixed = nsGravity.makeOverallAccelerationExpression(nVal, mVal, mu, rSy, rCbSy, latSy, lonSy, fixedPositionVectorSy)
@@ -300,7 +305,7 @@ def testValidation():
         ax.plot(ts, xDiff, label="X (km)")        
         ax.plot(ts, yDiff, label="Y (km)")
         ax.plot(ts, zDiff, label="Z (km)")
-        #ax.plot(ts, velDiff, label="Velocity (m/sec)")
+        ax.plot(ts, velDiff, label="Velocity (m/sec)")
 
         # ax.plot(ts, twoBodyPosDiff, label="2B Position (km)")
         # ax.plot(ts, twoBodyVelDiff, label="2B Velocity (m/sec)")
