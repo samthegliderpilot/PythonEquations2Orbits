@@ -226,7 +226,7 @@ class OdeLambdifyHelper(LambdifyHelper):
         if self.FunctionRedirectionDictionary != None and len(self.FunctionRedirectionDictionary) > 0:
             modules = [self.FunctionRedirectionDictionary, 'numpy']
 
-        eomCallback = sy.lambdify(odeArgs, eomList, modules=modules, dummify=True, cse=True, docstring_limit=None)
+        eomCallback = sy.lambdify(odeArgs, eomList, modules=modules, dummify=False, cse=False, docstring_limit=None)
         #TODO: This shouldn't call lambdify directly, it should call base class?
         
         #Remember, the calling code is responsible for telling LambidfyHelper what the state is
