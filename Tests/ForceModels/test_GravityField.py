@@ -334,10 +334,10 @@ if __name__ == "__main__":
 
 
     
-    n = sy.Symbol("n_0", integer=True, positive=True, whole=True)
-    m = sy.Symbol("m_0", integer=True, positive=True, whole=True)
+    n = sy.Symbol("n", integer=True, positive=True, whole=True)
+    m = sy.Symbol("m", integer=True, positive=True, whole=True)
     mu = sy.Symbol("mu", real=True, positive=True)
-    rCbSy = sy.Symbol("r_c", real=True, positive=True)
+    rCbSy = sy.Symbol("R_c", real=True, positive=True)
     lat = sy.Symbol('lat', real=True)
     lon = sy.Symbol('lon', real=True)
     rSy = sy.Symbol('r', real=True, positive=True)
@@ -350,12 +350,12 @@ if __name__ == "__main__":
     ss = []
     csValues = []
     ssValues = []
-    for i in range(0, 4):
+    for i in range(0, 500+1):
         cs.append([])
         ss.append([])
         csValues.append([])
         ssValues.append([])
-        for j in range(0, 4):
+        for j in range(0, 500+1):
             cs[i].append(sy.Symbol(f'c_{i}_{j}', real=True))
             ss[i].append(sy.Symbol(f'c_{i}_{j}', real=True))
             csValues[i].append(i+j+10)
@@ -365,14 +365,18 @@ if __name__ == "__main__":
     ss = sy.Matrix(ss)
 
     def getC(n, m):
-        return 2#csValues[n][m]
+        return csValues[n][m]
 
     def getS(n, m):
-        return 2#ssValues[n][m]
+        return ssValues[n][m]
     
     def betterAssoc(n, m, expr):
+        # update this to handle the derivative case
         if m > n:
+            print("hahaha")
             return 0
+        
+        # absurdly faster than sympy's function
         return lpmv(n, m, expr) # sy.assoc_legendre(n, m, expr)
 
     cFunc = sy.Function("cFunc", real=True)
@@ -384,14 +388,15 @@ if __name__ == "__main__":
     innerFunc = sy.lambdify(termState, inTheSum, modules=modules)
     #display(innerFunc(6374, 12000, 2, 2, 1.0, 2.))           
     inTheSums = sy.Function("inner1", real=True)
-    #delUDelR = (-mu/(rSy**2)) * sy.Sum( sy.Sum(inTheSums, (mSy, 0, mMaxSy) ), (nSy, 0, nMaxSy))
-    delUDelR =  sy.Sum( ((rCbSy/rSy)** n)*(n+1)*sy.assoc_legendre(n, m, sy.sin(lat))*(cFunc(n,m)*sy.cos(m*lon) + sFunc(n,m)*sy.sin(m*lon)), (m, 0, mMaxSy), (n, 2, nMaxSy) )
-    sumState = [rCbSy, rSy, lat, lon, nMaxSy, mMaxSy]
-    sumCallback = sy.lambdify(sumState, delUDelR, modules=modules, docstring_limit=None)
+    
+    delUDelR =  (-mu/(rSy**2))*sy.summation(  sy.summation( ((rbSy/rSy)** n)*(n+1)*sy.assoc_legendre(n, m, sy.sin(lat))*(cFunc(n,m)*sy.cos(m*lon) + sFunc(n,m)*sy.sin(m*lon)), (n, 2, nMaxSy)), (m, 0, n) )
+    sumState = [mu, rCbSy, rSy, lat, lon, nMaxSy, mMaxSy]
+    # cannot CSE this!!
+    sumCallback = sy.lambdify(sumState, delUDelR, modules=modules, dummify=True, docstring_limit=None)
     
     display(delUDelR)
     print("start")
-    display(sumCallback(6374, 12000, 1.0, 2., 500, 500))           
+    display(sumCallback(3.144e5, 6374, 12000, 1.0, 2., 50, 50))           
     print("stop")
     # for kernel in getCriticalKernelsRelativePaths():
     #     spice.furnsh(kernel)
