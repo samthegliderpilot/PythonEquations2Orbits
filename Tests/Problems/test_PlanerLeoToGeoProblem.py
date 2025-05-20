@@ -11,6 +11,7 @@ from typing import List
 from pyeq2orb.Symbolics.SymbolicUtilities import SafeSubs #type: ignore
 from pyeq2orb.ProblemBase import Problem, ProblemVariable #type: ignore
 from pyeq2orb.Utilities.utilitiesForTest import assertAlmostEquals, assertAlmostEqualsDelta #type: ignore
+import math
 
 class differentialEquations:
     def __init__(self, r0, u0, v0, lon0, g, thrust, m0, mDot, lmdLon):

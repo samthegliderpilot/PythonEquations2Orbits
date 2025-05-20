@@ -724,8 +724,9 @@ class Problem(ABC) :
         return ans
 
     @staticmethod
-    def CreateLambdaDotConditionStatic(hamiltonian, stateVariables) :
-        return -1*sy.Derivative(hamiltonian, stateVariables).doit()
+    def CreateLambdaDotConditionStatic(hamiltonian, stateVariables : List[sy.Symbol]) :
+        stateVaraibleMatrix = sy.Matrix(stateVariables)
+        return -1*sy.Derivative(hamiltonian, stateVaraibleMatrix).doit()
 
     @staticmethod
     def TransversalityConditionInTheDifferentialFormStatic(hamiltonian : sy.Expr, dtf, lambdasFinal : List[sy.Symbol], terminalCost : sy.Expr, tf : sy.Symbol, boundaryConditions : List[sy.Expr], finalStateVariables : List[sy.Symbol]) ->List[sy.Expr]:
