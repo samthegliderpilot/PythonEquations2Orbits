@@ -42,6 +42,25 @@ expr = sy.exp(sy.sin(x))
 performErrorAnalysis(expr, x, NVec, "P1")
 
 #%%
+expr = sy.exp(sy.sin(x))  
+expr = sy.exp(sy.sin(x))
+uCallback = sy.lambdify(x, expr, modules="numpy")
+duCallback = sy.lambdify(x, expr.diff(x), modules='numpy')
+
+for n in [12, 14]:
+    h = 2*math.pi/n
+    xVec = np.linspace(-1*math.pi+h, math.pi, n)
+
+    vals = uCallback(xVec)
+    dVals = duCallback(xVec)
+    plt.plot(xVec, vals, '.', markersize=10, label=f"u({n})")
+    plt.plot(xVec, dVals, '.', markersize=6, label=f"du({n})")
+
+plt.legend()
+plt.show()
+
+
+#%%
 NVec = [2**x for x in range(3,16)] 
 expr = sy.exp(sy.sin(x))   
 performErrorAnalysis(expr, x, NVec, "1.4")
