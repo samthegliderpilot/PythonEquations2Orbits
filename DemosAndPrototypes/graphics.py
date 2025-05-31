@@ -125,3 +125,19 @@ if __name__ == '__main__' and sys.flags.interactive == 0:
 # if __name__ == '__main__' and sys.flags.interactive == 0:
 #     canvas.app.run(True)
 #     
+
+
+#%%
+import sympy as sy
+from IPython.display import display
+
+t = sy.Symbol('t', real=True)
+lmdy = sy.Function(r'\\lambda_{y}', real=True)(t)
+lmdx = sy.Function(r'\\lambda_{x}', real=True)(t)
+x = [lmdy, lmdx]
+expr = sy.asin(sy.atan2(lmdy, lmdx))
+
+syntaxSafe = [sy.Symbol('lmdy', real=True), sy.Symbol('lmdx', real=True)]
+subsDict=  dict(zip(x, syntaxSafe))
+exprSafe = expr.subs(subsDict, deep=True).doit()
+display(exprSafe)

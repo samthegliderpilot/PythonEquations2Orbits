@@ -324,14 +324,14 @@ class OdeLambdifyHelper(LambdifyHelper):
 # make the content of a Problem, and lambdifying it
 class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
     
-    def __init__(self, time : sy.Symbol, t0: sy.Symbol, tf: sy.Symbol, stateSymbols : List[sy.Symbol], initialStateSymbols : List[sy.Symbol], finalStateSymbols : List[sy.Symbol], dynamicExpressions : List[sy.Expr], boundaryConditionEquations : List[sy.Expr], otherArgsList : List[sy.Symbol], substitutionDictionary : Dict) :
+    def __init__(self, time : sy.Symbol, t0: sy.Symbol, tf: sy.Symbol, stateSymbols : List[sy.Symbol], dynamicExpressions : List[sy.Expr], boundaryConditionEquations : List[sy.Expr], otherArgsList : List[sy.Symbol], substitutionDictionary : Dict) :
         svsOfT = stateSymbols
         OdeLambdifyHelper.__init__(self, time, svsOfT, dynamicExpressions, otherArgsList, substitutionDictionary)
         self._t0 = t0 #type: sy.Symbol
         self._tf = tf #type: sy.Symbol
         self._boundaryConditions = boundaryConditionEquations
-        self._nonTimeLambdifyArgumentsInitial=initialStateSymbols
-        self._nonTimeLambdifyArgumentsFinal = finalStateSymbols
+        self._nonTimeLambdifyArgumentsInitial= SafeSubs(stateSymbols, {time: t0})
+        self._nonTimeLambdifyArgumentsFinal = SafeSubs(stateSymbols, {time, tf})
 
     @staticmethod
     def CreateFromProblem(problem : Problem) :
@@ -350,7 +350,7 @@ class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
         finalStateSymbols = [*problem.StateSymbolsFinal()]
         finalStateSymbols.extend(problem.CostateSymbolsFinal())
 
-        helper = OdeLambdifyHelperWithBoundaryConditions(problem.TimeSymbol, problem.TimeInitialSymbol, problem.TimeFinalSymbol, integrationStateSymbols, initialStateSymbols, finalStateSymbols, dynamics, problem.BoundaryConditions, otherArgs, problem.SubstitutionDictionary)
+        helper = OdeLambdifyHelperWithBoundaryConditions(problem.TimeSymbol, problem.TimeInitialSymbol, problem.TimeFinalSymbol, integrationStateSymbols, dynamics, problem.BoundaryConditions, otherArgs, problem.SubstitutionDictionary)
 
         return helper
     @property
@@ -397,6 +397,7 @@ class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
             stateForBoundaryConditions.extend(self.OtherArguments)        
         return stateForBoundaryConditions
 
+    
 
 class LambdifyHelperBoundaryConditions(LambdifyHelper):
     

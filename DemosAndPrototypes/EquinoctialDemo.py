@@ -40,7 +40,7 @@ twoBodyOdeCallback = twoBodyEvaluationHelper.CreateSimpleCallbackForSolveIvp()
 
 #%%
 tfVal = 793*86400.0
-n = 252
+n = 152
 tSpace = np.linspace(0.0, tfVal, n)
 
 muVal = 1.32712440042e20

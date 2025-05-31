@@ -45,8 +45,8 @@ tfVal  = 3600*3.97152*24
 tfOrg = tfVal
 
 # these are options to switch to try different things
-scaleElements = True
-scaleTime = scaleElements and True
+scaleElements = False
+scaleTime = scaleElements and False
 # your choice of the nu vector here controls which transversality condition we use
 #nus = [sy.Symbol('B_{u_f}'), sy.Symbol('B_{v_f}')]
 nus = [] #type: List[sy.Symbol]

@@ -270,9 +270,7 @@ def doItAll(tArray, includeJ2) ->fSolveSingleShootingSolver:
 
     lmdHelper.SubstitutionDictionary[originalProblem.TimeFinalSymbol] = originalProblem.TimeFinalSymbol
     lmdHelper.SubstitutionDictionary[lambdas[-1]] = 0
-    #lmdHelper = OdeLambdifyHelperWithBoundaryConditions(t, sy.Symbol('t_0', real=True), sy.Symbol('t_f', real=True), list(x), list(zDot), [], [], fullSubsDictionary)
-
-    
+        
     print(problem.BoundaryConditions)
     lmdGuess = [4.675229762, 5.413413947e2, -9.202702084e3, 1.778011878e1, -2.268455855e4]#-2.2747428]
     if includeJ2 :
