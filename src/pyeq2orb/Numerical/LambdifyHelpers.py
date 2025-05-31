@@ -109,7 +109,7 @@ class LambdifyHelper :
             bc = SafeSubs(bc1, constantsSubstitutionDictionary)
             lambdifiedExpressions.append(bc)
         
-        return sy.lambdify(stateExpressionList, lambdifiedExpressions, functionRedirectionArray)    
+        return sy.lambdify(stateExpressionList, lambdifiedExpressions, functionRedirectionArray, dummify=True)    
     
     def GetExpressionToLambdifyInMatrixForm(self) -> sy.Matrix:
         return sy.Matrix(self.ExpressionsToLambdify)
@@ -331,7 +331,7 @@ class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
         self._tf = tf #type: sy.Symbol
         self._boundaryConditions = boundaryConditionEquations
         self._nonTimeLambdifyArgumentsInitial= SafeSubs(stateSymbols, {time: t0})
-        self._nonTimeLambdifyArgumentsFinal = SafeSubs(stateSymbols, {time, tf})
+        self._nonTimeLambdifyArgumentsFinal = SafeSubs(stateSymbols, {time: tf})
 
     @staticmethod
     def CreateFromProblem(problem : Problem) :
@@ -339,7 +339,6 @@ class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
         dynamics = []
         dynamics.extend(problem.StateVariableDynamics)
         dynamics.extend(problem.CostateDynamicsEquations)
-        initialCostateVariables = SafeSubs(problem.CostateSymbols, {problem.TimeSymbol: problem.TimeInitialSymbol})
 
         integrationStateSymbols = [*problem.StateSymbols]
         integrationStateSymbols.extend(problem.CostateSymbols)
@@ -397,98 +396,6 @@ class OdeLambdifyHelperWithBoundaryConditions(OdeLambdifyHelper):
             stateForBoundaryConditions.extend(self.OtherArguments)        
         return stateForBoundaryConditions
 
-    
-
-class LambdifyHelperBoundaryConditions(LambdifyHelper):
-    
-    def __init__(self, time : sy.Symbol, t0: sy.Symbol, tf: sy.Symbol, initialStateSymbols : List[sy.Symbol], finalStateSymbols : List[sy.Symbol], boundaryConditionEquations : List[sy.Expr], otherArgsList : List[sy.Symbol], substitutionDictionary : Dict) :
-        self._t0 = t0 #type: sy.Symbol
-        self._tf = tf #type: sy.Symbol
-        self._boundaryConditions = boundaryConditionEquations
-        self._nonTimeLambdifyArgumentsInitial=initialStateSymbols
-        self._nonTimeLambdifyArgumentsFinal = finalStateSymbols
-        self._otherArgs = otherArgsList
-        LambdifyHelper.__init__(self, [], boundaryConditionEquations, substitutionDictionary)
-
-    @property
-    def ExpressionsToLambdify(self) -> List[sy.Expr]:
-        return self.CreateDefaultStateForBoundaryConditions()
-
-    @staticmethod
-    def CreateFromProblem(problem : Problem) :
-        otherArgs : List[sy.Symbol] = problem.OtherArguments
-        dynamics = []
-        dynamics.extend(problem.StateVariableDynamics)
-        dynamics.extend(problem.CostateDynamicsEquations)
-        initialCostateVariables = SafeSubs(problem.CostateSymbols, {problem.TimeSymbol: problem.TimeInitialSymbol})
-
-        integrationStateSymbols = [*problem.StateSymbols]
-        integrationStateSymbols.extend(problem.CostateSymbols)
-
-        initialStateSymbols = [*problem.StateSymbolsInitial()]
-        initialStateSymbols.extend(problem.CostateSymbolsInitial())
-
-        finalStateSymbols = [*problem.StateSymbolsFinal()]
-        finalStateSymbols.extend(problem.CostateSymbolsFinal())
-
-        helper = LambdifyHelperBoundaryConditions(problem.TimeSymbol, problem.TimeInitialSymbol, problem.TimeFinalSymbol, initialStateSymbols, finalStateSymbols,problem.BoundaryConditions, otherArgs, problem.SubstitutionDictionary)
-
-        return helper
-    @property
-    def t0(self) -> sy.Symbol :
-        return self._t0
-    
-    @t0.setter
-    def t0(self, value:sy.Symbol) :
-        self._t0 = value
-
-    @property
-    def tf(self) -> sy.Symbol:
-        return self._tf
-    
-    @tf.setter
-    def tf(self, value:sy.Symbol) :
-        self._tf = value
-
-    @property
-    def NonTimeLambdifyArgumentsInitial(self) ->List[sy.Symbol]:
-        return self._nonTimeLambdifyArgumentsInitial
-
-    @property
-    def NonTimeLambdifyArgumentsFinal(self)->List[sy.Symbol]:
-        return self._nonTimeLambdifyArgumentsFinal
-
-    @property
-    def BoundaryConditionExpressions(self) -> List[sy.Expr] :
-        return self._boundaryConditions # must equal 0
-    
-    def CreateCallbackForBoundaryConditionsWithFullState(self, stateForBoundaryConditions = None, modulesDict = None) ->Callable[..., float]: 
-        if stateForBoundaryConditions == None:
-            stateForBoundaryConditions = self.CreateDefaultStateForBoundaryConditions()
-        boundaryConditionEvaluationCallbacks = LambdifyHelper.CreateLambdifiedExpressions(stateForBoundaryConditions, self.BoundaryConditionExpressions, self.SubstitutionDictionary, modulesDict)    
-        return boundaryConditionEvaluationCallbacks
-    
-    def CreateDefaultStateForBoundaryConditions(self)->List[SymbolOrNumber]:
-        stateForBoundaryConditions : List[SymbolOrNumber] = []
-        stateForBoundaryConditions.append(self.t0)
-        stateForBoundaryConditions.extend(self.NonTimeLambdifyArgumentsInitial)
-        stateForBoundaryConditions.append(self.tf)
-        stateForBoundaryConditions.extend(self.NonTimeLambdifyArgumentsFinal)
-        if not( self.OtherArguments == None or len(self.OtherArguments) == 0):
-            stateForBoundaryConditions.extend(self.OtherArguments)        
-        return stateForBoundaryConditions
-
-    @property 
-    def OtherArguments(self) -> List[sy.Symbol] :
-        """If there are other arguments that need to be passed to the lambdified expression that are not 
-        part of the state, those arguments are specified here.  This list is never None but may be empty.
-
-        Returns:
-            List[sy.Symbol]: The list of other arguments.
-        """
-        return self._otherArgs
-
-
     def CreateCallbackForBoundaryConditionsWithFullStateAsList(self, stateForBoundaryConditions = None, modulesDict = None) ->List[Callable[..., float]]: 
         cbs = []
         if stateForBoundaryConditions == None:
@@ -496,3 +403,7 @@ class LambdifyHelperBoundaryConditions(LambdifyHelper):
         for expr in self.BoundaryConditionExpressions:
             cbs.append(LambdifyHelper.CreateLambdifiedExpressions(stateForBoundaryConditions, [expr], self.SubstitutionDictionary, modulesDict))
         return cbs
+
+    def CreateDefaultBoundaryConditionValuesStateFromIvpResults(self, ivpResults : Dict[sy.Symbol, List[float]], argsValues : List[float], bcSymbolicState : List[sy.Symbol]) ->List[float]:
+        initialSymbols = self._nonTimeLambdifyArgumentsInitial
+        

@@ -90,15 +90,15 @@ if scale :
     constantsSubsDict.update(zip(initialScaledStateValues, [r0, u0, v0, lon0])) 
     
 lambdifyFunctionMap = {'sqrt': poenv.sqrt, 'sin': poenv.sin, 'cos':poenv.cos} #TODO: MORE!!!!
-
 #%%
 from pyeq2orb.Numerical.ScalingHelpers import scaledEquationOfMotionHolder
 simpleThrustCallbackHelperScaled = OdeLambdifyHelper(tau, problem.StateSymbols, [equ.rhs for equ in problem.EquationsOfMotionAsEquations], [*problem.ControlSymbols, tfSym], constantsSubsDict)
 
-from pyeq2orb.Numerical.LambdifyHelpers import LambdifyHelperBoundaryConditions
-tau0 = sy.Symbol(r'tau_0')
-tauf = sy.Symbol(r'tau_f')
-bcCallbackHelper = LambdifyHelperBoundaryConditions(tau, tau0, tauf, [*problem.StateSymbolsInitial(), *[x.subs(tau, tau0) for x in problem.ControlSymbols]], [*problem.StateSymbolsFinal(), *[x.subs(tau, tauf) for x in problem.ControlSymbols]], problem.BoundaryConditions, [tfSym], constantsSubsDict)
+from pyeq2orb.Numerical.LambdifyHelpers import OdeLambdifyHelperWithBoundaryConditions
+tau0 = sy.Symbol(r'\tau_0', real=True)
+tauf = sy.Symbol(r'\tau_f', real=True)
+
+bcCallbackHelper = OdeLambdifyHelperWithBoundaryConditions(tau, tau0, tauf, [*problem.StateSymbols, *problem.ControlSymbols], [], problem.BoundaryConditions, [tfSym], constantsSubsDict)
 bcCallbacks = bcCallbackHelper.CreateCallbackForBoundaryConditionsWithFullStateAsList(modulesDict=lambdifyFunctionMap)
 
 
