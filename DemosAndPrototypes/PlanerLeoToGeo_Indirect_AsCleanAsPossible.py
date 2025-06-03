@@ -135,6 +135,8 @@ def stitchIvpAndBoundaryConditionCallback(tSy, t0Sy, tfSy, ivpState, ivpCallback
     initialStateSy = ivpState.subs({tSy: t0Sy})
     finalStateSy = ivpState.subs({tSy: tfSy})
 
+    
+
     def callback(time, y0, args):
         ivpResults :IIntegrationAnswer = ivpCallback(time, y0, args)
 
